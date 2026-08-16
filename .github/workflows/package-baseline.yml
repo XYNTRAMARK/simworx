@@ -1,0 +1,24 @@
+name: Package baseline
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove packaging-only files
+        run: |
+          rm -f package-trigger.txt
+          rm -f .github/workflows/package-baseline.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+      - name: Create site zip
+        run: zip -r SIMWORX-post-Word-review-baseline.zip . -x '.git/*' 'SIMWORX-post-Word-review-baseline.zip'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SIMWORX-post-Word-review-baseline
+          path: SIMWORX-post-Word-review-baseline.zip
+          if-no-files-found: error

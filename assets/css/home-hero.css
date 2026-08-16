@@ -1,0 +1,1 @@
+.home-hero h1{max-width:760px;font-size:clamp(34px,3.5vw,48px);line-height:1.04;letter-spacing:-1.2px}.home-hero .hero-bg{object-position:center right}.home-hero .hero-overlay{background:linear-gradient(90deg,#050607 0%,#050607f8 30%,#050607d8 47%,#0506075c 72%,#05060720 100%)}@media(max-width:900px){.home-hero h1{font-size:clamp(32px,7vw,42px)}}

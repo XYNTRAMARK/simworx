@@ -1,0 +1,42 @@
+name: Base44 latest site sync
+
+on:
+  push:
+    paths:
+      - '.base44-sync/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  unpack-latest-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Rebuild latest Base44 site snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/simworx-latest
+          cat .base44-sync/part-* | base64 --decode > /tmp/simworx-latest.tar.gz
+          tar -xzf /tmp/simworx-latest.tar.gz -C /tmp/simworx-latest
+
+          # Remove the old site while preserving git metadata until the new files are copied in.
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '.github' ! -name '.base44-sync' -exec rm -rf {} +
+          cp -a /tmp/simworx-latest/. .
+
+          # The unpack helper is one-time only; remove it and its payload from the finished site.
+          rm -rf .base44-sync
+          rm -f .github/workflows/base44-site-sync.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+
+          git config user.name 'Simworx Site Sync'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'Sync latest Simworx V5.15.2 for Base44 image management'
+          git push

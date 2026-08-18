@@ -1,0 +1,38 @@
+name: Sync latest Simworx site for Base44
+
+on:
+  push:
+    paths:
+      - '.base44-sync/GO'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download and unpack latest Base44 snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 --max-time 120 \
+            'https://filebin.net/simworx-v5152-oai-20260818/site.tar.gz' \
+            -o /tmp/simworx-site.tar.gz
+          mkdir -p /tmp/simworx-site
+          tar -xzf /tmp/simworx-site.tar.gz -C /tmp/simworx-site
+
+          # Replace the current repository website with the complete V5.15.2 Base44 snapshot.
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          cp -a /tmp/simworx-site/. .
+
+          git config user.name 'Simworx Site Sync'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'Sync latest Simworx V5.15.2 for Base44 image management'
+          git push

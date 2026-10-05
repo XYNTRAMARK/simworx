@@ -2,7 +2,7 @@ using System.Drawing.Drawing2D;
 
 namespace Simworx.MD302;
 
-public sealed class MainForm : Form
+internal sealed class MainForm : Form
 {
     private readonly AppConfig _config;
     private readonly AttitudeRenderer _attitudeRenderer = new();

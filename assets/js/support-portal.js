@@ -17,7 +17,7 @@
   function usagePercent(u){if(!u)return 0;var total=Number(u.base_allowance_minutes)+Number(u.rollover_minutes)+Number(u.approved_extra_minutes);return total?Math.min(100,Math.round((Number(u.used_allowance_minutes)/total)*100)):0;}
   function companyOptions(selected){return SP.companies.map(function(c){return '<option value="'+h(c.id)+'" '+(c.id===selected?'selected':'')+'>'+h(c.trading_name||c.legal_name)+'</option>';}).join('');}
   function projectOptions(companyId,selected){return SP.projects.filter(function(p){return !companyId||p.company_id===companyId;}).map(function(p){return '<option value="'+h(p.id)+'" '+(p.id===selected?'selected':'')+'>'+h(p.name)+'</option>';}).join('');}
-  function contractOptions(companyId,selected){return SP.contracts.filter(function(c){return c.status==='active'&&(!companyId||c.company_id===companyId);}).map(function(c){return '<option value="'+h(c.id)+'" '+(c.id===selected?'selected':'')+'>'+h(c.tier_name+' — '+c.title)+'</option>';}).join('');}
+  function contractOptions(companyId,selected,projectId){return SP.contracts.filter(function(c){var companyOk=!companyId||c.company_id===companyId;var projectOk=!projectId||SP.contractProjects.some(function(cp){return cp.contract_id===c.id&&cp.project_id===projectId;});return c.status==='active'&&companyOk&&projectOk;}).map(function(c){return '<option value="'+h(c.id)+'" '+(c.id===selected?'selected':'')+'>'+h(c.tier_name+' — '+c.title)+'</option>';}).join('');}
   function staffOptions(selected,secondOnly){
     return SP.staff.filter(function(p){return !secondOnly||p.staff_role==='second_line_engineer'||p.staff_role==='admin';}).map(function(p){
       return '<option value="'+h(p.id)+'" '+(p.id===selected?'selected':'')+'>'+h(p.full_name||p.email||p.id)+'</option>';
@@ -71,7 +71,7 @@
       '<div class="field"><label>Simulator / Project</label><select id="new-project" required>'+projectOptions(companyId)+'</select></div>'+
       '<div class="field"><label>Support priority</label><select id="new-priority"><option>P1</option><option>P2</option><option selected>P3</option><option>P4</option></select></div>'+
       '<div class="field"><label>Category</label><select id="new-category"><option value="">Select category</option>'+categoryOptions()+'</select></div>'+
-      '<div class="field full"><label>Support contract</label><select id="new-contract" required>'+contractOptions(companyId)+'</select></div>'+
+      '<div class="field full"><label>Support contract</label><select id="new-contract" required>'+contractOptions(companyId,null,(SP.projects.filter(function(p){return p.company_id===companyId;})[0]||{}).id)+'</select></div>'+
       '<div class="field full"><label>Short title</label><input id="new-subject" maxlength="160" required placeholder="e.g. Right projector image has shifted"></div>'+
       '<div class="field full"><label>Overview of problem</label><textarea id="new-overview" required placeholder="Tell us what happened, what you were doing when it occurred, and anything already tried."></textarea></div>'+
       '</div></div>'+
@@ -79,7 +79,7 @@
       '<div class="form-section" style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="sp-btn outline" data-view-jump="requests">CANCEL</button><button id="new-submit" type="submit" class="sp-btn primary">SUBMIT SUPPORT REQUEST</button></div></form>';
     bindViewJumps();
     var comp=SP.q('#new-company'),proj=SP.q('#new-project'),contract=SP.q('#new-contract');
-    if(SP.isStaff&&comp){comp.onchange=function(){proj.innerHTML=projectOptions(comp.value);contract.innerHTML=contractOptions(comp.value);};}
+    if(SP.isStaff&&comp){comp.onchange=function(){proj.innerHTML=projectOptions(comp.value);contract.innerHTML=contractOptions(comp.value,null,proj.value);};}proj.onchange=function(){contract.innerHTML=contractOptions(comp.value,null,proj.value);};
     SP.q('#new-ticket-form').onsubmit=async function(e){
       e.preventDefault();var btn=SP.q('#new-submit');btn.disabled=true;btn.textContent='CREATING…';
       try{
@@ -130,7 +130,7 @@
   SP.renderContract=function(){
     SP.setTopbar('Support Contract','Support Portal');
     var blocks=SP.contracts.map(function(c){
-      var company=SP.companyById(c.company_id),covered=SP.projects.filter(function(p){return p.company_id===c.company_id;});
+      var company=SP.companyById(c.company_id),covered=SP.projects.filter(function(p){return SP.contractProjects.some(function(cp){return cp.contract_id===c.id&&cp.project_id===p.id;});});
       return '<div class="card" style="margin-bottom:15px"><div class="card-body"><div class="contract-hero"><div><div class="eyebrow">'+h(company?(company.trading_name||company.legal_name):'SIMWORX SUPPORT')+'</div><h2>'+h(c.tier_name)+'</h2><p>'+h(c.title)+'</p></div><div class="contract-price"><strong>'+SP.money(c.monthly_fee,c.currency)+'</strong><span>monthly support fee</span></div></div>'+
         '<div class="info-grid" style="margin-top:16px"><div class="info-card"><span>Initial / current term</span><strong>'+SP.fmtDate(c.starts_on)+' → '+SP.fmtDate(c.ends_on||c.renewal_date)+'</strong></div>'+
         '<div class="info-card"><span>Included allowance</span><strong>'+SP.minutes(c.included_minutes)+'</strong></div>'+
@@ -166,7 +166,7 @@
     bindViewJumps();
   };
 
-  function authorName(id){var p=SP.staff.find(function(x){return x.id===id;});if(p)return p.full_name||p.email||'Simworx';if(id===SP.user.id)return SP.profile.full_name||SP.profile.email||'You';return 'Customer';}
+  function authorName(id){var p=SP.people.find(function(x){return x.id===id;});if(p)return p.is_simworx?(p.full_name||'Simworx Support'):(p.full_name||'Customer');if(id===SP.user.id)return SP.profile.full_name||SP.profile.email||'You';return SP.isStaff?'Customer':'Simworx Support';}
   function attachmentMarkup(list,urls){
     if(!list.length)return '';
     return '<div class="attachment-grid">'+list.map(function(a){
@@ -209,7 +209,7 @@
     var sessionHtml=SP.isStaff?(t.sessions||[]).filter(function(s){return !s.time_entry_id;}).map(function(s){return '<div class="notice" style="margin-top:8px"><strong>Remote session'+(s.scheduled_for?' — '+h(SP.fmtDate(s.scheduled_for,true)):'')+'</strong><br><span style="font-size:8px">'+h(s.remote_tool||'Remote dial-in')+'</span><div style="margin-top:7px"><button class="sp-btn dark complete-session" data-id="'+h(s.id)+'">RECORD SESSION TIME</button></div></div>';}).join(''):'';
     var controls=SP.isStaff?'<div class="card"><div class="card-head"><h3>Engineering controls</h3></div><div class="card-body small-actions"><button id="edit-ticket" class="sp-btn outline">EDIT</button><button id="add-time" class="sp-btn dark">＋ ADD TIME</button><button id="arrange-remote" class="sp-btn outline">REMOTE SESSION</button><button id="escalate-ticket" class="sp-btn outline">ESCALATE L2</button><button id="request-approval" class="sp-btn outline">REQUEST APPROVAL</button></div></div>':'';
     SP.q('#portal-main').innerHTML='<div class="ticket-layout"><section class="card conversation-card"><div class="ticket-titlebar"><div><span class="ticket-ref">'+h(t.reference)+'</span><h1>'+h(t.subject)+'</h1><p>'+h(project?project.name:'')+' · '+h(company?(company.trading_name||company.legal_name):'')+'</p></div><div class="small-actions">'+badge(t.priority,'p'+String(t.priority).slice(1))+badge(t.status)+'</div></div>'+
-      '<div id="conversation" class="conversation">'+renderConversation(t)+'</div><form id="reply-form" class="composer"><textarea id="reply-body" placeholder="Reply to this support request…"></textarea><div class="composer-actions"><label class="file-button">＋ Add images, film or files<input id="reply-files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,application/pdf,application/zip"></label><button id="reply-send" class="sp-btn primary" type="submit">SEND REPLY</button></div></form></section>'+
+      '<div id="conversation" class="conversation">'+renderConversation(t)+'</div><form id="reply-form" class="composer"><textarea id="reply-body" placeholder="Reply to this support request…"></textarea><div class="composer-actions"><div style="display:flex;align-items:center;gap:14px"><label class="file-button">＋ Add images, film or files<input id="reply-files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,application/pdf,application/zip"></label>'+(SP.isStaff?'<label class="file-button"><input id="reply-internal" type="checkbox" style="display:inline-block;margin-right:5px">Internal note</label>':'')+'</div><button id="reply-send" class="sp-btn primary" type="submit">SEND REPLY</button></div></form></section>'+
       '<aside class="detail-stack">'+
       '<div class="card"><div class="card-head"><h3>Request details</h3></div><div class="card-body detail-list">'+
       '<div class="detail-row"><span>Status</span><strong>'+SP.statusLabel(t.status)+'</strong></div><div class="detail-row"><span>Priority</span><strong>'+h(t.priority)+'</strong></div><div class="detail-row"><span>Support level</span><strong>'+h(contract?contract.tier_name:'—')+'</strong></div><div class="detail-row"><span>Simulator</span><strong>'+h(project?project.name:'—')+'</strong></div><div class="detail-row"><span>Created</span><strong>'+h(SP.fmtDate(t.created_at,true))+'</strong></div><div class="detail-row"><span>Assigned</span><strong>'+h(authorName(t.current_support_line==='second_line'?t.assigned_second_line_engineer:t.assigned_engineer))+'</strong></div></div></div>'+
@@ -224,14 +224,14 @@
     SP.qa('.approve-overage').forEach(function(b){b.onclick=function(){respondApproval(b.dataset.id,true);};});
     SP.qa('.reject-overage').forEach(function(b){b.onclick=function(){respondApproval(b.dataset.id,false);};});
     SP.qa('.complete-session').forEach(function(b){b.onclick=function(){showCompleteSession(b.dataset.id);};});
-    if(SP.isStaff){SP.q('#add-time').onclick=showAddTime;SP.q('#arrange-remote').onclick=showRemoteSession;SP.q('#escalate-ticket').onclick=showEscalation;SP.q('#request-approval').onclick=showApprovalRequest;SP.q('#edit-ticket').onclick=showEditTicket;}
+    if(SP.isStaff){SP.q('#add-time').onclick=function(){showAddTime();};SP.qa('.quick-time').forEach(function(b){b.onclick=function(){showAddTime(b.dataset.at,'Time associated with support interaction');};});SP.q('#arrange-remote').onclick=showRemoteSession;SP.q('#escalate-ticket').onclick=showEscalation;SP.q('#request-approval').onclick=showApprovalRequest;SP.q('#edit-ticket').onclick=showEditTicket;}
   };
 
   async function sendReply(e){
     e.preventDefault();var body=SP.q('#reply-body').value.trim(),files=Array.from(SP.q('#reply-files').files||[]);if(!body&&!files.length)return;
     var btn=SP.q('#reply-send');btn.disabled=true;btn.textContent='SENDING…';
     try{
-      var msg=await db.from('ticket_messages').insert({ticket_id:SP.selectedTicket.id,company_id:SP.selectedTicket.company_id,body:body||null,visibility:'customer'}).select().single();
+      var msg=await db.from('ticket_messages').insert({ticket_id:SP.selectedTicket.id,company_id:SP.selectedTicket.company_id,body:body||null,visibility:(SP.isStaff&&SP.q('#reply-internal')&&SP.q('#reply-internal').checked)?'internal':'customer'}).select().single();
       if(msg.error)throw msg.error;
       for(var i=0;i<files.length;i++)await SP.uploadAttachment(files[i],SP.selectedTicket.company_id,SP.selectedTicket.id,msg.data.id);
       await SP.openTicket(SP.selectedTicket.id,true);SP.toast('Reply added.');
@@ -244,10 +244,10 @@
   };
   SP.closeModal=function(){SP.q('#modal-root').innerHTML='';};
 
-  function showAddTime(){
-    var t=SP.selectedTicket;
-    SP.modal('Add engineering time','<form id="time-form" class="inline-form"><select id="time-line"><option value="first_line" '+(t.current_support_line==='first_line'?'selected':'')+'>Support Engineer</option><option value="second_line" '+(t.current_support_line==='second_line'?'selected':'')+'>Second-Line Engineer</option></select><input id="time-minutes" type="number" min="1" step="1" placeholder="Minutes" required><input id="time-type" value="remote_diagnosis" placeholder="Activity type" required><textarea id="time-desc" class="full" placeholder="What was done?" required></textarea><button class="sp-btn primary full" type="submit">ADD TIME TO REQUEST</button></form>');
-    SP.q('#time-form').onsubmit=async function(e){e.preventDefault();try{var r=await db.from('time_entries').insert({ticket_id:t.id,engineer_id:SP.user.id,support_line:SP.q('#time-line').value,activity_type:SP.q('#time-type').value,description:SP.q('#time-desc').value.trim(),actual_minutes:Number(SP.q('#time-minutes').value)}).select().single();if(r.error)throw r.error;SP.closeModal();await SP.refreshUsage();await SP.openTicket(t.id,true);SP.toast('Engineering time recorded.');}catch(err){SP.toast(SP.errorMessage(err),true);}};
+  function showAddTime(occurredAt,preset){
+    var t=SP.selectedTicket,when=occurredAt?new Date(occurredAt).toISOString().slice(0,16):new Date().toISOString().slice(0,16);
+    SP.modal('Add engineering time','<form id="time-form" class="inline-form"><select id="time-line"><option value="first_line" '+(t.current_support_line==='first_line'?'selected':'')+'>Support Engineer</option><option value="second_line" '+(t.current_support_line==='second_line'?'selected':'')+'>Second-Line Engineer</option></select><input id="time-minutes" type="number" min="1" step="1" placeholder="Minutes" required><input id="time-occurred" type="datetime-local" value="'+h(when)+'"><input id="time-type" value="remote_diagnosis" placeholder="Activity type" required><textarea id="time-desc" class="full" placeholder="What was done?" required>'+h(preset||'')+'</textarea><button class="sp-btn primary full" type="submit">ADD TIME TO REQUEST</button></form>');
+    SP.q('#time-form').onsubmit=async function(e){e.preventDefault();try{var occurred=SP.q('#time-occurred').value;var r=await db.from('time_entries').insert({ticket_id:t.id,engineer_id:SP.user.id,support_line:SP.q('#time-line').value,activity_type:SP.q('#time-type').value,description:SP.q('#time-desc').value.trim(),actual_minutes:Number(SP.q('#time-minutes').value),occurred_at:occurred?new Date(occurred).toISOString():new Date().toISOString()}).select().single();if(r.error)throw r.error;SP.closeModal();await SP.refreshUsage();await SP.openTicket(t.id,true);SP.toast('Engineering time recorded.');}catch(err){SP.toast(SP.errorMessage(err),true);}};
   }
   function showRemoteSession(){
     var t=SP.selectedTicket;

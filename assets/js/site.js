@@ -2,6 +2,18 @@ const header=document.querySelector('.site-header');
 const toggle=document.querySelector('.nav-toggle');
 if(toggle) toggle.addEventListener('click',()=>header.classList.toggle('open'));
 
+
+/* Secure support portal entry point */
+document.querySelectorAll('.nav-actions').forEach(actions=>{
+  if(actions.querySelector('.support-portal-link')) return;
+  const link=document.createElement('a');
+  link.className='support-portal-link';
+  link.href='support-portal.html';
+  link.textContent='SUPPORT PORTAL';
+  const talk=actions.querySelector('.talk');
+  if(talk) actions.insertBefore(link,talk); else actions.appendChild(link);
+});
+
 /* Mobile/desktop parity layer */
 const parityCss=document.createElement('link');
 parityCss.rel='stylesheet';

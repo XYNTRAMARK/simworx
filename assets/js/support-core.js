@@ -176,8 +176,9 @@
   SP.renderView=function(view){
     SP.currentView=view;SP.selectedTicket=null;SP.activateNav(view);
     if(view==='dashboard')return SP.renderDashboard();
-    if(view==='requests')return SP.renderRequests(false);
-    if(view==='history')return SP.renderRequests(true);
+    if(view==='requests')return SP.renderRequests(false,false);
+    if(view==='my-requests')return SP.renderRequests(false,true);
+    if(view==='history')return SP.renderRequests(true,false);
     if(view==='new-request')return SP.renderNewRequest();
     if(view==='usage')return SP.renderUsage();
     if(view==='company')return SP.renderCompany();

@@ -115,6 +115,7 @@
     SP.q('#sidebar-user-name').textContent=SP.profile.full_name||SP.profile.email||'Portal User';
     SP.q('#sidebar-user-role').textContent=SP.roleLabel();
     SP.q('#user-avatar').textContent=SP.initials(SP.profile.full_name||SP.profile.email);
+    var topCompany=SP.q('#topbar-company');if(topCompany)topCompany.textContent=SP.isStaff?'Simworx Flight Simulators':(company?(company.trading_name||company.legal_name):'Customer Account');
     SP.q('#admin-nav').classList.toggle('hidden',!SP.isAdmin);
   };
 

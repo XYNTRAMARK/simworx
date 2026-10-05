@@ -1,4 +1,4 @@
-# Simworx MD302 Standalone — Stage 1
+# Simworx MD302 Standalone — Stages 1–2
 
 Stage 1 proves the standalone display architecture before any X-Plane or NXi integration is added.
 
@@ -85,3 +85,28 @@ Stage 2 replaces the static centre artwork with separate MD302 horizon, ladder, 
 
 
 Stage 2 implementation in progress: layered attitude rendering test harness.
+
+
+## Stage 2 attitude test
+
+Stage 2 adds a standalone layered attitude renderer using the supplied MD302 artwork.
+
+Test controls:
+
+- Up / Down: increase or decrease pitch by 1 degree
+- Left / Right: change roll by 2 degrees
+- R or Home: reset pitch and roll to zero
+- ESC: exit
+
+Stage 2 remains intentionally independent of X-Plane and NXi. Its purpose is to verify layer alignment, clipping, pitch translation and bank rotation before live datarefs are connected.
+
+Required Stage 2 assets in the `assets` folder:
+
+- `md302_horizon.png`
+- `md302_ladder.png`
+- `md302_att_mask.png`
+- `md302_roll_scale.png`
+- `md302_roll_index.png`
+- `md302_symbol_trad.png`
+- `md302_chevrons.png`
+- `md302_hline.png`

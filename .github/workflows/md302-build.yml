@@ -1,0 +1,31 @@
+name: MD302 Standalone Build
+
+on:
+  push:
+    branches:
+      - feature/md302-stage1
+    paths:
+      - "tools/md302-standalone/**"
+      - ".github/workflows/md302-build.yml"
+  pull_request:
+    paths:
+      - "tools/md302-standalone/**"
+      - ".github/workflows/md302-build.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore tools/md302-standalone/Simworx.MD302.csproj
+
+      - name: Build
+        run: dotnet build tools/md302-standalone/Simworx.MD302.csproj -c Release --no-restore

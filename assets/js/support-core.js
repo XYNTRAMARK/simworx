@@ -74,7 +74,7 @@
     var m=await db.from('company_users').select('*').eq('user_id',SP.user.id).eq('active',true);
     if(m.error)throw m.error;SP.memberships=m.data||[];
     SP.isStaff=!!SP.profile.is_simworx;SP.isAdmin=SP.profile.staff_role==='admin';
-    SP.isApprover=SP.isStaff||SP.memberships.some(function(x){return x.designated_support_approver||x.role==='approver'||x.role==='company_admin';});
+    SP.isApprover=SP.memberships.some(function(x){return x.designated_support_approver||x.role==='approver'||x.role==='company_admin';});
   };
 
   SP.loadBaseData=async function(){

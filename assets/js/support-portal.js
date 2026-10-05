@@ -29,9 +29,10 @@
     SP.setTopbar('Dashboard','Support Portal');
     var open=SP.tickets.filter(function(t){return !['closed','resolved'].includes(t.status);});
     var p1=open.filter(function(t){return t.priority==='P1';}).length;
-    var pending=0;var used=0,total=0,remaining=0;
+    var pending=SP.approvals.filter(function(a){return a.status==='pending';}).length;var used=0,total=0,remaining=0;
     SP.usage.forEach(function(u){used+=Number(u.used_allowance_minutes)||0;total+=Number(u.base_allowance_minutes)+Number(u.rollover_minutes)+Number(u.approved_extra_minutes);remaining+=Number(u.remaining_minutes)||0;});
     var company=SP.primaryCompany(),contract=company?SP.activeContract(company.id):null,u=contract?SP.usageByContract(contract.id):null;
+    var approvalCard=(SP.isApprover&&pending)?'<div class="card"><div class="card-head"><h3>Approval required</h3><span class="badge awaiting_approval">'+pending+' PENDING</span></div><div class="card-body"><p style="font-size:9px;line-height:1.5;color:#616970;margin:0 0 10px">Additional support is waiting for your authorised sign-off.</p>'+SP.approvals.filter(function(a){return a.status==='pending';}).slice(0,4).map(function(a){var t=SP.tickets.find(function(x){return x.id===a.ticket_id;});return '<button class="link-button open-ticket" data-ticket="'+h(a.ticket_id)+'" style="display:block;margin:7px 0">'+h(t?t.reference:'Support request')+' — '+SP.minutes(a.requested_extra_minutes)+'</button>';}).join('')+'</div></div>':'';
     var side=SP.isStaff?'<div class="card"><div class="card-head"><h3>Engineering overview</h3></div><div class="card-body request-usage"><strong class="big">'+SP.minutes(used)+'</strong><span class="muted">allowance-equivalent support recorded in current periods</span></div></div>':
       '<div class="card"><div class="card-head"><h3>Current support allowance</h3></div><div class="card-body">'+
       (u?'<div class="request-usage"><strong class="big">'+SP.minutes(u.remaining_minutes)+'</strong><span class="muted">remaining this period</span></div><div style="margin-top:13px" class="progress-track"><div class="progress-bar" style="width:'+usagePercent(u)+'%"></div></div><div class="usage-numbers"><span>'+SP.minutes(u.used_allowance_minutes)+' used</span><strong>'+SP.minutes(Number(u.base_allowance_minutes)+Number(u.rollover_minutes)+Number(u.approved_extra_minutes))+' total</strong></div>':'<div class="empty-state"><strong>No active usage period</strong></div>')+
@@ -44,7 +45,7 @@
       '<div class="metric-card"><span>Allowance remaining</span><strong>'+SP.minutes(remaining)+'</strong><small>Including approved overage</small></div></div>'+
       '<div class="dashboard-grid" style="margin-top:18px"><div class="dashboard-main"><div class="card"><div class="card-head"><h2>Recent support requests</h2><button class="link-button" data-view-jump="requests">VIEW ALL</button></div>'+
       '<div class="table-wrap"><table class="data-table"><thead><tr><th>Reference</th><th>Issue</th><th>Company</th><th>Simulator</th><th>Priority</th><th>Status</th><th>Updated</th></tr></thead><tbody>'+ticketRows(SP.tickets.slice(0,8))+'</tbody></table></div></div></div>'+
-      '<aside class="dashboard-side">'+side+
+      '<aside class="dashboard-side">'+approvalCard+side+
       '<div class="card"><div class="card-head"><h3>Quick actions</h3></div><div class="card-body small-actions"><button class="sp-btn primary" data-view-jump="new-request">LOG REQUEST</button><button class="sp-btn outline" data-view-jump="usage">VIEW USAGE</button></div></div>'+
       '</aside></div>';
     SP.q('#portal-main').innerHTML=html;bindTicketLinks();bindViewJumps();

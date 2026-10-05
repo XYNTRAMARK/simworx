@@ -288,7 +288,7 @@
   SP.renderAdmin=function(){
     SP.setTopbar('Admin','Support Portal');
     SP.q('#portal-main').innerHTML='<div class="page-heading"><div><h1>Support administration</h1><p>Configure companies, simulators, contracts, rates and portal access without code changes.</p></div></div>'+
-      '<div class="admin-tabs"><button class="active" data-admin-tab="companies">Companies</button><button data-admin-tab="projects">Projects</button><button data-admin-tab="contracts">Contracts</button><button data-admin-tab="invites">Access & Invites</button></div><div id="admin-content"></div>';
+      '<div class="admin-tabs"><button class="active" data-admin-tab="companies">Companies</button><button data-admin-tab="projects">Projects</button><button data-admin-tab="contracts">Contracts</button><button data-admin-tab="users">Users</button><button data-admin-tab="invites">Access & Invites</button></div><div id="admin-content"></div>';
     SP.qa('[data-admin-tab]').forEach(function(b){b.onclick=function(){SP.qa('[data-admin-tab]').forEach(function(x){x.classList.remove('active');});b.classList.add('active');renderAdminTab(b.dataset.adminTab);};});renderAdminTab('companies');
   };
   function renderAdminTab(tab){
@@ -309,12 +309,58 @@
       SP.qa('.edit-contract').forEach(function(b){b.onclick=function(){showEditContract(b.dataset.id);};});
       SP.q('#ct-company').onchange=function(){SP.q('#ct-project').innerHTML=projectOptions(SP.q('#ct-company').value);};
       SP.q('#contract-form').onsubmit=async function(e){e.preventDefault();try{var c=await db.from('support_contracts').insert({company_id:SP.q('#ct-company').value,title:SP.q('#ct-title').value.trim(),tier_name:SP.q('#ct-tier').value.trim(),starts_on:SP.q('#ct-start').value,monthly_fee:Number(SP.q('#ct-fee').value||0),included_minutes:Number(SP.q('#ct-minutes').value),first_line_rate:Number(SP.q('#ct-l1').value),second_line_rate:Number(SP.q('#ct-l2').value),second_line_allowance_multiplier:Number(SP.q('#ct-mult').value||1),rollover_enabled:SP.q('#ct-rollover').checked,rollover_cap_minutes:Number(SP.q('#ct-rollcap').value||0),currency:'EUR',overage_requires_approval:true}).select().single();if(c.error)throw c.error;var link=await db.from('support_contract_projects').insert({contract_id:c.data.id,project_id:SP.q('#ct-project').value});if(link.error)throw link.error;await SP.loadBaseData();renderAdminTab('contracts');SP.toast('Support contract created.');}catch(err){SP.toast(SP.errorMessage(err),true);}};
+    }else if(tab==='users'){
+      renderAdminUsers(root);
     }else{
       root.innerHTML='<div class="admin-grid"><div class="card"><div class="card-head"><h3>Simworx staff</h3></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead><tbody>'+SP.staff.map(function(p){return '<tr><td>'+h(p.full_name||'—')+'</td><td>'+h(p.email||'—')+'</td><td>'+h(SP.statusLabel(p.staff_role))+'</td></tr>';}).join('')+'</tbody></table></div></div>'+
         '<div class="card admin-form"><h3>Create portal invitation</h3><form id="invite-form" class="inline-form"><input id="in-email" class="full" type="email" placeholder="Email address" required><select id="in-kind"><option value="customer">Customer</option><option value="staff">Simworx staff</option></select><select id="in-company">'+companyOptions()+'</select><select id="in-customer-role"><option value="user">Customer User</option><option value="approver">Customer Approver</option><option value="company_admin">Company Admin</option></select><select id="in-staff-role" class="hidden"><option value="support_engineer">Support Engineer</option><option value="second_line_engineer">Second-Line Engineer</option><option value="admin">Administrator</option></select><label style="font-size:9px"><input id="in-approver" type="checkbox"> Designated support approver</label><button class="sp-btn primary full" type="submit">CREATE INVITATION</button></form><p class="micro-copy">After creating the invitation, send the customer this portal URL. Their membership is attached automatically when they create an account using the invited email address.</p></div></div>';
       var kind=SP.q('#in-kind');kind.onchange=function(){var staff=kind.value==='staff';SP.q('#in-company').classList.toggle('hidden',staff);SP.q('#in-customer-role').classList.toggle('hidden',staff);SP.q('#in-approver').parentElement.classList.toggle('hidden',staff);SP.q('#in-staff-role').classList.toggle('hidden',!staff);};
       SP.q('#invite-form').onsubmit=async function(e){e.preventDefault();try{var staff=kind.value==='staff',payload={email:SP.q('#in-email').value.trim().toLowerCase(),invite_kind:kind.value,company_id:staff?null:SP.q('#in-company').value,customer_role:staff?null:SP.q('#in-customer-role').value,staff_role:staff?SP.q('#in-staff-role').value:null,designated_support_approver:staff?false:SP.q('#in-approver').checked,created_by:SP.user.id};var r=await db.from('portal_invites').insert(payload).select().single();if(r.error)throw r.error;SP.q('#in-email').value='';SP.toast('Invitation record created.');}catch(err){SP.toast(SP.errorMessage(err),true);}};
     }
+  }
+
+  async function renderAdminUsers(root){
+    root.innerHTML='<div class="card"><div class="card-body"><div class="spinner"></div></div></div>';
+    try{
+      var results=await Promise.all([
+        db.from('profiles').select('*').order('full_name'),
+        db.from('company_users').select('*').order('created_at')
+      ]);
+      results.forEach(function(r){if(r.error)throw r.error;});
+      var profiles=results[0].data||[],members=results[1].data||[];
+      var rows='';
+      profiles.forEach(function(p){
+        if(p.is_simworx){
+          rows+='<tr><td>'+h(p.full_name||'—')+'</td><td>'+h(p.email||'—')+'</td><td>Simworx</td><td>'+h(SP.statusLabel(p.staff_role||'staff'))+'</td><td>'+((p.active)?'<span class="badge resolved">ACTIVE</span>':'<span class="badge closed">INACTIVE</span>')+'</td><td><button class="link-button edit-staff-user" data-id="'+h(p.id)+'">EDIT</button></td></tr>';
+        }else{
+          var ms=members.filter(function(m){return m.user_id===p.id;});
+          if(!ms.length){
+            rows+='<tr><td>'+h(p.full_name||'—')+'</td><td>'+h(p.email||'—')+'</td><td>Unassigned</td><td>—</td><td>'+((p.active)?'<span class="badge acknowledged">WAITING</span>':'<span class="badge closed">INACTIVE</span>')+'</td><td>—</td></tr>';
+          }else ms.forEach(function(m){
+            var co=SP.companyById(m.company_id);
+            rows+='<tr><td>'+h(p.full_name||'—')+'</td><td>'+h(p.email||'—')+'</td><td>'+h(co?(co.trading_name||co.legal_name):'—')+'</td><td>'+h(SP.statusLabel(m.role))+(m.designated_support_approver?' · Approver':'')+'</td><td>'+(m.active?'<span class="badge resolved">ACTIVE</span>':'<span class="badge closed">INACTIVE</span>')+'</td><td><button class="link-button edit-customer-user" data-id="'+h(m.id)+'" data-user="'+h(p.id)+'">EDIT</button></td></tr>';
+          });
+        }
+      });
+      root.innerHTML='<div class="card"><div class="card-head"><h3>Portal users</h3><span style="font-size:8px;color:#7b838a">'+profiles.length+' profiles</span></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Name</th><th>Email</th><th>Company</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>'+(rows||'<tr><td colspan="6"><div class="empty-state"><strong>No users yet</strong></div></td></tr>')+'</tbody></table></div></div>';
+      SP.qa('.edit-staff-user').forEach(function(b){b.onclick=function(){showEditStaffUser(b.dataset.id,profiles);};});
+      SP.qa('.edit-customer-user').forEach(function(b){b.onclick=function(){showEditCustomerMembership(b.dataset.id,members,profiles);};});
+    }catch(err){root.innerHTML='<div class="notice danger">'+h(SP.errorMessage(err))+'</div>';}
+  }
+
+  function showEditStaffUser(id,profiles){
+    var p=profiles.find(function(x){return x.id===id;});if(!p)return;
+    SP.modal('Edit Simworx user','<form id="edit-staff-form" class="inline-form"><div class="full" style="font-size:10px"><strong>'+h(p.full_name||p.email||'Simworx user')+'</strong><br><span style="color:#747c84">'+h(p.email||'')+'</span></div><select id="estaff-role" class="full"><option value="support_engineer">Support Engineer</option><option value="second_line_engineer">Second-Line Engineer</option><option value="admin">Administrator</option></select><label style="font-size:9px"><input id="estaff-active" type="checkbox" '+(p.active?'checked':'')+'> Active</label><button class="sp-btn primary full" type="submit">SAVE USER</button></form>');
+    SP.q('#estaff-role').value=p.staff_role||'support_engineer';
+    SP.q('#edit-staff-form').onsubmit=async function(e){e.preventDefault();try{var r=await db.rpc('admin_update_profile_role',{p_user:id,p_staff_role:SP.q('#estaff-role').value,p_active:SP.q('#estaff-active').checked});if(r.error)throw r.error;SP.closeModal();renderAdminUsers(SP.q('#admin-content'));SP.toast('Simworx user updated.');}catch(err){SP.toast(SP.errorMessage(err),true);}};
+  }
+
+  function showEditCustomerMembership(id,members,profiles){
+    var m=members.find(function(x){return x.id===id;});if(!m)return;
+    var p=profiles.find(function(x){return x.id===m.user_id;});
+    SP.modal('Edit customer access','<form id="edit-membership-form" class="inline-form"><div class="full" style="font-size:10px"><strong>'+h((p&&p.full_name)||'Customer user')+'</strong><br><span style="color:#747c84">'+h((p&&p.email)||'')+'</span></div><select id="em-company" class="full">'+companyOptions(m.company_id)+'</select><select id="em-role" class="full"><option value="user">Customer User</option><option value="approver">Customer Approver</option><option value="company_admin">Company Admin</option></select><label style="font-size:9px"><input id="em-approver" type="checkbox" '+(m.designated_support_approver?'checked':'')+'> Designated support approver</label><label style="font-size:9px"><input id="em-active" type="checkbox" '+(m.active?'checked':'')+'> Active</label><button class="sp-btn primary full" type="submit">SAVE ACCESS</button></form>');
+    SP.q('#em-role').value=m.role;
+    SP.q('#edit-membership-form').onsubmit=async function(e){e.preventDefault();try{var r=await db.from('company_users').update({company_id:SP.q('#em-company').value,role:SP.q('#em-role').value,designated_support_approver:SP.q('#em-approver').checked,active:SP.q('#em-active').checked}).eq('id',id).select().single();if(r.error)throw r.error;SP.closeModal();renderAdminUsers(SP.q('#admin-content'));SP.toast('Customer access updated.');}catch(err){SP.toast(SP.errorMessage(err),true);}};
   }
 
   function showEditCompany(id){

@@ -5,14 +5,19 @@ namespace Simworx.MD302;
 public sealed class MainForm : Form
 {
     private readonly AppConfig _config;
+    private readonly AttitudeRenderer _attitudeRenderer = new();
+
     private Image? _instrumentImage;
     private string? _resolvedAssetPath;
+
+    private double _pitchDeg;
+    private double _rollDeg;
 
     public MainForm(AppConfig config)
     {
         _config = config;
 
-        Text = "Simworx MD302";
+        Text = "Simworx MD302 - Stage 2";
         BackColor = Color.Black;
         DoubleBuffered = true;
         KeyPreview = true;
@@ -24,19 +29,64 @@ public sealed class MainForm : Form
         StartPosition = FormStartPosition.Manual;
         SetTargetMonitor();
 
-        KeyDown += (_, e) =>
-        {
-            if (e.KeyCode == Keys.Escape)
-                Close();
-        };
+        KeyDown += HandleTestControls;
 
         Shown += (_, _) =>
         {
             LoadInstrumentImage();
+            _attitudeRenderer.Load(AppContext.BaseDirectory);
             Invalidate();
         };
 
-        FormClosed += (_, _) => _instrumentImage?.Dispose();
+        FormClosed += (_, _) =>
+        {
+            _instrumentImage?.Dispose();
+            _attitudeRenderer.Dispose();
+        };
+    }
+
+    private void HandleTestControls(object? sender, KeyEventArgs e)
+    {
+        switch (e.KeyCode)
+        {
+            case Keys.Escape:
+                Close();
+                return;
+
+            case Keys.Up:
+                _pitchDeg = Math.Clamp(_pitchDeg + 1.0, -90.0, 90.0);
+                break;
+
+            case Keys.Down:
+                _pitchDeg = Math.Clamp(_pitchDeg - 1.0, -90.0, 90.0);
+                break;
+
+            case Keys.Left:
+                _rollDeg = NormalizeRoll(_rollDeg - 2.0);
+                break;
+
+            case Keys.Right:
+                _rollDeg = NormalizeRoll(_rollDeg + 2.0);
+                break;
+
+            case Keys.R:
+            case Keys.Home:
+                _pitchDeg = 0;
+                _rollDeg = 0;
+                break;
+
+            default:
+                return;
+        }
+
+        Invalidate();
+    }
+
+    private static double NormalizeRoll(double value)
+    {
+        while (value > 180.0) value -= 360.0;
+        while (value < -180.0) value += 360.0;
+        return value;
     }
 
     private void SetTargetMonitor()
@@ -78,15 +128,16 @@ public sealed class MainForm : Form
     {
         base.OnPaint(e);
 
-        e.Graphics.Clear(Color.Black);
-        e.Graphics.CompositingQuality = CompositingQuality.HighQuality;
-        e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-        e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-        e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
+        var g = e.Graphics;
+        g.Clear(Color.Black);
+        g.CompositingQuality = CompositingQuality.HighQuality;
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        g.SmoothingMode = SmoothingMode.HighQuality;
 
         if (_instrumentImage is null)
         {
-            DrawMissingAssetMessage(e.Graphics);
+            DrawMissingAssetMessage(g);
             return;
         }
 
@@ -101,7 +152,23 @@ public sealed class MainForm : Form
         var x = (client.Width - width) / 2;
         var y = (client.Height - height) / 2;
 
-        e.Graphics.DrawImage(_instrumentImage, new Rectangle(x, y, width, height));
+        var viewport = new Rectangle(x, y, width, height);
+
+        // Fixed popup artwork remains the instrument body.
+        g.DrawImage(_instrumentImage, viewport);
+
+        // Draw moving attitude layers in the popup's native coordinate system.
+        var state = g.Save();
+        g.TranslateTransform(viewport.Left, viewport.Top);
+        g.ScaleTransform(
+            viewport.Width / (float)_instrumentImage.Width,
+            viewport.Height / (float)_instrumentImage.Height
+        );
+
+        _attitudeRenderer.Draw(g, _pitchDeg, _rollDeg);
+        _attitudeRenderer.DrawDebug(g, _pitchDeg, _rollDeg);
+
+        g.Restore(state);
     }
 
     private void DrawMissingAssetMessage(Graphics g)
@@ -113,10 +180,13 @@ public sealed class MainForm : Form
 
         var title = "SIMWORX MD302";
         var body =
-            "Stage 1 renderer is running, but md302_popup_h.png was not found.\n\n" +
-            "Copy the Aerobask MD302 image to:\n" +
-            Path.Combine(AppContext.BaseDirectory, "assets", "md302_popup_h.png") +
-            "\n\nor set assetPath in appsettings.json.\n\nPress ESC to exit.";
+            "Stage 2 renderer is running, but md302_popup_h.png was not found.\n\n" +
+            "Copy the Aerobask MD302 assets into the application's assets folder.\n\n" +
+            "Controls:\n" +
+            "Up / Down = pitch\n" +
+            "Left / Right = roll\n" +
+            "R or Home = reset attitude\n" +
+            "ESC = exit.";
 
         g.DrawString(title, titleFont, white, new PointF(40, 40));
         g.DrawString(body, bodyFont, grey, new RectangleF(40, 100, ClientSize.Width - 80, ClientSize.Height - 140));

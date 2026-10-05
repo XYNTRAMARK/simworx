@@ -188,7 +188,7 @@
         var e=it.data,cls=e.event_type==='approval_requested'?'gold':e.event_type==='escalation'?'red':'';
         return '<div class="system-event '+cls+'"><div class="system-icon">'+(e.event_type==='time_added'?'◷':e.event_type==='escalation'?'↑':e.event_type==='approval_requested'?'✓':'•')+'</div><div><strong>'+h(e.summary)+'</strong><p>'+h(SP.fmtDate(e.created_at,true))+'</p></div></div>';
       }
-      var m=it.data,author=it.author||(m&&m.author_id),isStaff=SP.staff.some(function(p){return p.id===author;});
+      var m=it.data,author=it.author||(m&&m.author_id),known=SP.people.find(function(p){return p.id===author;}),isStaff=known?!!known.is_simworx:(!SP.isStaff&&author!==SP.user.id);
       var msgId=m&&m.id,atts=(t.attachments||[]).filter(function(a){return a.message_id===msgId;});
       if(it.type==='overview')atts=(t.attachments||[]).filter(function(a){return !a.message_id;});
       return '<div class="chat-row '+(isStaff?'simworx':'customer')+'"><div class="chat-avatar">'+h(SP.initials(authorName(author)))+'</div><div class="bubble-wrap"><div class="bubble-meta">'+h(authorName(author))+'</div><div class="bubble">'+h(it.type==='overview'?it.body:(m.body||''))+attachmentMarkup(atts,t.attachmentUrls||{})+'</div><div class="bubble-time">'+h(SP.fmtDate(it.created_at,true))+'</div></div></div>';

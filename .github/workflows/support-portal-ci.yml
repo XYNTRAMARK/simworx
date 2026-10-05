@@ -63,3 +63,16 @@ jobs:
                   raise SystemExit(f"Missing asset reference: {ref}")
           print('HTML smoke checks passed')
           PY
+      - name: Package portal preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: support-portal-preview
+          path: |
+            support-portal.html
+            assets/css/support-portal.css
+            assets/css/site.css
+            assets/js/support-config.js
+            assets/js/support-core.js
+            assets/js/support-portal.js
+            assets/js/site.js
+          retention-days: 3

@@ -68,7 +68,7 @@
       <a class="portal-logo" href="index.html" aria-label="Simworx home">
         <span>SIMWOR</span><b>X</b><small>SUPPORT PORTAL</small>
       </a>
-      <div class="portal-context">
+      <div class="portal-context hidden">
         <span class="context-label">SUPPORT ACCOUNT</span>
         <strong id="sidebar-company">Loading…</strong>
         <small id="sidebar-contract">—</small>
@@ -87,7 +87,7 @@
         <button id="admin-nav" data-view="admin" class="hidden"><span>⚙</span>Admin</button>
       </nav>
       <div class="sidebar-bottom">
-        <div class="sidebar-user"><div id="user-avatar" class="avatar">SW</div><div><strong id="sidebar-user-name">User</strong><small id="sidebar-user-role">Customer</small></div></div>
+        <div class="sidebar-slogan">TRAIN TODAY<br><strong>FLY TOMORROW</strong></div>
         <button id="portal-signout" class="sidebar-signout" type="button">Sign out</button>
       </div>
     </aside>
@@ -95,14 +95,20 @@
     <div class="portal-workspace">
       <header class="portal-topbar">
         <button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-label="Open navigation">☰</button>
-        <div>
-          <span id="topbar-breadcrumb" class="topbar-breadcrumb">SUPPORT PORTAL</span>
-          <strong id="topbar-title">Dashboard</strong>
+        <div class="portal-heading">
+          <strong>Customer Support Portal</strong>
+          <span>REAL PEOPLE. REAL SOLUTIONS. KEEPING YOU FLYING.</span>
         </div>
         <div class="topbar-actions">
-          <button id="global-new-request" class="sp-btn primary" type="button">＋ LOG SUPPORT REQUEST</button>
-          <button id="refresh-portal" class="icon-button" type="button" title="Refresh">↻</button>
+          <div class="topbar-clock"><span>◉</span><span id="portal-clock">—</span></div>
+          <div class="topbar-user">
+            <div id="user-avatar" class="avatar">SW</div>
+            <div><strong id="sidebar-user-name">User</strong><small id="topbar-company">Simworx Support</small><span id="sidebar-user-role" class="hidden">Customer</span></div>
+          </div>
+          <button id="refresh-portal" class="icon-button dark-icon" type="button" title="Refresh">↻</button>
         </div>
+        <span id="topbar-breadcrumb" class="hidden">SUPPORT PORTAL</span>
+        <span id="topbar-title" class="hidden">Dashboard</span>
       </header>
       <main id="portal-main" class="portal-main" tabindex="-1"></main>
     </div>

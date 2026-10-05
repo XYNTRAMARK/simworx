@@ -52,10 +52,10 @@
 
   function bindViewJumps(){SP.qa('[data-view-jump]').forEach(function(b){b.onclick=function(){SP.renderView(b.dataset.viewJump);};});}
 
-  SP.renderRequests=function(history){
-    SP.setTopbar(history?'History':'Support Requests','Support Portal');
-    var rows=SP.tickets.filter(function(t){return history?['resolved','closed'].includes(t.status):!['resolved','closed'].includes(t.status);});
-    SP.q('#portal-main').innerHTML='<div class="page-heading"><div><h1>'+(history?'Support history':'Support requests')+'</h1><p>'+(history?'Resolved and closed support activity.':'Open and active customer support cases.')+'</p></div><div class="page-actions"><input id="ticket-search" placeholder="Search requests…" style="border:1px solid #d7dce0;border-radius:6px;padding:9px 11px;font-size:9px"><button class="sp-btn primary" data-view-jump="new-request">＋ NEW REQUEST</button></div></div>'+
+  SP.renderRequests=function(history,mine){
+    SP.setTopbar(history?'History':(mine?'My Open Requests':'Support Requests'),'Support Portal');
+    var rows=SP.tickets.filter(function(t){var stateOk=history?['resolved','closed'].includes(t.status):!['resolved','closed'].includes(t.status);var ownerOk=!mine||t.requester_id===SP.user.id||t.assigned_engineer===SP.user.id||t.assigned_second_line_engineer===SP.user.id;return stateOk&&ownerOk;});
+    SP.q('#portal-main').innerHTML='<div class="page-heading"><div><h1>'+(history?'Support history':(mine?'My open requests':'Support requests'))+'</h1><p>'+(history?'Resolved and closed support activity.':(mine?'Open requests created by or assigned to you.':'Open and active customer support cases.'))+'</p></div><div class="page-actions"><input id="ticket-search" placeholder="Search requests…" style="border:1px solid #d7dce0;border-radius:6px;padding:9px 11px;font-size:9px"><button class="sp-btn primary" data-view-jump="new-request">＋ NEW REQUEST</button></div></div>'+
       '<div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Reference</th><th>Issue</th><th>Company</th><th>Simulator</th><th>Priority</th><th>Status</th><th>Updated</th></tr></thead><tbody id="ticket-table-body">'+ticketRows(rows)+'</tbody></table></div></div>';
     bindTicketLinks();bindViewJumps();
     var s=SP.q('#ticket-search');s.oninput=function(){var q=s.value.toLowerCase();var filtered=rows.filter(function(t){var p=SP.projectById(t.project_id),c=SP.companyById(t.company_id);return [t.reference,t.subject,t.status,t.priority,p&&p.name,c&&(c.trading_name||c.legal_name)].join(' ').toLowerCase().includes(q);});SP.q('#ticket-table-body').innerHTML=ticketRows(filtered);bindTicketLinks();};

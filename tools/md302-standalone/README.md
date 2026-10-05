@@ -82,3 +82,6 @@ No live attitude data is intentionally implemented in Stage 1.
 ## Next stage
 
 Stage 2 replaces the static centre artwork with separate MD302 horizon, ladder, bank-scale and symbol layers and adds test controls for pitch and roll before connecting live X-Plane datarefs.
+
+
+Stage 2 implementation in progress: layered attitude rendering test harness.

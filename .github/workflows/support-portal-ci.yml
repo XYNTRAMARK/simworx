@@ -1,0 +1,65 @@
+name: Support Portal CI
+
+on:
+  push:
+    branches:
+      - feature/support-portal
+  pull_request:
+    paths:
+      - 'support-portal.html'
+      - 'assets/js/support-*.js'
+      - 'assets/css/support-portal.css'
+      - 'assets/js/site.js'
+      - 'assets/css/site.css'
+      - '.github/workflows/support-portal-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: JavaScript syntax
+        run: |
+          node --check assets/js/support-config.js
+          node --check assets/js/support-core.js
+          node --check assets/js/support-portal.js
+          node --check assets/js/site.js
+      - name: Required portal assets
+        run: |
+          test -f support-portal.html
+          test -f assets/css/support-portal.css
+          test -f assets/js/support-config.js
+          test -f assets/js/support-core.js
+          test -f assets/js/support-portal.js
+      - name: HTML smoke check
+        run: |
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class Parser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.ids=set()
+              def handle_starttag(self, tag, attrs):
+                  d=dict(attrs)
+                  if 'id' in d:
+                      if d['id'] in self.ids:
+                          raise SystemExit(f"Duplicate id: {d['id']}")
+                      self.ids.add(d['id'])
+
+          text=Path('support-portal.html').read_text(encoding='utf-8')
+          p=Parser()
+          p.feed(text)
+          required={'auth-shell','pin-shell','portal-app','portal-nav','portal-main','modal-root'}
+          missing=required-p.ids
+          if missing:
+              raise SystemExit(f"Missing portal ids: {sorted(missing)}")
+          for ref in ['assets/css/support-portal.css','assets/js/support-config.js','assets/js/support-core.js','assets/js/support-portal.js']:
+              if ref not in text:
+                  raise SystemExit(f"Missing asset reference: {ref}")
+          print('HTML smoke checks passed')
+          PY

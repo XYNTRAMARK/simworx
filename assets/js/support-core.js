@@ -211,7 +211,7 @@
     SP.setTopbar('Account awaiting assignment');
     var setup=new URLSearchParams(location.search).get('setup')==='1';
     SP.q('#portal-main').innerHTML='<div class="card" style="max-width:680px"><div class="card-body"><div class="notice danger"><strong>This account is authenticated but is not attached to a customer company or Simworx staff role.</strong><br><br>Ask a Simworx administrator to invite this email address before signing in.</div>'+(setup?'<div style="margin-top:14px"><button id="claim-admin" class="sp-btn dark">INITIALISE FIRST SIMWORX ADMIN</button><p class="micro-copy">This one-time control works only while no Simworx administrator exists.</p></div>':'')+'</div></div>';
-    if(setup){SP.q('#claim-admin').onclick=async function(){var r=await db.rpc('claim_initial_admin');if(r.error)return SP.toast(SP.errorMessage(r.error),true);if(!r.data)return SP.toast('An administrator already exists.',true);SP.toast('Initial administrator created.');await SP.loadIdentity();await SP.loadBaseData();SP.renderView('dashboard');};}
+    if(setup){SP.q('#claim-admin').onclick=async function(){var token=prompt('Enter the one-time Simworx admin bootstrap token:','');if(!token)return;var r=await db.rpc('claim_initial_admin',{p_token:token.trim()});if(r.error)return SP.toast(SP.errorMessage(r.error),true);if(!r.data)return SP.toast('An administrator already exists or the bootstrap token has been used.',true);SP.toast('Initial administrator created.');await SP.loadIdentity();await SP.loadBaseData();SP.renderView('dashboard');};}
   };
 
   window.addEventListener('unhandledrejection',function(e){console.error(e.reason);SP.toast(SP.errorMessage(e.reason),true);});

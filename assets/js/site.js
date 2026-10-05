@@ -13,6 +13,14 @@ document.querySelectorAll('.nav-actions').forEach(actions=>{
   const talk=actions.querySelector('.talk');
   if(talk) actions.insertBefore(link,talk); else actions.appendChild(link);
 });
+document.querySelectorAll('.main-nav').forEach(nav=>{
+  if(nav.querySelector('.support-portal-mobile')) return;
+  const link=document.createElement('a');
+  link.className='support-portal-mobile';
+  link.href='support-portal.html';
+  link.textContent='SUPPORT PORTAL';
+  nav.appendChild(link);
+});
 
 /* Mobile/desktop parity layer */
 const parityCss=document.createElement('link');

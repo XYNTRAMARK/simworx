@@ -76,3 +76,90 @@ button{cursor:pointer}
 @media(max-width:1180px){.metric-grid{grid-template-columns:1fr 1fr}.ticket-layout{grid-template-columns:1fr 285px}.dashboard-grid{grid-template-columns:1fr 290px}}
 @media(max-width:900px){.portal-app{display:block}.portal-sidebar{transform:translateX(-100%);transition:.2s}.portal-app.nav-open .portal-sidebar{transform:translateX(0)}.portal-workspace{grid-column:auto}.mobile-nav-toggle{display:block}.portal-topbar{padding:0 16px}.portal-main{padding:18px 14px 36px}.ticket-layout,.dashboard-grid,.admin-grid{grid-template-columns:1fr}.detail-stack{grid-template-columns:1fr 1fr}.auth-shell{grid-template-columns:1fr}.auth-visual{display:none}.auth-card{padding:45px 28px}}
 @media(max-width:620px){.topbar-actions .sp-btn{display:none}.metric-grid,.info-grid,.form-grid,.inline-form,.detail-stack{grid-template-columns:1fr}.attachment-grid{grid-template-columns:1fr 1fr}.bubble-wrap{max-width:86%}.portal-topbar strong{font-size:13px}.contract-hero{grid-template-columns:1fr}.contract-price{text-align:left}.page-heading{align-items:flex-start;flex-direction:column}.auth-actions{flex-direction:column}.auth-card{padding:40px 22px}}
+
+/* Mockup fidelity pass — the approved image is the target, not a loose reference. */
+.portal-app{grid-template-columns:285px 1fr}
+.portal-sidebar{width:285px;background:#10161b;overflow:hidden}
+.portal-sidebar:before{content:'';position:absolute;left:0;right:0;bottom:0;height:47%;background:
+  linear-gradient(180deg,#10161b 0%,rgba(16,22,27,.55) 18%,rgba(7,10,13,.22) 48%,rgba(7,10,13,.92) 100%),
+  url('../images/concorde-hero.webp') center bottom/cover no-repeat;opacity:.72;pointer-events:none}
+.portal-sidebar>*{position:relative;z-index:1}
+.portal-logo{font-size:29px;margin:19px 28px 31px;letter-spacing:2.5px}
+.portal-logo small{top:34px;left:7px;font-size:8px;letter-spacing:2.2px;color:#e3e5e7}
+.portal-nav{padding:0 7px;gap:4px}
+.portal-nav button{padding:13px 23px;font-size:13px;font-weight:600;color:#f1f3f4;border-radius:5px}
+.portal-nav button span{width:23px;font-size:19px;color:#fff}
+.portal-nav button.active{background:linear-gradient(90deg,rgba(199,154,55,.18),rgba(199,154,55,.78));box-shadow:none;color:#fff}
+.portal-nav button.active span{color:#fff}
+.nav-divider{background:#ffffff18;margin:8px 20px}
+.sidebar-bottom{border-top:0;padding:24px 29px 27px;background:linear-gradient(180deg,transparent,rgba(6,8,10,.85))}
+.sidebar-slogan{font-size:17px;line-height:1.65;font-style:italic;letter-spacing:4px;color:#fff;border-bottom:2px solid var(--sp-gold);padding-bottom:13px;margin-bottom:14px}
+.sidebar-slogan strong{font-weight:400}
+.sidebar-signout{background:#0a0e12cc;border-color:#ffffff24;color:#d8dde1}
+.portal-workspace{grid-column:2;background:#f4f6f8}
+.portal-topbar{height:78px;background:linear-gradient(90deg,#11171c,#0b1014);border-bottom:1px solid #252c32;color:#fff;padding:0 26px 0 66px}
+.portal-heading strong{display:block;font-size:25px;line-height:1.05;letter-spacing:-.4px;color:#fff}
+.portal-heading span{display:block;font-size:10px;letter-spacing:1.2px;color:#c9ced2;margin-top:6px}
+.topbar-actions{gap:19px}
+.topbar-clock{display:flex;align-items:center;gap:9px;font-size:10px;color:#eef1f3;white-space:nowrap;padding-right:18px;border-right:1px solid #675a33}
+.topbar-clock>span:first-child{font-size:14px}
+.topbar-user{display:flex;align-items:center;gap:11px;min-width:170px}
+.topbar-user .avatar{width:36px;height:36px;background:linear-gradient(145deg,#a2823d,#e4c569);color:#fff;font-size:12px}
+.topbar-user strong{display:block;font-size:11px;color:#fff}
+.topbar-user small{display:block;color:#cbd0d4;font-size:8px;margin-top:3px}
+.dark-icon{background:#ffffff0d!important;color:#fff!important;border-color:#ffffff25!important}
+.portal-main{padding:14px 18px 34px;max-width:none}
+.ticket-breadcrumb{height:27px;display:flex;align-items:center;gap:10px;color:#6c747c;font-size:10px;padding:0 2px 8px}
+.ticket-breadcrumb strong{color:#222831}
+.ticket-layout{grid-template-columns:minmax(620px,1fr) 390px;gap:14px}
+.card{border-radius:6px;box-shadow:none}
+.conversation-card{min-height:calc(100vh - 125px)}
+.ticket-titlebar{padding:15px 16px}
+.ticket-titlebar h1{font-size:19px;margin:5px 0 5px;letter-spacing:-.2px}
+.ticket-titlebar p{font-size:11px}
+.ticket-ref{font-size:20px;color:#1b2a44;letter-spacing:0}
+.ticket-titlebar .small-actions{align-items:flex-start}
+.badge{font-size:9px;padding:5px 12px}
+.conversation{padding:13px 16px 8px;gap:13px;background:#fff;border-top:0}
+.chat-row{align-items:flex-start}
+.chat-row.customer{justify-content:flex-start}
+.chat-row.simworx{justify-content:flex-start;padding-left:9%}
+.chat-row.simworx .chat-avatar{order:0;background:#aa893e;color:#fff;border:3px solid #fff7dc;box-shadow:0 0 0 1px #e6d5a4}
+.chat-avatar{width:36px;height:36px;font-size:12px;background:#9eafc1;color:#fff}
+.bubble-wrap{max-width:76%}
+.bubble-meta{font-size:10px;font-weight:700;color:#3b4550;margin:0 3px 5px}
+.chat-row.simworx .bubble-meta{text-align:left}
+.bubble{padding:11px 13px;font-size:12px;line-height:1.48;border:1px solid #dde2e6}
+.customer .bubble{background:#f1f3f5;border-bottom-left-radius:7px}
+.simworx .bubble{background:#fff8e7;color:#20262c;border-color:#f0dfae;border-bottom-right-radius:9px}
+.bubble-time,.simworx .bubble-time{font-size:9px;color:#7c858e;margin-top:5px;text-align:right}
+.bubble-time .link-button,.bubble-time button{font-size:8px;color:#a26f00;margin-left:8px}
+.system-event{width:min(88%,660px);padding:10px 12px;border-radius:5px;background:#f8fafb}
+.system-event.gold{background:#fffaf0;border-color:#ecd79e}
+.system-event strong{font-size:11px}.system-event p{font-size:9px}
+.composer{padding:11px 14px 14px}
+.composer textarea{min-height:52px;font-size:11px}
+.card-head{padding:13px 14px}.card-head h3{font-size:12px}
+.card-body{padding:14px}
+.detail-stack{gap:11px}
+.detail-row{grid-template-columns:112px 1fr;font-size:11px;gap:8px}
+.detail-row span{color:#5f6872}.detail-row strong{font-size:11px}
+.request-usage strong.big{font-size:18px}.request-usage .muted{font-size:9px}
+.usage-numbers{font-size:10px}
+.timeline-item{font-size:10px;padding-left:17px}.timeline-item strong{font-size:10px}.timeline-item span{font-size:9px}
+.attachment-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}
+.attachment-card{min-height:68px;background:#edf0f2}.attachment-file{padding:10px;font-size:9px}
+.recent-files{grid-template-columns:1fr;gap:8px}.recent-file{height:52px}
+.page-heading{margin:2px 0 14px}.page-heading h1{font-size:25px}
+.metric-card span{font-size:9px}.metric-card small{font-size:10px}
+.data-table th{font-size:9px}.data-table td{font-size:11px}
+.mobile-nav-toggle{color:#fff}
+@media(max-width:1180px){
+  .portal-app{grid-template-columns:250px 1fr}.portal-sidebar{width:250px}.portal-logo{font-size:25px}.portal-nav button{font-size:11px;padding:12px 16px}
+  .ticket-layout{grid-template-columns:minmax(500px,1fr) 330px}.portal-topbar{padding-left:28px}
+}
+@media(max-width:900px){
+  .portal-topbar{padding:0 14px}.portal-heading strong{font-size:17px}.portal-heading span{display:none}.topbar-clock{display:none}.topbar-user{min-width:0}
+  .ticket-layout{grid-template-columns:1fr}.detail-stack{grid-template-columns:1fr 1fr}.chat-row.simworx{padding-left:4%}
+}
+@media(max-width:620px){.topbar-user small{display:none}.topbar-user strong{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.detail-stack{grid-template-columns:1fr}}

@@ -7,7 +7,7 @@
   });
   var SP=window.SupportPortal={
     db:db,cfg:cfg,user:null,profile:null,memberships:[],companies:[],projects:[],contracts:[],contractProjects:[],
-    categories:[],tickets:[],periods:[],usage:[],people:[],staff:[],selectedTicket:null,currentView:'dashboard',
+    categories:[],tickets:[],approvals:[],periods:[],usage:[],people:[],staff:[],selectedTicket:null,currentView:'dashboard',
     channel:null,isStaff:false,isAdmin:false,isApprover:false
   };
 
@@ -85,11 +85,12 @@
       db.from('support_contract_projects').select('*'),
       db.from('support_categories').select('*').eq('active',true).order('sort_order'),
       db.from('tickets').select('*').order('created_at',{ascending:false}),
+      db.from('approval_requests').select('*').order('requested_at',{ascending:false}),
       db.from('profiles').select('id,full_name,is_simworx,staff_role,active').eq('active',true)
     ]);
     results.forEach(function(r){if(r.error)throw r.error;});
     SP.companies=results[0].data||[];SP.projects=results[1].data||[];SP.contracts=results[2].data||[];SP.contractProjects=results[3].data||[];
-    SP.categories=results[4].data||[];SP.tickets=results[5].data||[];SP.people=results[6].data||[];SP.staff=SP.people.filter(function(p){return p.is_simworx;});
+    SP.categories=results[4].data||[];SP.tickets=results[5].data||[];SP.approvals=results[6].data||[];SP.people=results[7].data||[];SP.staff=SP.people.filter(function(p){return p.is_simworx;});
     await SP.refreshUsage();
     SP.updateShell();
   };

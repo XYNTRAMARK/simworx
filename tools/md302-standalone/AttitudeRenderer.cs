@@ -5,17 +5,14 @@ namespace Simworx.MD302;
 internal sealed class AttitudeRenderer : IDisposable
 {
     private readonly Dictionary<string, Image> _images = new(StringComparer.OrdinalIgnoreCase);
+    private readonly LayoutConfig _layout;
 
-    // Aerobask horizontal popup is 880x380. The attitude display occupies
-    // the 320x320 aperture on the right side.
-    private readonly RectangleF _attitudeWindow = new(30f, 30f, 320f, 320f);
-    private readonly PointF _attitudeCenter = new(190f, 190f);
-
-    // The ladder's major pitch groups are 32 px apart and represent 10 degrees.
-    private const float PitchPixelsPerDegree = 3.2f;
-
-    // Large enough to cover the clipped attitude aperture at any bank angle.
     private const float HorizonCanvasSize = 560f;
+
+    public AttitudeRenderer(LayoutConfig layout)
+    {
+        _layout = layout;
+    }
 
     public void Load(string assetDirectory)
     {
@@ -50,28 +47,41 @@ internal sealed class AttitudeRenderer : IDisposable
 
     public void Draw(Graphics g, double pitchDeg, double rollDeg)
     {
+        var assembly = g.Save();
+
+        g.TranslateTransform(_layout.AttitudeX, _layout.AttitudeY);
+        g.ScaleTransform(_layout.AttitudeScale, _layout.AttitudeScale);
+
         DrawMovingAttitude(g, pitchDeg, rollDeg);
         DrawFixedOverlays(g, rollDeg);
+
+        g.Restore(assembly);
     }
 
     private void DrawMovingAttitude(Graphics g, double pitchDeg, double rollDeg)
     {
         var state = g.Save();
-        g.SetClip(_attitudeWindow);
 
-        g.TranslateTransform(_attitudeCenter.X, _attitudeCenter.Y);
+        g.SetClip(new RectangleF(
+            0f,
+            0f,
+            _layout.AttitudeClipWidth,
+            _layout.AttitudeClipHeight
+        ));
 
-        // Aircraft right-wing-down makes the perceived horizon rotate left.
+        g.TranslateTransform(
+            _layout.AttitudeCenterX,
+            _layout.AttitudeCenterY
+        );
+
         g.RotateTransform((float)-rollDeg);
-
-        // Nose-up makes the apparent horizon move down.
-        g.TranslateTransform(0f, (float)(pitchDeg * PitchPixelsPerDegree));
+        g.TranslateTransform(
+            0f,
+            (float)(pitchDeg * _layout.PitchPixelsPerDegree)
+        );
 
         if (_images.TryGetValue("md302_horizon.png", out var horizon))
         {
-            // The supplied 16x128 horizon is a colour source strip. Stretching
-            // it preserves Aerobask's exact sky/ground colours while ensuring
-            // the horizon covers the aperture during large bank angles.
             g.DrawImage(
                 horizon,
                 -HorizonCanvasSize / 2f,
@@ -90,27 +100,36 @@ internal sealed class AttitudeRenderer : IDisposable
 
     private void DrawFixedOverlays(Graphics g, double rollDeg)
     {
-        // Mask is exactly the 320x320 attitude aperture.
-        DrawAt(g, "md302_att_mask.png", _attitudeWindow.Left, _attitudeWindow.Top);
+        var clip = g.Save();
+        g.SetClip(new RectangleF(
+            0f,
+            0f,
+            _layout.AttitudeClipWidth,
+            _layout.AttitudeClipHeight
+        ));
 
-        // Roll scale is 240x240 and concentric with the attitude display.
+        // Keep the Aerobask mask aligned to the 320-wide display but crop its
+        // lower portion so the heading presentation can occupy the bottom.
+        DrawAt(g, "md302_att_mask.png", 0f, 0f);
+
         if (_images.TryGetValue("md302_roll_scale.png", out var scale))
         {
             g.DrawImage(
                 scale,
-                _attitudeCenter.X - scale.Width / 2f,
-                _attitudeCenter.Y - scale.Height / 2f,
+                _layout.AttitudeCenterX - scale.Width / 2f,
+                _layout.AttitudeCenterY - scale.Height / 2f,
                 scale.Width,
                 scale.Height
             );
         }
 
-        // The bank pointer moves around the fixed roll scale but does not move
-        // vertically with pitch.
         if (_images.TryGetValue("md302_roll_index.png", out var index))
         {
             var state = g.Save();
-            g.TranslateTransform(_attitudeCenter.X, _attitudeCenter.Y);
+            g.TranslateTransform(
+                _layout.AttitudeCenterX,
+                _layout.AttitudeCenterY
+            );
             g.RotateTransform((float)rollDeg);
 
             const float pointerRadius = 126f;
@@ -129,35 +148,46 @@ internal sealed class AttitudeRenderer : IDisposable
         {
             g.DrawImage(
                 symbol,
-                _attitudeCenter.X - symbol.Width / 2f,
-                _attitudeCenter.Y - symbol.Height / 2f,
+                _layout.AttitudeCenterX - symbol.Width / 2f,
+                _layout.AttitudeCenterY - symbol.Height / 2f,
                 symbol.Width,
                 symbol.Height
             );
         }
+
+        g.Restore(clip);
     }
 
     public void DrawDebug(Graphics g, double pitchDeg, double rollDeg)
     {
+        if (!_layout.ShowDebug)
+            return;
+
+        var state = g.Save();
+        g.TranslateTransform(_layout.AttitudeX, _layout.AttitudeY);
+        g.ScaleTransform(_layout.AttitudeScale, _layout.AttitudeScale);
+
         using var pen = new Pen(Color.Lime, 1f);
         using var font = new Font("Segoe UI", 10f, FontStyle.Bold);
         using var brush = new SolidBrush(Color.Lime);
 
         g.DrawRectangle(
             pen,
-            _attitudeWindow.X,
-            _attitudeWindow.Y,
-            _attitudeWindow.Width,
-            _attitudeWindow.Height
+            0f,
+            0f,
+            _layout.AttitudeClipWidth,
+            _layout.AttitudeClipHeight
         );
 
         g.DrawString(
             $"PITCH {pitchDeg:+0.0;-0.0;0.0}°   ROLL {rollDeg:+0.0;-0.0;0.0}°",
             font,
             brush,
-            12f,
-            10f
+            4f,
+            4f
         );
+
+        g.Restore(state);
     }
 
     private void DrawCentered(Graphics g, string key)

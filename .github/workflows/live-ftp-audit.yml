@@ -1,0 +1,57 @@
+name: Audit live Simworx FTP
+
+on:
+  push:
+    paths:
+      - '.github/workflows/live-ftp-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Download live site files for inspection
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_PATH: ${{ secrets.FTP_PATH }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/live-audit
+          : "${FTP_HOST:=ftp.fasthosts.co.uk}"
+          : "${FTP_PATH:=/htdocs/}"
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<EOF
+          set ftp:ssl-allow true
+          set ssl:verify-certificate no
+          cd "$FTP_PATH"
+          lcd /tmp/live-audit
+          get index.html
+          mirror --verbose --parallel=4 assets assets
+          cls -la > /tmp/live-audit/REMOTE_ROOT_LISTING.txt
+          bye
+          EOF
+
+      - name: Publish audit snapshot branch
+        run: |
+          set -euo pipefail
+          git config user.name 'Simworx Live Audit'
+          git config user.email 'actions@users.noreply.github.com'
+          git checkout -B live-ftp-audit
+          rm -rf live-ftp-snapshot
+          mkdir live-ftp-snapshot
+          cp -a /tmp/live-audit/. live-ftp-snapshot/
+          git add live-ftp-snapshot
+          git commit -m 'Capture live Simworx FTP snapshot for image-load audit'
+          git push --force origin live-ftp-audit

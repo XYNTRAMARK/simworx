@@ -34,7 +34,11 @@ internal sealed class MainForm : Form
         Shown += (_, _) =>
         {
             LoadInstrumentImage();
-            _attitudeRenderer.Load(AppContext.BaseDirectory);
+            _attitudeRenderer.Load(
+                _resolvedAssetPath is null
+                    ? Path.Combine(AppContext.BaseDirectory, "assets")
+                    : Path.GetDirectoryName(_resolvedAssetPath) ?? Path.Combine(AppContext.BaseDirectory, "assets")
+            );
             Invalidate();
         };
 

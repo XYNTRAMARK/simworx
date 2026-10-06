@@ -5,7 +5,7 @@ namespace Simworx.MD302;
 internal sealed class MainForm : Form
 {
     private readonly AppConfig _config;
-    private readonly AttitudeRenderer _attitudeRenderer = new();
+    private readonly AttitudeRenderer _attitudeRenderer;
     private readonly System.Windows.Forms.Timer _animationTimer = new();
 
     private Image? _instrumentImage;
@@ -23,6 +23,7 @@ internal sealed class MainForm : Form
     public MainForm(AppConfig config)
     {
         _config = config;
+        _attitudeRenderer = new AttitudeRenderer(_config.Layout);
 
         Text = "Simworx MD302 - Stage 2";
         BackColor = Color.Black;
@@ -63,11 +64,12 @@ internal sealed class MainForm : Form
         Shown += (_, _) =>
         {
             LoadInstrumentImage();
-            _attitudeRenderer.Load(
-                _resolvedAssetPath is null
-                    ? Path.Combine(AppContext.BaseDirectory, "assets")
-                    : Path.GetDirectoryName(_resolvedAssetPath) ?? Path.Combine(AppContext.BaseDirectory, "assets")
-            );
+
+            var assetDir = _resolvedAssetPath is null
+                ? Path.Combine(AppContext.BaseDirectory, "assets")
+                : Path.GetDirectoryName(_resolvedAssetPath) ?? Path.Combine(AppContext.BaseDirectory, "assets");
+
+            _attitudeRenderer.Load(assetDir);
             _animationTimer.Start();
             Invalidate();
         };
@@ -126,8 +128,7 @@ internal sealed class MainForm : Form
 
     private static double ShortestAngleDelta(double from, double to)
     {
-        var delta = NormalizeRoll(to - from);
-        return delta;
+        return NormalizeRoll(to - from);
     }
 
     private static double NormalizeRoll(double value)
@@ -183,58 +184,37 @@ internal sealed class MainForm : Form
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         g.SmoothingMode = SmoothingMode.HighQuality;
 
-        if (_instrumentImage is null)
-        {
-            DrawMissingAssetMessage(g);
-            return;
-        }
-
         var client = ClientRectangle;
+        var canvasWidth = Math.Max(1, _config.Layout.CanvasWidth);
+        var canvasHeight = Math.Max(1, _config.Layout.CanvasHeight);
+
         var scale = Math.Min(
-            client.Width / (double)_instrumentImage.Width,
-            client.Height / (double)_instrumentImage.Height
+            client.Width / (double)canvasWidth,
+            client.Height / (double)canvasHeight
         );
 
-        var width = (int)Math.Round(_instrumentImage.Width * scale);
-        var height = (int)Math.Round(_instrumentImage.Height * scale);
+        var width = (int)Math.Round(canvasWidth * scale);
+        var height = (int)Math.Round(canvasHeight * scale);
         var x = (client.Width - width) / 2;
         var y = (client.Height - height) / 2;
-
         var viewport = new Rectangle(x, y, width, height);
 
-        g.DrawImage(_instrumentImage, viewport);
-
+        // Scale all instrument content into a configurable logical canvas.
         var state = g.Save();
         g.TranslateTransform(viewport.Left, viewport.Top);
         g.ScaleTransform(
-            viewport.Width / (float)_instrumentImage.Width,
-            viewport.Height / (float)_instrumentImage.Height
+            viewport.Width / (float)canvasWidth,
+            viewport.Height / (float)canvasHeight
         );
+
+        if (_config.Layout.ShowBezel && _instrumentImage is not null)
+        {
+            g.DrawImage(_instrumentImage, 0, 0, canvasWidth, canvasHeight);
+        }
 
         _attitudeRenderer.Draw(g, _pitchDeg, _rollDeg);
         _attitudeRenderer.DrawDebug(g, _pitchDeg, _rollDeg);
 
         g.Restore(state);
-    }
-
-    private void DrawMissingAssetMessage(Graphics g)
-    {
-        using var titleFont = new Font("Segoe UI", 24, FontStyle.Bold);
-        using var bodyFont = new Font("Segoe UI", 12, FontStyle.Regular);
-        using var white = new SolidBrush(Color.White);
-        using var grey = new SolidBrush(Color.LightGray);
-
-        var title = "SIMWORX MD302";
-        var body =
-            "Stage 2 renderer is running, but md302_popup_v.png was not found.\n\n" +
-            "Copy the Aerobask MD302 assets into the application's assets folder.\n\n" +
-            "Controls:\n" +
-            "Up / Down = pitch in 0.25° steps\n" +
-            "Left / Right = roll in 0.5° steps\n" +
-            "R or Home = reset attitude\n" +
-            "ESC = exit.";
-
-        g.DrawString(title, titleFont, white, new PointF(40, 40));
-        g.DrawString(body, bodyFont, grey, new RectangleF(40, 100, ClientSize.Width - 80, ClientSize.Height - 140));
     }
 }

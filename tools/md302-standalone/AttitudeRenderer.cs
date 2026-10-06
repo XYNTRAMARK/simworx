@@ -17,7 +17,7 @@ internal sealed class AttitudeRenderer : IDisposable
     // Large enough to cover the clipped attitude aperture at any bank angle.
     private const float HorizonCanvasSize = 560f;
 
-    public void Load(string baseDirectory)
+    public void Load(string assetDirectory)
     {
         Dispose();
 

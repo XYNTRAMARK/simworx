@@ -6,11 +6,16 @@ internal sealed class AttitudeRenderer : IDisposable
 {
     private readonly Dictionary<string, Image> _images = new(StringComparer.OrdinalIgnoreCase);
 
-    // Native horizontal-popup coordinates. These are isolated here so we can
-    // tune against the real Aerobask popup without touching the rest of the app.
-    private readonly RectangleF _attitudeWindow = new(82f, 52f, 302f, 276f);
-    private readonly PointF _attitudeCenter = new(233f, 190f);
-    private const float PitchPixelsPerDegree = 5.25f;
+    // Aerobask horizontal popup is 880x380. The attitude display occupies
+    // the 320x320 aperture on the right side.
+    private readonly RectangleF _attitudeWindow = new(480f, 30f, 320f, 320f);
+    private readonly PointF _attitudeCenter = new(640f, 190f);
+
+    // The ladder's major pitch groups are 32 px apart and represent 10 degrees.
+    private const float PitchPixelsPerDegree = 3.2f;
+
+    // Large enough to cover the clipped attitude aperture at any bank angle.
+    private const float HorizonCanvasSize = 560f;
 
     public void Load(string baseDirectory)
     {
@@ -40,31 +45,85 @@ internal sealed class AttitudeRenderer : IDisposable
 
     public bool HasCoreAssets =>
         _images.ContainsKey("md302_horizon.png") &&
-        _images.ContainsKey("md302_ladder.png");
+        _images.ContainsKey("md302_ladder.png") &&
+        _images.ContainsKey("md302_att_mask.png");
 
     public void Draw(Graphics g, double pitchDeg, double rollDeg)
     {
-        var movingState = g.Save();
+        DrawMovingAttitude(g, pitchDeg, rollDeg);
+        DrawFixedOverlays(g, rollDeg);
+    }
+
+    private void DrawMovingAttitude(Graphics g, double pitchDeg, double rollDeg)
+    {
+        var state = g.Save();
         g.SetClip(_attitudeWindow);
 
-        // Aircraft right wing down should make the horizon rotate left.
         g.TranslateTransform(_attitudeCenter.X, _attitudeCenter.Y);
+
+        // Aircraft right-wing-down makes the perceived horizon rotate left.
         g.RotateTransform((float)-rollDeg);
 
-        // Nose-up moves the apparent horizon downward.
+        // Nose-up makes the apparent horizon move down.
         g.TranslateTransform(0f, (float)(pitchDeg * PitchPixelsPerDegree));
 
-        DrawCentered(g, "md302_horizon.png");
+        if (_images.TryGetValue("md302_horizon.png", out var horizon))
+        {
+            // The supplied 16x128 horizon is a colour source strip. Stretching
+            // it preserves Aerobask's exact sky/ground colours while ensuring
+            // the horizon covers the aperture during large bank angles.
+            g.DrawImage(
+                horizon,
+                -HorizonCanvasSize / 2f,
+                -HorizonCanvasSize / 2f,
+                HorizonCanvasSize,
+                HorizonCanvasSize
+            );
+        }
+
         DrawCentered(g, "md302_ladder.png");
+        DrawCentered(g, "md302_hline.png");
         DrawCentered(g, "md302_chevrons.png");
 
-        g.Restore(movingState);
+        g.Restore(state);
+    }
 
-        // Fixed overlays remain aligned with the instrument body.
+    private void DrawFixedOverlays(Graphics g, double rollDeg)
+    {
+        // Mask is exactly the 320x320 attitude aperture.
         DrawAt(g, "md302_att_mask.png", _attitudeWindow.Left, _attitudeWindow.Top);
-        DrawAt(g, "md302_roll_scale.png", _attitudeWindow.Left, _attitudeWindow.Top);
-        DrawAt(g, "md302_roll_index.png", _attitudeWindow.Left, _attitudeWindow.Top);
-        DrawAt(g, "md302_hline.png", _attitudeWindow.Left, _attitudeWindow.Top);
+
+        // Roll scale is 240x240 and concentric with the attitude display.
+        if (_images.TryGetValue("md302_roll_scale.png", out var scale))
+        {
+            g.DrawImage(
+                scale,
+                _attitudeCenter.X - scale.Width / 2f,
+                _attitudeCenter.Y - scale.Height / 2f,
+                scale.Width,
+                scale.Height
+            );
+        }
+
+        // The bank pointer moves around the fixed roll scale but does not move
+        // vertically with pitch.
+        if (_images.TryGetValue("md302_roll_index.png", out var index))
+        {
+            var state = g.Save();
+            g.TranslateTransform(_attitudeCenter.X, _attitudeCenter.Y);
+            g.RotateTransform((float)rollDeg);
+
+            const float pointerRadius = 126f;
+            g.DrawImage(
+                index,
+                -index.Width / 2f,
+                -pointerRadius - index.Height / 2f,
+                index.Width,
+                index.Height
+            );
+
+            g.Restore(state);
+        }
 
         if (_images.TryGetValue("md302_symbol_trad.png", out var symbol))
         {

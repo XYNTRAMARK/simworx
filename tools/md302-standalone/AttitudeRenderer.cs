@@ -53,7 +53,7 @@ internal sealed class AttitudeRenderer : IDisposable
         g.ScaleTransform(_layout.AttitudeScale, _layout.AttitudeScale);
 
         DrawMovingAttitude(g, pitchDeg, rollDeg);
-        DrawFixedOverlays(g, rollDeg);
+        DrawFixedOverlays(g, pitchDeg, rollDeg);
 
         g.Restore(assembly);
     }
@@ -102,7 +102,7 @@ internal sealed class AttitudeRenderer : IDisposable
         g.Restore(state);
     }
 
-    private void DrawFixedOverlays(Graphics g, double rollDeg)
+    private void DrawFixedOverlays(Graphics g, double pitchDeg, double rollDeg)
     {
         var clip = g.Save();
         g.SetClip(new RectangleF(
@@ -147,7 +147,10 @@ internal sealed class AttitudeRenderer : IDisposable
             g.Restore(state);
         }
 
-        if (_images.TryGetValue("md302_symbol_trad.png", out var symbol))
+        // Normal-flight aircraft reference. During unusual pitch recovery,
+        // the chevron presentation replaces this cue rather than stacking on it.
+        if (Math.Abs(pitchDeg) < _layout.UnusualPitchChevronThreshold &&
+            _images.TryGetValue("md302_symbol_trad.png", out var symbol))
         {
             g.DrawImage(
                 symbol,

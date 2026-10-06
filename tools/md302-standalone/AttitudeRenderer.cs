@@ -33,7 +33,7 @@ internal sealed class AttitudeRenderer : IDisposable
             "md302_hline.png"
         })
         {
-            var path = Path.Combine(baseDirectory, "assets", file);
+            var path = Path.Combine(assetDirectory, file);
             if (!File.Exists(path))
                 continue;
 

@@ -93,7 +93,11 @@ internal sealed class AttitudeRenderer : IDisposable
 
         DrawCentered(g, "md302_ladder.png");
         DrawCentered(g, "md302_hline.png");
-        DrawCentered(g, "md302_chevrons.png");
+
+        // Recovery chevrons are an unusual-attitude cue, not a normal layer.
+        // The real MD302 shows them only beyond the configured pitch threshold.
+        if (Math.Abs(pitchDeg) >= _layout.UnusualPitchChevronThreshold)
+            DrawCentered(g, "md302_chevrons.png");
 
         g.Restore(state);
     }

@@ -64,9 +64,9 @@ internal sealed class AttitudeRenderer : IDisposable
 
         g.SetClip(new RectangleF(
             0f,
-            0f,
+            _layout.PitchWindowTop,
             _layout.AttitudeClipWidth,
-            _layout.AttitudeClipHeight
+            _layout.PitchWindowHeight
         ));
 
         g.TranslateTransform(
@@ -120,8 +120,8 @@ internal sealed class AttitudeRenderer : IDisposable
         {
             g.DrawImage(
                 scale,
-                _layout.AttitudeCenterX - scale.Width / 2f,
-                _layout.AttitudeCenterY - scale.Height / 2f,
+                _layout.RollScaleX,
+                _layout.RollScaleY,
                 scale.Width,
                 scale.Height
             );
@@ -131,16 +131,15 @@ internal sealed class AttitudeRenderer : IDisposable
         {
             var state = g.Save();
             g.TranslateTransform(
-                _layout.AttitudeCenterX,
-                _layout.AttitudeCenterY
+                _layout.RollCenterX,
+                _layout.RollCenterY
             );
             g.RotateTransform((float)rollDeg);
 
-            const float pointerRadius = 126f;
             g.DrawImage(
                 index,
                 -index.Width / 2f,
-                -pointerRadius - index.Height / 2f,
+                -_layout.RollPointerRadius - index.Height / 2f,
                 index.Width,
                 index.Height
             );

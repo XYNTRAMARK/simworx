@@ -1,0 +1,9 @@
+/* SIMWORX shared global footer */
+.sw-global-footer{background:#07090b;color:#c8cdd3;border-top:1px solid #24282d;font-family:Inter,"Segoe UI",Arial,sans-serif;padding:42px 0 20px}
+.sw-footer-shell{width:min(1240px,calc(100% - 42px));margin:0 auto}
+.sw-footer-grid{display:grid;grid-template-columns:1.65fr .85fr .85fr .8fr 1.15fr 1fr;gap:30px;align-items:start}
+.sw-footer-brandname{font-size:17px;line-height:1.2;color:#fff;font-weight:900;margin-bottom:10px}.sw-footer-desc{font-size:10px;line-height:1.6;color:#aeb5bd;margin:0 0 14px;max-width:280px}
+.sw-footer-company{font-size:10px;line-height:1.6;color:#c8cdd3}.sw-global-footer h4{margin:0 0 12px;color:#fff;font-size:10px;letter-spacing:.35px}.sw-global-footer a,.sw-cookie-settings-link{display:block;color:#c8cdd3;text-decoration:none;font-family:inherit;font-size:10px;line-height:1.8}.sw-global-footer a:hover,.sw-cookie-settings-link:hover{color:#f5b400}.sw-footer-contact a{font-size:11px;color:#fff}.sw-cookie-settings-link{appearance:none;background:none;border:0;margin:0;padding:0;cursor:pointer;text-align:left}.sw-footer-bottom{margin-top:28px;padding-top:16px;border-top:1px solid #24282d;display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap}.sw-footer-copy{font-size:9px;color:#8f979f;line-height:1.5}.sw-footer-trademark{max-width:720px;text-align:right;font-size:8.5px;line-height:1.5;color:#737c85}
+@media(max-width:1080px){.sw-footer-grid{grid-template-columns:1.5fr repeat(3,1fr)}.sw-footer-contact,.sw-footer-legal{margin-top:8px}.sw-footer-trademark{text-align:left}}
+@media(max-width:720px){.sw-global-footer{padding-top:34px}.sw-footer-shell{width:calc(100% - 32px)}.sw-footer-grid{grid-template-columns:1fr 1fr;gap:24px}.sw-footer-brand{grid-column:1/-1}.sw-footer-bottom{display:block}.sw-footer-trademark{margin-top:10px}}
+@media(max-width:440px){.sw-footer-grid{grid-template-columns:1fr}}

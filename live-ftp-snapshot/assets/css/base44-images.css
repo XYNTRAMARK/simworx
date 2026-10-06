@@ -1,0 +1,10 @@
+/* SIMWORX managed image loading — local fallback is always present */
+img[data-asset-key]{
+  background:#111418;
+  opacity:0;
+  transition:opacity .12s ease;
+  animation:simworxFailsafeReveal 0s 1.4s forwards;
+}
+img[data-asset-key].simworx-image-ready{opacity:1;animation:none}
+[data-asset-key][data-asset-target="backgroundImage"]{background-color:#111418;background-size:cover;background-position:center}
+@keyframes simworxFailsafeReveal{to{opacity:1}}

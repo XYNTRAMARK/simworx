@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+  <meta name="googlebot" content="noindex,nofollow,noarchive,nosnippet">
+  <title>Simworx Support Portal Admin Review</title>
+  <link rel="stylesheet" href="../assets/css/support-portal.css?v=20261006">
+  <style>
+    .review-note{padding:10px 14px;background:#fff7cc;border:1px solid #f3d766;font-size:12px;margin-bottom:16px}
+    .preview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .preview-card{background:#fff;border:1px solid #d9dde3;padding:18px;min-height:110px}
+    .preview-card strong{display:block;font-size:24px;margin-top:8px}
+    .preview-table{width:100%;border-collapse:collapse;background:#fff}.preview-table th,.preview-table td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:12px}
+    .preview-chat{display:grid;gap:10px}.bubble{max-width:72%;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid #d8dce2}.bubble.staff{margin-left:auto;background:#1d252d;color:#fff}
+    @media(max-width:800px){.preview-grid{grid-template-columns:1fr}.bubble{max-width:90%}}
+  </style>
+</head>
+<body class="portal-body">
+  <div id="portal-toast" class="portal-toast" aria-live="polite"></div>
+  <section id="pin-shell" class="pin-shell">
+    <div class="pin-card">
+      <div class="auth-brand"><span>SIMWOR</span><b>X</b><small>SUPPORT PORTAL</small></div>
+      <div class="pin-title">Enter admin PIN</div>
+      <p>Private Simworx support portal review.</p>
+      <form id="pin-form">
+        <input id="pin-input" class="pin-input" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required autofocus>
+        <button class="sp-btn primary full" type="submit">CONTINUE</button>
+      </form>
+      <div id="pin-error" class="auth-error hidden">Incorrect PIN.</div>
+    </div>
+  </section>
+  <div id="portal-app" class="portal-app hidden">
+    <aside class="portal-sidebar">
+      <a class="portal-logo" href="../index.html" aria-label="Simworx home"><span>SIMWOR</span><b>X</b><small>SUPPORT PORTAL</small></a>
+      <div class="portal-context"><span class="context-label">SUPPORT ACCOUNT</span><strong>Simworx Engineering</strong><small>Staff administration</small></div>
+      <nav id="portal-nav" class="portal-nav">
+        <button data-view="dashboard" class="active"><span>⌂</span>Dashboard</button>
+        <button data-view="requests"><span>◫</span>Support Requests</button>
+        <button data-view="my-requests"><span>◉</span>My Open Requests</button>
+        <button data-view="new-request"><span>＋</span>Log a Support Request</button>
+        <button data-view="history"><span>↺</span>History</button>
+        <button data-view="usage"><span>◔</span>Usage &amp; Upgrades</button>
+        <div class="nav-divider"></div>
+        <button data-view="company"><span>▤</span>Company Information</button>
+        <button data-view="contract"><span>▣</span>Support Contract</button>
+        <button data-view="downloads"><span>⇩</span>Downloads</button>
+        <button data-view="contact"><span>✉</span>Contact Us</button>
+        <button data-view="admin"><span>⚙</span>Admin</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="sidebar-slogan">TRAIN TODAY<br><strong>FLY TOMORROW</strong></div>
+        <button id="portal-signout" class="sidebar-signout" type="button">Lock portal</button>
+      </div>
+    </aside>
+    <div class="portal-workspace">
+      <header class="portal-topbar">
+        <button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-label="Open navigation">☰</button>
+        <div class="portal-heading"><strong>Customer Support Portal</strong><span>REAL PEOPLE. REAL SOLUTIONS. KEEPING YOU FLYING.</span></div>
+        <div class="topbar-actions">
+          <div class="topbar-clock"><span>◉</span><span id="portal-clock">—</span></div>
+          <div class="topbar-user"><div class="avatar">SW</div><div><strong>Simworx Admin</strong><small>Simworx Flight Simulators</small></div></div>
+        </div>
+      </header>
+      <main id="portal-main" class="portal-main" tabindex="-1"></main>
+    </div>
+  </div>
+  <script src="review.js?v=20261006"></script>
+</body>
+</html>

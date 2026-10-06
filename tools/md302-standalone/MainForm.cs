@@ -6,12 +6,19 @@ internal sealed class MainForm : Form
 {
     private readonly AppConfig _config;
     private readonly AttitudeRenderer _attitudeRenderer = new();
+    private readonly System.Windows.Forms.Timer _animationTimer = new();
 
     private Image? _instrumentImage;
     private string? _resolvedAssetPath;
 
     private double _pitchDeg;
     private double _rollDeg;
+    private double _targetPitchDeg;
+    private double _targetRollDeg;
+
+    private const double PitchClickStep = 0.25;
+    private const double RollClickStep = 0.50;
+    private const double SmoothingFactor = 0.22;
 
     public MainForm(AppConfig config)
     {
@@ -31,6 +38,28 @@ internal sealed class MainForm : Form
 
         KeyDown += HandleTestControls;
 
+        _animationTimer.Interval = 16; // about 60 Hz
+        _animationTimer.Tick += (_, _) =>
+        {
+            var previousPitch = _pitchDeg;
+            var previousRoll = _rollDeg;
+
+            _pitchDeg += (_targetPitchDeg - _pitchDeg) * SmoothingFactor;
+            _rollDeg = ApproachAngle(_rollDeg, _targetRollDeg, SmoothingFactor);
+
+            if (Math.Abs(_targetPitchDeg - _pitchDeg) < 0.001)
+                _pitchDeg = _targetPitchDeg;
+
+            if (Math.Abs(ShortestAngleDelta(_rollDeg, _targetRollDeg)) < 0.001)
+                _rollDeg = _targetRollDeg;
+
+            if (Math.Abs(previousPitch - _pitchDeg) > 0.0001 ||
+                Math.Abs(ShortestAngleDelta(previousRoll, _rollDeg)) > 0.0001)
+            {
+                Invalidate();
+            }
+        };
+
         Shown += (_, _) =>
         {
             LoadInstrumentImage();
@@ -39,11 +68,14 @@ internal sealed class MainForm : Form
                     ? Path.Combine(AppContext.BaseDirectory, "assets")
                     : Path.GetDirectoryName(_resolvedAssetPath) ?? Path.Combine(AppContext.BaseDirectory, "assets")
             );
+            _animationTimer.Start();
             Invalidate();
         };
 
         FormClosed += (_, _) =>
         {
+            _animationTimer.Stop();
+            _animationTimer.Dispose();
             _instrumentImage?.Dispose();
             _attitudeRenderer.Dispose();
         };
@@ -58,25 +90,25 @@ internal sealed class MainForm : Form
                 return;
 
             case Keys.Up:
-                _pitchDeg = Math.Clamp(_pitchDeg + 1.0, -90.0, 90.0);
+                _targetPitchDeg = Math.Clamp(_targetPitchDeg + PitchClickStep, -90.0, 90.0);
                 break;
 
             case Keys.Down:
-                _pitchDeg = Math.Clamp(_pitchDeg - 1.0, -90.0, 90.0);
+                _targetPitchDeg = Math.Clamp(_targetPitchDeg - PitchClickStep, -90.0, 90.0);
                 break;
 
             case Keys.Left:
-                _rollDeg = NormalizeRoll(_rollDeg - 2.0);
+                _targetRollDeg = NormalizeRoll(_targetRollDeg - RollClickStep);
                 break;
 
             case Keys.Right:
-                _rollDeg = NormalizeRoll(_rollDeg + 2.0);
+                _targetRollDeg = NormalizeRoll(_targetRollDeg + RollClickStep);
                 break;
 
             case Keys.R:
             case Keys.Home:
-                _pitchDeg = 0;
-                _rollDeg = 0;
+                _targetPitchDeg = 0;
+                _targetRollDeg = 0;
                 break;
 
             default:
@@ -84,6 +116,18 @@ internal sealed class MainForm : Form
         }
 
         Invalidate();
+    }
+
+    private static double ApproachAngle(double current, double target, double factor)
+    {
+        var delta = ShortestAngleDelta(current, target);
+        return NormalizeRoll(current + delta * factor);
+    }
+
+    private static double ShortestAngleDelta(double from, double to)
+    {
+        var delta = NormalizeRoll(to - from);
+        return delta;
     }
 
     private static double NormalizeRoll(double value)
@@ -113,7 +157,7 @@ internal sealed class MainForm : Form
         {
             _config.AssetPath,
             Path.Combine(baseDir, _config.AssetPath),
-            Path.Combine(baseDir, "assets", "md302_popup_h.png")
+            Path.Combine(baseDir, "assets", "md302_popup_v.png")
         };
 
         _resolvedAssetPath = candidates
@@ -158,10 +202,8 @@ internal sealed class MainForm : Form
 
         var viewport = new Rectangle(x, y, width, height);
 
-        // Fixed popup artwork remains the instrument body.
         g.DrawImage(_instrumentImage, viewport);
 
-        // Draw moving attitude layers in the popup's native coordinate system.
         var state = g.Save();
         g.TranslateTransform(viewport.Left, viewport.Top);
         g.ScaleTransform(
@@ -184,11 +226,11 @@ internal sealed class MainForm : Form
 
         var title = "SIMWORX MD302";
         var body =
-            "Stage 2 renderer is running, but md302_popup_h.png was not found.\n\n" +
+            "Stage 2 renderer is running, but md302_popup_v.png was not found.\n\n" +
             "Copy the Aerobask MD302 assets into the application's assets folder.\n\n" +
             "Controls:\n" +
-            "Up / Down = pitch\n" +
-            "Left / Right = roll\n" +
+            "Up / Down = pitch in 0.25° steps\n" +
+            "Left / Right = roll in 0.5° steps\n" +
             "R or Home = reset attitude\n" +
             "ESC = exit.";
 

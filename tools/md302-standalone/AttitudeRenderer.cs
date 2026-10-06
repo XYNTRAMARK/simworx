@@ -117,7 +117,7 @@ internal sealed class AttitudeRenderer : IDisposable
             (float)(pitchDeg * _layout.PitchPixelsPerDegree)
         );
 
-        DrawCentered(g, "md302_ladder.png");
+        DrawLimitedPitchLadder(g);
         DrawCentered(g, "md302_hline.png");
 
         if (Math.Abs(pitchDeg) >= _layout.UnusualPitchChevronThreshold)
@@ -218,6 +218,28 @@ internal sealed class AttitudeRenderer : IDisposable
         );
 
         g.Restore(state);
+    }
+
+    private void DrawLimitedPitchLadder(Graphics g)
+    {
+        if (!_images.TryGetValue("md302_ladder.png", out var ladder))
+            return;
+
+        // The supplied ladder is 132x528 and contains markings out to +/-80°.
+        // The real presentation we are matching only shows the +/-20° ladder.
+        // Source centre is at y=264. The +/-20° labels occupy approximately
+        // y=192..335, so crop slightly outside them while excluding +/-30°.
+        var source = new Rectangle(0, 188, ladder.Width, 152);
+
+        // Preserve the source scale around the ladder's zero-pitch centre.
+        var dest = new RectangleF(
+            -ladder.Width / 2f,
+            -76f,
+            ladder.Width,
+            152f
+        );
+
+        g.DrawImage(ladder, dest, source, GraphicsUnit.Pixel);
     }
 
     private void DrawCentered(Graphics g, string key)

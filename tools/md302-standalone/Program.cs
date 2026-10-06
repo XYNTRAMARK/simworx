@@ -18,11 +18,20 @@ internal sealed class LayoutConfig
     // Visible portion of the upper display. The heading strip will occupy
     // the space below this in the next stage.
     public float AttitudeClipWidth { get; set; } = 320f;
-    public float AttitudeClipHeight { get; set; } = 245f;
+    public float AttitudeClipHeight { get; set; } = 225f;
 
-    // Centre of rotation inside the 320 px-wide attitude artwork.
+    // Pitch/attitude geometry. Normal view deliberately shows roughly +/-20°.
+    public float PitchWindowTop { get; set; } = 38f;
+    public float PitchWindowHeight { get; set; } = 154f;
     public float AttitudeCenterX { get; set; } = 160f;
-    public float AttitudeCenterY { get; set; } = 122f;
+    public float AttitudeCenterY { get; set; } = 115f;
+
+    // Roll scale is independent from the pitch centre and pinned to the top.
+    public float RollScaleX { get; set; } = 40f;
+    public float RollScaleY { get; set; } = 0f;
+    public float RollCenterX { get; set; } = 160f;
+    public float RollCenterY { get; set; } = 120f;
+    public float RollPointerRadius { get; set; } = 108f;
 
     public float PitchPixelsPerDegree { get; set; } = 3.2f;
     public float UnusualPitchChevronThreshold { get; set; } = 45f;

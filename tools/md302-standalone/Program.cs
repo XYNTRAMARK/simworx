@@ -25,6 +25,7 @@ internal sealed class LayoutConfig
     public float AttitudeCenterY { get; set; } = 122f;
 
     public float PitchPixelsPerDegree { get; set; } = 3.2f;
+    public float UnusualPitchChevronThreshold { get; set; } = 45f;
 }
 
 internal sealed class AppConfig

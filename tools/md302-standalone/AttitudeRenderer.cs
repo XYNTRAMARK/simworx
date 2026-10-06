@@ -8,8 +8,8 @@ internal sealed class AttitudeRenderer : IDisposable
 
     // Aerobask horizontal popup is 880x380. The attitude display occupies
     // the 320x320 aperture on the right side.
-    private readonly RectangleF _attitudeWindow = new(480f, 30f, 320f, 320f);
-    private readonly PointF _attitudeCenter = new(640f, 190f);
+    private readonly RectangleF _attitudeWindow = new(30f, 30f, 320f, 320f);
+    private readonly PointF _attitudeCenter = new(190f, 190f);
 
     // The ladder's major pitch groups are 32 px apart and represent 10 degrees.
     private const float PitchPixelsPerDegree = 3.2f;

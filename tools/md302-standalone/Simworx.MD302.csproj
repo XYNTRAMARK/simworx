@@ -8,4 +8,11 @@
     <AssemblyName>SimworxMD302</AssemblyName>
     <RootNamespace>Simworx.MD302</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

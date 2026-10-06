@@ -60,20 +60,22 @@ internal sealed class AttitudeRenderer : IDisposable
 
     private void DrawMovingAttitude(Graphics g, double pitchDeg, double rollDeg)
     {
-        var state = g.Save();
+        // Pass 1: sky/ground background fills the ENTIRE upper display.
+        // It still moves for pitch and roll, but it must never be clipped to
+        // the smaller pitch-ladder window; otherwise black bands appear.
+        var backgroundState = g.Save();
 
         g.SetClip(new RectangleF(
             0f,
-            _layout.PitchWindowTop,
+            0f,
             _layout.AttitudeClipWidth,
-            _layout.PitchWindowHeight
+            _layout.AttitudeClipHeight
         ));
 
         g.TranslateTransform(
             _layout.AttitudeCenterX,
             _layout.AttitudeCenterY
         );
-
         g.RotateTransform((float)-rollDeg);
         g.TranslateTransform(
             0f,
@@ -91,15 +93,37 @@ internal sealed class AttitudeRenderer : IDisposable
             );
         }
 
+        g.Restore(backgroundState);
+
+        // Pass 2: pitch ladder is deliberately constrained to the centre band.
+        // This keeps the normal presentation around +20/-20 while the blue and
+        // brown background continue to the physical edges of the display.
+        var ladderState = g.Save();
+
+        g.SetClip(new RectangleF(
+            0f,
+            _layout.PitchWindowTop,
+            _layout.AttitudeClipWidth,
+            _layout.PitchWindowHeight
+        ));
+
+        g.TranslateTransform(
+            _layout.AttitudeCenterX,
+            _layout.AttitudeCenterY
+        );
+        g.RotateTransform((float)-rollDeg);
+        g.TranslateTransform(
+            0f,
+            (float)(pitchDeg * _layout.PitchPixelsPerDegree)
+        );
+
         DrawCentered(g, "md302_ladder.png");
         DrawCentered(g, "md302_hline.png");
 
-        // Recovery chevrons are an unusual-attitude cue, not a normal layer.
-        // The real MD302 shows them only beyond the configured pitch threshold.
         if (Math.Abs(pitchDeg) >= _layout.UnusualPitchChevronThreshold)
             DrawCentered(g, "md302_chevrons.png");
 
-        g.Restore(state);
+        g.Restore(ladderState);
     }
 
     private void DrawFixedOverlays(Graphics g, double pitchDeg, double rollDeg)

@@ -1,0 +1,165 @@
+/* Product page built to match the approved Simworx ecommerce mock-up. */
+.product-exact-page{background:#fff;color:#111;font-family:Inter,Segoe UI,Arial,sans-serif}
+.product-exact-page .site-header{height:62px;background:linear-gradient(90deg,#111,#050607);position:sticky;top:0;z-index:80;border-bottom:1px solid #202225}
+.product-exact-page .nav-wrap{max-width:1536px;padding:0 18px;gap:18px}
+.product-exact-page .brand{width:240px;min-width:240px}
+.product-exact-page .brand img{width:100%;height:auto}
+.product-exact-page .main-nav{gap:25px;margin-left:80px;justify-content:flex-start}
+.product-exact-page .main-nav a{font-size:13px;font-weight:850;letter-spacing:-.1px;border-bottom:2px solid transparent}
+.product-exact-page .main-nav a:hover,.product-exact-page .main-nav a.active{color:var(--accent);border-bottom-color:var(--accent)}
+.product-exact-page .nav-actions{margin-left:auto;gap:9px}
+.product-exact-page .nav-actions>span,.product-exact-page .talk{display:none}
+.product-exact-page .cart-link{display:flex;align-items:center;justify-content:center;width:46px;height:45px;color:#fff;position:relative}
+.product-exact-page .cart-link svg{width:30px;height:30px;stroke:currentColor;fill:none;stroke-width:1.8}
+.product-exact-page .cart-count{top:5px;right:0;background:var(--accent);color:#111;width:20px;height:20px;font-size:10px}
+.product-exact-page .commerce-hero{padding:0;background:linear-gradient(90deg,#282b2d,#202326);height:70px;border:0}
+.product-exact-page .commerce-benefits{height:70px;max-width:1265px;width:calc(100% - 110px);gap:90px;align-items:center}
+.product-exact-page .commerce-benefits>div{grid-template-columns:38px 1fr;column-gap:10px}
+.product-exact-page .commerce-benefits .benefit-icon{width:34px;height:34px;stroke:#fff;fill:none;stroke-width:1.7}
+.product-exact-page .commerce-benefits b{font-size:13px;color:#fff;line-height:1.1}
+.product-exact-page .commerce-benefits small{font-size:11px;color:#fff;line-height:1.35;margin-top:4px;display:block}
+.product-exact-page .product-page{padding:0 0 60px}
+.product-exact-page .product-page>.container{width:calc(100% - 70px);max-width:1466px}
+.product-exact-page .breadcrumbs{height:66px;display:flex;align-items:center;gap:11px;color:#41474d;font-size:12px;margin:0}
+.product-exact-page .breadcrumbs svg{width:17px;height:17px;stroke:#555c63;fill:none;stroke-width:1.7}
+.product-exact-page .breadcrumbs .slash{color:#9ca1a6}
+.product-exact-page .product-layout{display:grid;grid-template-columns:minmax(0,1.47fr) minmax(370px,.90fr) minmax(320px,.78fr);gap:40px;align-items:start}
+.product-exact-page .main-photo{height:auto;aspect-ratio:649/420;border-radius:4px;position:relative;overflow:hidden;background:#eee}
+.product-exact-page .main-photo img{width:100%;height:100%;object-fit:cover}
+.product-exact-page .built-badge{position:absolute;top:12px;left:12px;background:var(--accent);color:#111;font-size:11px;font-weight:900;padding:8px 11px;border-radius:2px;z-index:2}
+.product-exact-page .zoom-button{position:absolute;right:12px;bottom:12px;width:36px;height:36px;border:0;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.product-exact-page .zoom-button svg{width:17px;height:17px;stroke:#222;fill:none;stroke-width:2}
+.product-exact-page .thumbs{grid-template-columns:repeat(5,1fr);gap:10px;margin-top:19px}
+.product-exact-page .thumb{height:auto;aspect-ratio:1.18/1;border:1px solid #e1e4e6;border-radius:2px;background:#f4f4f4;padding:0;overflow:hidden;cursor:pointer}
+.product-exact-page .thumb.active{border:2px solid var(--accent)}
+.product-exact-page .thumb img{width:100%;height:100%;object-fit:cover}
+.product-exact-page .mini-info{margin-top:40px;border:1px solid #dfe2e5;border-radius:3px;display:grid;grid-template-columns:repeat(4,1fr);height:89px;background:#fff}
+.product-exact-page .mini-info>div{padding:14px 17px;border-right:1px solid #e3e5e7;display:flex;flex-direction:column;justify-content:center}
+.product-exact-page .mini-info>div:last-child{border-right:0}
+.product-exact-page .mini-info span{font-size:10px;color:#454b51;margin-bottom:5px}
+.product-exact-page .mini-info b{font-size:12px;color:#15181b;margin-bottom:5px}
+.product-exact-page .mini-info small{font-size:10px;line-height:1.25;color:#555b60}
+.product-exact-page .product-info{padding-top:2px}
+.product-exact-page .product-info h1{font-size:34px;line-height:1.05;margin:0 0 12px;font-weight:850;letter-spacing:-.7px}
+.product-exact-page .subtitle{font-size:12px;color:#3f4449;margin-bottom:16px}
+.product-exact-page .product-info .price{font-size:24px;color:var(--accent);font-weight:900;margin:0 0 8px}
+.product-exact-page .vatnote{font-size:10px;color:#555c62;border-bottom:1px solid #dfe2e4;padding-bottom:14px}
+.product-exact-page .vatnote .info-dot{display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;background:#aaa;color:white;font-size:9px;margin-left:5px}
+.product-exact-page .desc{font-size:12px;line-height:1.72;color:#23272b;margin:16px 0 18px}
+.product-exact-page .options h3{font-size:13px;margin:0 0 10px;font-weight:850}
+.product-exact-page .options h3.shipping-title{margin-top:24px}
+.product-exact-page .option{height:34px;padding:0 3px;border-bottom:1px solid #e2e4e6;gap:8px;font-size:11px;cursor:pointer}
+.product-exact-page .option input{width:17px;height:17px;margin:0;accent-color:var(--accent)}
+.product-exact-page .option .oprice{font-size:11px;font-weight:800}
+.product-exact-page .option .opt-info{width:15px;height:15px;border-radius:50%;border:1px solid #aab0b5;color:#777;display:inline-grid;place-items:center;font-size:9px;margin-left:1px}
+.product-exact-page aside{padding-top:0}
+.product-exact-page .summary-card{position:sticky;top:83px;border:1px solid #dfe2e4;border-radius:3px;padding:20px 21px 19px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.025)}
+.product-exact-page .summary-head{display:flex;align-items:end;justify-content:space-between;border-bottom:1px solid #dfe2e4;padding-bottom:16px;margin-bottom:10px}
+.product-exact-page .summary-card h3{font-size:12px;margin:0 0 7px;font-weight:900}
+.product-exact-page #selected-count{font-size:11px;color:#333}
+.product-exact-page .summary-details{font-size:10px;color:#555;white-space:nowrap}
+.product-exact-page .summary-details:after{content:'⌄';font-size:15px;margin-left:7px}
+.product-exact-page .sumrow{font-size:12px;padding:7px 0}
+.product-exact-page .sumrow.total{font-size:16px;border-top:1px solid #dfe2e4;border-bottom:1px solid #dfe2e4;padding:13px 0;margin-top:4px;margin-bottom:10px}
+.product-exact-page .sumrow.total span:last-child{color:var(--accent)}
+.product-exact-page .availability{padding:5px 0 12px;font-size:11px;line-height:1.55;color:#202428}
+.product-exact-page .availability .available-line{display:flex;gap:8px;align-items:center;margin-bottom:3px}
+.product-exact-page .availability .check-circle{width:16px;height:16px;border:1.6px solid #27a75a;border-radius:50%;color:#27a75a;font-size:11px;display:grid;place-items:center;font-weight:800}
+.product-exact-page .availability b{color:#171a1d}
+.product-exact-page .availability small{display:block;margin-left:24px;font-size:10px;color:#383e43}
+.product-exact-page .summary-card .btn{height:46px;width:100%;margin:0 0 10px;border-radius:2px;font-size:13px;font-weight:850}
+.product-exact-page .summary-card .btn.accent{background:var(--accent);color:#111}
+.product-exact-page .summary-card .btn.dark{background:#111;color:#fff}
+.product-exact-page .stripe-note{text-align:center;font-size:9.5px;color:#565c61;margin:1px 0 0}
+.product-exact-page .custom-box{border:1px solid #e0e2e4;border-radius:3px;margin-top:19px;padding:19px 22px 0;text-align:center;overflow:hidden;background:#fff}
+.product-exact-page .custom-box h3{font-size:16px;margin:0 0 8px}
+.product-exact-page .custom-box p{font-size:11px;line-height:1.55;margin:0 0 15px}
+.product-exact-page .custom-box .btn{height:39px;width:100%;border:1px solid var(--accent);color:#9a6a00;font-size:11px;background:#fff;margin-bottom:20px}
+.product-exact-page .side-benefits{margin:0 -22px;border-top:1px solid #e4e6e8;background:#fafafa;text-align:left;padding:15px 21px}
+.product-exact-page .side-benefits div{height:31px;display:flex;align-items:center;gap:10px;font-size:10px;color:#333}
+.product-exact-page .side-benefits svg{width:17px;height:17px;stroke:#555d64;fill:none;stroke-width:1.7}
+.product-exact-page .product-tabs{margin-top:52px;border:1px solid #dfe2e4;border-radius:3px;overflow:hidden}
+.product-exact-page .tabbar{height:49px;background:#fff;display:flex;border-bottom:1px solid #dfe2e4}
+.product-exact-page .tabbar button{padding:0 26px;height:49px;font-size:10px;color:#363b40;background:#fff;border:0;border-bottom:3px solid transparent;font-weight:850;white-space:nowrap}
+.product-exact-page .tabbar button.active{border-bottom-color:var(--accent);color:#111}
+.product-exact-page .tabpane{padding:27px 30px}
+.product-exact-page .tabpane-grid{grid-template-columns:.95fr 1.35fr;gap:45px}
+.product-exact-page .tabpane h3{font-size:12px;margin:0 0 10px}
+.product-exact-page .tabpane p,.product-exact-page .tabpane li{font-size:11px;line-height:1.7;color:#363c42}
+.product-exact-page .feature-panel{background:#f4f5f6;border-radius:3px;padding:19px 23px}
+.product-exact-page .feature-panel ul{list-style:none;padding:0;margin:10px 0 0}
+.product-exact-page .feature-panel li{position:relative;padding-left:23px;margin:7px 0}
+.product-exact-page .feature-panel li:before{content:'✓';position:absolute;left:0;top:0;color:#333;font-weight:800}
+.product-exact-page .footer{margin-top:55px}
+@media(max-width:1450px){
+ .product-exact-page .main-nav{gap:15px;margin-left:20px}.product-exact-page .main-nav a{font-size:10px}.product-exact-page .brand{width:205px;min-width:205px}
+ .product-exact-page .commerce-benefits{gap:35px}.product-exact-page .product-layout{grid-template-columns:1.35fr .88fr .72fr;gap:26px}
+}
+@media(max-width:1100px){
+ .product-exact-page .nav-toggle{display:block}.product-exact-page .main-nav{display:none;margin-left:0}.product-exact-page .nav-actions{display:flex}
+ .product-exact-page .product-layout{grid-template-columns:1fr 1fr}.product-exact-page aside{grid-column:1/3}.product-exact-page .summary-card{position:static}
+ .product-exact-page .commerce-benefits{width:calc(100% - 40px);gap:18px}.product-exact-page .commerce-benefits small{font-size:9px}
+}
+@media(max-width:760px){
+ .product-exact-page .product-page>.container{width:calc(100% - 28px)}.product-exact-page .commerce-hero{height:auto}.product-exact-page .commerce-benefits{height:auto;padding:13px 0;grid-template-columns:1fr 1fr}
+ .product-exact-page .product-layout{grid-template-columns:1fr;gap:25px}.product-exact-page aside{grid-column:auto}.product-exact-page .mini-info{grid-template-columns:1fr 1fr;height:auto}.product-exact-page .mini-info>div:nth-child(2){border-right:0}
+ .product-exact-page .product-info h1{font-size:29px}.product-exact-page .tabbar{overflow-x:auto}.product-exact-page .tabpane-grid{grid-template-columns:1fr}
+}
+
+/* Fix ecommerce benefits strip text alignment: inner copy must not inherit the outer item grid. */
+.product-exact-page .commerce-benefits>div>div{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:3px;
+  min-width:0;
+}
+.product-exact-page .commerce-benefits>div>div b,
+.product-exact-page .commerce-benefits>div>div small{
+  width:auto;
+  margin:0;
+}
+.product-exact-page .commerce-benefits>div>div b{
+  white-space:nowrap;
+}
+.product-exact-page .commerce-benefits>div>div small{
+  white-space:nowrap;
+}
+
+
+/* V3.2 — correct approved ecommerce benefit strip alignment */
+.product-exact-page .commerce-benefits>div{display:grid;grid-template-columns:38px minmax(0,1fr);column-gap:12px;align-items:center}
+.product-exact-page .commerce-benefits>div>div{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;min-width:0}
+.product-exact-page .commerce-benefits>div>div b{display:block!important;margin:0;white-space:normal}
+.product-exact-page .commerce-benefits>div>div small{display:block!important;margin-top:4px;white-space:normal}
+
+
+/* V4 — A320 component configurator */
+.product-exact-page .from-label{font-size:10px;letter-spacing:.8px;color:#777;margin-right:5px;vertical-align:middle}
+.product-exact-page .configurator-options h3{padding-top:8px;margin-top:20px;border-top:1px solid #eceef0}
+.product-exact-page .configurator-options h3:first-child{border-top:0;padding-top:0}
+.product-exact-page .option>span:nth-child(2){display:flex;flex-direction:column;min-width:0}
+.product-exact-page .option>span:nth-child(2) b{font-size:11px;line-height:1.35}
+.product-exact-page .option>span:nth-child(2) small{font-size:9.5px;line-height:1.45;color:#71777d;margin-top:2px}
+.product-exact-page .package-option{padding:11px 0}
+.product-exact-page .package-option input,.product-exact-page .option input[type=radio]{width:15px;height:15px;flex:0 0 auto}
+.product-exact-page .group-note{font-size:10px;line-height:1.55;color:#697078;background:#f6f7f8;padding:9px 11px;border-left:3px solid var(--accent);margin:5px 0 7px}
+.product-exact-page .quote-option .oprice{color:#8b6a0a;font-size:9.5px;letter-spacing:.3px}
+.product-exact-page .option-detail{margin:-1px 0 5px 24px;padding:10px 11px;background:#f6f7f8;border:1px solid #e3e6e8;display:none}
+.product-exact-page .option-detail.visible{display:block}
+.product-exact-page .option-detail label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:10px;font-weight:800}
+.product-exact-page .option-detail select{min-width:190px;border:1px solid #ccd0d4;background:#fff;padding:7px 9px;font-size:10px}
+.product-exact-page .shipping-message{margin-top:15px;padding:12px 13px;border:1px solid #e1e4e6;background:#fafafa;display:flex;flex-direction:column;gap:3px}
+.product-exact-page .shipping-message b{font-size:10px}.product-exact-page .shipping-message span{font-size:9.5px;line-height:1.45;color:#666d73}
+.product-exact-page .summary-details{border:0;background:transparent;padding:0;cursor:pointer;font-family:inherit}
+.product-exact-page .selected-details{display:none;border-bottom:1px solid #e1e3e5;padding:0 0 10px;margin-bottom:5px}
+.product-exact-page .selected-details.open{display:block}
+.product-exact-page .selected-detail-row{display:flex;justify-content:space-between;gap:12px;font-size:9.5px;line-height:1.4;padding:4px 0;color:#50565c}
+.product-exact-page .selected-detail-row span:first-child{max-width:72%}
+.product-exact-page .selected-detail-row .quote-text{color:#8b6a0a;font-weight:800}
+.product-exact-page .quote-warning{background:#fff8df;border:1px solid #efd782;padding:10px 11px;margin:8px 0 10px;display:flex;flex-direction:column;gap:4px}
+.product-exact-page .quote-warning[hidden]{display:none}
+.product-exact-page .quote-warning b{font-size:10px;color:#5e4a0b}.product-exact-page .quote-warning span{font-size:9px;line-height:1.45;color:#70601f}
+.product-exact-page .btn.checkout-disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:760px){.product-exact-page .option-detail{margin-left:0}.product-exact-page .option-detail label{align-items:flex-start;flex-direction:column}.product-exact-page .option-detail select{width:100%}}

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Simworx Support Portal</title>
+  <link rel="stylesheet" href="assets/css/support-portal.css?v=20261005">
+</head>
+<body class="portal-body">
+  <div id="portal-toast" class="portal-toast" aria-live="polite"></div>
+
+  <section id="auth-shell" class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-brand"><span>SIMWOR</span><b>X</b><small>SUPPORT PORTAL</small></div>
+      <div class="auth-kicker">Customer & Engineering Support</div>
+      <h1>Secure support access</h1>
+      <p class="auth-copy">Sign in to open support requests, exchange images and video, arrange remote sessions and track your contracted support allowance.</p>
+      <form id="login-form" class="auth-form">
+        <label>Email<input id="login-email" type="email" autocomplete="email" required></label>
+        <label>Password<input id="login-password" type="password" autocomplete="current-password" required></label>
+        <button class="sp-btn primary full" type="submit">SIGN IN</button>
+      </form>
+      <div class="auth-actions">
+        <button id="show-signup" class="link-button" type="button">First time here? Create account</button>
+        <button id="forgot-password" class="link-button" type="button">Forgot password?</button>
+      </div>
+      <form id="signup-form" class="auth-form hidden">
+        <label>Full name<input id="signup-name" type="text" autocomplete="name" required></label>
+        <label>Email<input id="signup-email" type="email" autocomplete="email" required></label>
+        <label>Password<input id="signup-password" type="password" minlength="8" autocomplete="new-password" required></label>
+        <button class="sp-btn primary full" type="submit">CREATE ACCOUNT</button>
+        <button id="show-login" class="sp-btn ghost full" type="button">BACK TO SIGN IN</button>
+        <p class="micro-copy">Customer accounts require a Simworx invitation. Simworx staff can be invited by an administrator.</p>
+      </form>
+      <div id="auth-error" class="auth-error hidden"></div>
+    </div>
+    <div class="auth-visual">
+      <div class="auth-visual-overlay">
+        <div class="eyebrow">SIMWORX ENGINEERING SUPPORT</div>
+        <h2>One technical record.<br>Every interaction accounted for.</h2>
+        <div class="auth-feature-grid">
+          <div><strong>CHAT</strong><span>Conversation-led support history</span></div>
+          <div><strong>REMOTE</strong><span>Dial-in sessions with time capture</span></div>
+          <div><strong>MEDIA</strong><span>Secure image & video evidence</span></div>
+          <div><strong>USAGE</strong><span>Live contract allowance tracking</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pin-shell" class="pin-shell hidden">
+    <div class="pin-card">
+      <div class="auth-brand"><span>SIMWOR</span><b>X</b><small>SUPPORT PORTAL</small></div>
+      <div id="pin-title" class="pin-title">Enter portal PIN</div>
+      <p id="pin-copy">Your support records are protected by an additional PIN.</p>
+      <form id="pin-form">
+        <input id="pin-input" class="pin-input" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" required>
+        <button class="sp-btn primary full" type="submit">CONTINUE</button>
+      </form>
+      <button id="signout-pin" class="link-button" type="button">Sign out</button>
+      <div id="pin-error" class="auth-error hidden"></div>
+    </div>
+  </section>
+
+  <div id="portal-app" class="portal-app hidden">
+    <aside class="portal-sidebar">
+      <a class="portal-logo" href="index.html" aria-label="Simworx home">
+        <span>SIMWOR</span><b>X</b><small>SUPPORT PORTAL</small>
+      </a>
+      <div class="portal-context hidden">
+        <span class="context-label">SUPPORT ACCOUNT</span>
+        <strong id="sidebar-company">Loading…</strong>
+        <small id="sidebar-contract">—</small>
+      </div>
+      <nav id="portal-nav" class="portal-nav">
+        <button data-view="dashboard" class="active"><span>⌂</span>Dashboard</button>
+        <button data-view="requests"><span>◫</span>Support Requests</button>
+        <button data-view="my-requests"><span>◉</span>My Open Requests</button>
+        <button data-view="new-request"><span>＋</span>Log a Support Request</button>
+        <button data-view="history"><span>↺</span>History</button>
+        <button data-view="usage"><span>◔</span>Usage & Upgrades</button>
+        <div class="nav-divider"></div>
+        <button data-view="company"><span>▤</span>Company Information</button>
+        <button data-view="contract"><span>▣</span>Support Contract</button>
+        <button data-view="downloads"><span>⇩</span>Downloads</button>
+        <button data-view="contact"><span>✉</span>Contact Us</button>
+        <button id="admin-nav" data-view="admin" class="hidden"><span>⚙</span>Admin</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="sidebar-slogan">TRAIN TODAY<br><strong>FLY TOMORROW</strong></div>
+        <button id="portal-signout" class="sidebar-signout" type="button">Sign out</button>
+      </div>
+    </aside>
+
+    <div class="portal-workspace">
+      <header class="portal-topbar">
+        <button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-label="Open navigation">☰</button>
+        <div class="portal-heading">
+          <strong>Customer Support Portal</strong>
+          <span>REAL PEOPLE. REAL SOLUTIONS. KEEPING YOU FLYING.</span>
+        </div>
+        <div class="topbar-actions">
+          <div class="topbar-clock"><span>◉</span><span id="portal-clock">—</span></div>
+          <div class="topbar-user">
+            <div id="user-avatar" class="avatar">SW</div>
+            <div><strong id="sidebar-user-name">User</strong><small id="topbar-company">Simworx Support</small><span id="sidebar-user-role" class="hidden">Customer</span></div>
+          </div>
+          <button id="refresh-portal" class="icon-button dark-icon" type="button" title="Refresh">↻</button>
+        </div>
+        <span id="topbar-breadcrumb" class="hidden">SUPPORT PORTAL</span>
+        <span id="topbar-title" class="hidden">Dashboard</span>
+      </header>
+      <main id="portal-main" class="portal-main" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <div id="modal-root"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/support-config.js?v=20261005"></script>
+  <script src="assets/js/support-core.js?v=20261005"></script>
+  <script src="assets/js/support-portal.js?v=20261005"></script>
+</body>
+</html>

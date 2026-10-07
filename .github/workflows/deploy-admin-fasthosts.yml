@@ -1,0 +1,134 @@
+name: Deploy Simworx Admin Only
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'admin/**'
+      - '.github/workflows/deploy-admin-fasthosts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: simworx-admin-production
+  cancel-in-progress: false
+
+jobs:
+  backup-and-deploy:
+    name: Backup live site then deploy /admin only
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install FTP client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Record live homepage before deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 30 -H 'Cache-Control: no-cache'             "https://sim-worx.com/?predeploy=${GITHUB_SHA}" -o /tmp/home-before.html
+          sha256sum /tmp/home-before.html | awk '{print $1}' > /tmp/home-before.sha256
+          test -s /tmp/home-before.html
+
+      - name: Backup complete live /htdocs
+        shell: bash
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/simworx-live-backup
+
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP'
+          set cmd:fail-exit true
+          set net:max-retries 2
+          set net:timeout 20
+          set ftp:ssl-allow no
+          mirror --verbose /htdocs /tmp/simworx-live-backup
+          bye
+          LFTP
+
+          test -f /tmp/simworx-live-backup/index.html
+          test -s /tmp/simworx-live-backup/index.html
+          tar -C /tmp -czf /tmp/simworx-live-before-admin-deploy.tar.gz simworx-live-backup
+          test -s /tmp/simworx-live-before-admin-deploy.tar.gz
+
+      - name: Preserve verified production backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: simworx-live-backup-${{ github.sha }}
+          path: /tmp/simworx-live-before-admin-deploy.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Prepare admin-only payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f admin/index.html
+          test -f admin/review.js
+          test -f admin/support-portal.css
+          printf '%s\n' "$GITHUB_SHA" > admin/deploy-proof.txt
+          find admin -maxdepth 2 -type f -print
+
+      - name: Upload ONLY /htdocs/admin
+        shell: bash
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP'
+          set cmd:fail-exit true
+          set net:max-retries 2
+          set net:timeout 20
+          set ftp:ssl-allow no
+          mkdir -p /htdocs/admin
+          mirror -R --verbose --no-perms --no-umask ./admin /htdocs/admin
+          bye
+          LFTP
+
+      - name: Verify exact live admin deployment and unchanged homepage
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for attempt in $(seq 1 12); do
+            if LIVE_SHA=$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache'               "https://sim-worx.com/admin/deploy-proof.txt?verify=${GITHUB_SHA}" 2>/dev/null); then
+              if [ "$LIVE_SHA" = "$GITHUB_SHA" ]; then
+                curl -fsSL --max-time 20 -H 'Cache-Control: no-cache'                   "https://sim-worx.com/admin/?verify=${GITHUB_SHA}" -o /tmp/admin-live.html
+                grep -qi '<html' /tmp/admin-live.html
+
+                curl -fsSL --max-time 30 -H 'Cache-Control: no-cache'                   "https://sim-worx.com/?postdeploy=${GITHUB_SHA}" -o /tmp/home-after.html
+                BEFORE=$(cat /tmp/home-before.sha256)
+                AFTER=$(sha256sum /tmp/home-after.html | awk '{print $1}')
+
+                if [ "$BEFORE" != "$AFTER" ]; then
+                  echo "ERROR: Public homepage changed during admin-only deployment." >&2
+                  exit 1
+                fi
+
+                echo "Verified exact /admin deployment commit: $GITHUB_SHA"
+                echo "Verified public homepage unchanged."
+                exit 0
+              fi
+            fi
+
+            echo "Attempt $attempt: live admin marker not yet visible."
+            sleep 10
+          done
+
+          echo "ERROR: /admin deployment could not be proven on the live site." >&2
+          exit 1

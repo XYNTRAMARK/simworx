@@ -8,9 +8,6 @@ internal sealed class MainForm : Form
     private readonly AttitudeRenderer _attitudeRenderer;
     private readonly System.Windows.Forms.Timer _animationTimer = new();
 
-    private Image? _instrumentImage;
-    private string? _resolvedAssetPath;
-
     private double _pitchDeg;
     private double _rollDeg;
     private double _targetPitchDeg;
@@ -39,7 +36,7 @@ internal sealed class MainForm : Form
 
         KeyDown += HandleTestControls;
 
-        _animationTimer.Interval = 16; // about 60 Hz
+        _animationTimer.Interval = 16;
         _animationTimer.Tick += (_, _) =>
         {
             var previousPitch = _pitchDeg;
@@ -56,20 +53,11 @@ internal sealed class MainForm : Form
 
             if (Math.Abs(previousPitch - _pitchDeg) > 0.0001 ||
                 Math.Abs(ShortestAngleDelta(previousRoll, _rollDeg)) > 0.0001)
-            {
                 Invalidate();
-            }
         };
 
         Shown += (_, _) =>
         {
-            LoadInstrumentImage();
-
-            var assetDir = _resolvedAssetPath is null
-                ? Path.Combine(AppContext.BaseDirectory, "assets")
-                : Path.GetDirectoryName(_resolvedAssetPath) ?? Path.Combine(AppContext.BaseDirectory, "assets");
-
-            _attitudeRenderer.Load(assetDir);
             _animationTimer.Start();
             Invalidate();
         };
@@ -78,7 +66,6 @@ internal sealed class MainForm : Form
         {
             _animationTimer.Stop();
             _animationTimer.Dispose();
-            _instrumentImage?.Dispose();
             _attitudeRenderer.Dispose();
         };
     }
@@ -90,29 +77,23 @@ internal sealed class MainForm : Form
             case Keys.Escape:
                 Close();
                 return;
-
             case Keys.Up:
                 _targetPitchDeg = Math.Clamp(_targetPitchDeg + PitchClickStep, -90.0, 90.0);
                 break;
-
             case Keys.Down:
                 _targetPitchDeg = Math.Clamp(_targetPitchDeg - PitchClickStep, -90.0, 90.0);
                 break;
-
             case Keys.Left:
                 _targetRollDeg = NormalizeRoll(_targetRollDeg - RollClickStep);
                 break;
-
             case Keys.Right:
                 _targetRollDeg = NormalizeRoll(_targetRollDeg + RollClickStep);
                 break;
-
             case Keys.R:
             case Keys.Home:
                 _targetPitchDeg = 0;
                 _targetRollDeg = 0;
                 break;
-
             default:
                 return;
         }
@@ -148,31 +129,6 @@ internal sealed class MainForm : Form
         WindowState = FormWindowState.Normal;
     }
 
-    private void LoadInstrumentImage()
-    {
-        _instrumentImage?.Dispose();
-        _instrumentImage = null;
-
-        var baseDir = AppContext.BaseDirectory;
-        var candidates = new[]
-        {
-            _config.AssetPath,
-            Path.Combine(baseDir, _config.AssetPath),
-            Path.Combine(baseDir, "assets", "md302_popup_v.png")
-        };
-
-        _resolvedAssetPath = candidates
-            .Select(Path.GetFullPath)
-            .FirstOrDefault(File.Exists);
-
-        if (_resolvedAssetPath is null)
-            return;
-
-        using var fs = new FileStream(_resolvedAssetPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var temp = Image.FromStream(fs);
-        _instrumentImage = new Bitmap(temp);
-    }
-
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
@@ -199,18 +155,12 @@ internal sealed class MainForm : Form
         var y = (client.Height - height) / 2;
         var viewport = new Rectangle(x, y, width, height);
 
-        // Scale all instrument content into a configurable logical canvas.
         var state = g.Save();
         g.TranslateTransform(viewport.Left, viewport.Top);
         g.ScaleTransform(
             viewport.Width / (float)canvasWidth,
             viewport.Height / (float)canvasHeight
         );
-
-        if (_config.Layout.ShowBezel && _instrumentImage is not null)
-        {
-            g.DrawImage(_instrumentImage, 0, 0, canvasWidth, canvasHeight);
-        }
 
         _attitudeRenderer.Draw(g, _pitchDeg, _rollDeg);
         _attitudeRenderer.DrawDebug(g, _pitchDeg, _rollDeg);

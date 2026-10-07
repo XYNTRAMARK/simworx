@@ -1,10 +1,11 @@
-name: Deploy Simworx Admin Only
+name: Deploy Simworx Portal Areas
 
 on:
   push:
     branches: [main]
     paths:
       - 'admin/**'
+      - 'portal/**'
       - '.github/workflows/deploy-admin-fasthosts.yml'
   workflow_dispatch:
 
@@ -13,12 +14,12 @@ permissions:
   actions: write
 
 concurrency:
-  group: simworx-admin-production
+  group: simworx-portal-production
   cancel-in-progress: false
 
 jobs:
   backup-and-deploy:
-    name: Backup live site then deploy /admin only
+    name: Backup live site then deploy /admin and /portal only
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -71,7 +72,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Prepare admin-only payload
+      - name: Prepare portal-only payload
         shell: bash
         run: |
           set -euo pipefail
@@ -81,7 +82,7 @@ jobs:
           printf '%s\n' "$GITHUB_SHA" > admin/deploy-proof.txt
           find admin -maxdepth 2 -type f -print
 
-      - name: Upload ONLY /htdocs/admin
+      - name: Upload ONLY /htdocs/admin and /htdocs/portal
         shell: bash
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
@@ -96,10 +97,11 @@ jobs:
           set net:timeout 20
           set ftp:ssl-allow no
           mirror -R --verbose --no-perms --no-umask ./admin /htdocs/admin
+          mirror -R --verbose --no-perms --no-umask ./portal /htdocs/portal
           bye
           LFTP
 
-      - name: Verify exact live admin deployment and unchanged homepage
+      - name: Verify exact live portal deployments and unchanged homepage
         shell: bash
         run: |
           set -euo pipefail
@@ -107,8 +109,12 @@ jobs:
           for attempt in $(seq 1 12); do
             if LIVE_SHA=$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache'               "https://sim-worx.com/admin/deploy-proof.txt?verify=${GITHUB_SHA}" 2>/dev/null); then
               if [ "$LIVE_SHA" = "$GITHUB_SHA" ]; then
-                curl -fsSL --max-time 20 -H 'Cache-Control: no-cache'                   "https://sim-worx.com/admin/?verify=${GITHUB_SHA}" -o /tmp/admin-live.html
+                PORTAL_SHA=$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://sim-worx.com/portal/deploy-proof.txt?verify=${GITHUB_SHA}" 2>/dev/null || true)
+                [ "$PORTAL_SHA" = "$GITHUB_SHA" ] || { echo "Portal marker mismatch"; sleep 10; continue; }
+                curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://sim-worx.com/admin/?verify=${GITHUB_SHA}" -o /tmp/admin-live.html
+                curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://sim-worx.com/portal/?verify=${GITHUB_SHA}" -o /tmp/portal-live.html
                 grep -qi '<html' /tmp/admin-live.html
+                grep -qi '<html' /tmp/portal-live.html
 
                 curl -fsSL --max-time 30 -H 'Cache-Control: no-cache'                   "https://sim-worx.com/?postdeploy=${GITHUB_SHA}" -o /tmp/home-after.html
                 BEFORE=$(cat /tmp/home-before.sha256)
@@ -119,7 +125,7 @@ jobs:
                   exit 1
                 fi
 
-                echo "Verified exact /admin deployment commit: $GITHUB_SHA"
+                echo "Verified exact /admin and /portal deployment commit: $GITHUB_SHA"
                 echo "Verified public homepage unchanged."
                 exit 0
               fi
@@ -129,5 +135,5 @@ jobs:
             sleep 10
           done
 
-          echo "ERROR: /admin deployment could not be proven on the live site." >&2
+          echo "ERROR: portal deployment could not be proven on the live site." >&2
           exit 1

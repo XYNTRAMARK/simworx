@@ -4,196 +4,187 @@ namespace Simworx.MD302;
 
 internal sealed class AttitudeRenderer : IDisposable
 {
-    private readonly Dictionary<string, Image> _images = new(StringComparer.OrdinalIgnoreCase);
     private readonly LayoutConfig _layout;
 
-    private const float HorizonCanvasSize = 560f;
+    private static readonly Color Sky = Color.FromArgb(0x2E, 0xA5, 0xF5);
+    private static readonly Color Ground = Color.FromArgb(0x9A, 0x59, 0x2E);
+    private static readonly Color Amber = Color.FromArgb(0xFF, 0x9E, 0x00);
+    private static readonly Color Red = Color.FromArgb(0xFF, 0x21, 0x21);
 
     public AttitudeRenderer(LayoutConfig layout)
     {
         _layout = layout;
     }
 
-    public void Load(string assetDirectory)
-    {
-        Dispose();
-
-        foreach (var file in new[]
-        {
-            "md302_horizon.png",
-            "md302_ladder.png",
-            "md302_att_mask.png",
-            "md302_roll_scale.png",
-            "md302_roll_index.png",
-            "md302_symbol_trad.png",
-            "md302_chevrons.png",
-            "md302_hline.png"
-        })
-        {
-            var path = Path.Combine(assetDirectory, file);
-            if (!File.Exists(path))
-                continue;
-
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var source = Image.FromStream(stream);
-            _images[file] = new Bitmap(source);
-        }
-    }
-
-    public bool HasCoreAssets =>
-        _images.ContainsKey("md302_horizon.png") &&
-        _images.ContainsKey("md302_ladder.png") &&
-        _images.ContainsKey("md302_att_mask.png");
+    public void Load(string assetDirectory) { }
 
     public void Draw(Graphics g, double pitchDeg, double rollDeg)
     {
         var assembly = g.Save();
-
         g.TranslateTransform(_layout.AttitudeX, _layout.AttitudeY);
         g.ScaleTransform(_layout.AttitudeScale, _layout.AttitudeScale);
 
-        DrawMovingAttitude(g, pitchDeg, rollDeg);
-        DrawFixedOverlays(g, pitchDeg, rollDeg);
+        DrawBackground(g, pitchDeg, rollDeg);
+        DrawPitchLadder(g, pitchDeg, rollDeg);
+        DrawRollScale(g, rollDeg);
+        DrawAircraftSymbol(g, pitchDeg);
 
         g.Restore(assembly);
     }
 
-    private void DrawMovingAttitude(Graphics g, double pitchDeg, double rollDeg)
+    private void DrawBackground(Graphics g, double pitchDeg, double rollDeg)
     {
-        // Pass 1: sky/ground background fills the ENTIRE upper display.
-        // It still moves for pitch and roll, but it must never be clipped to
-        // the smaller pitch-ladder window; otherwise black bands appear.
-        var backgroundState = g.Save();
+        var s = g.Save();
+        g.SetClip(new RectangleF(0, 0, _layout.AttitudeClipWidth, _layout.AttitudeClipHeight));
 
-        g.SetClip(new RectangleF(
-            0f,
-            0f,
-            _layout.AttitudeClipWidth,
-            _layout.AttitudeClipHeight
-        ));
-
-        g.TranslateTransform(
-            _layout.AttitudeCenterX,
-            _layout.AttitudeCenterY
-        );
+        g.TranslateTransform(_layout.AttitudeCenterX, _layout.AttitudeCenterY);
         g.RotateTransform((float)-rollDeg);
-        g.TranslateTransform(
-            0f,
-            (float)(pitchDeg * _layout.PitchPixelsPerDegree)
-        );
+        g.TranslateTransform(0, (float)(pitchDeg * _layout.PitchPixelsPerDegree));
 
-        if (_images.TryGetValue("md302_horizon.png", out var horizon))
-        {
-            g.DrawImage(
-                horizon,
-                -HorizonCanvasSize / 2f,
-                -HorizonCanvasSize / 2f,
-                HorizonCanvasSize,
-                HorizonCanvasSize
-            );
-        }
+        using var skyBrush = new SolidBrush(Sky);
+        using var groundBrush = new SolidBrush(Ground);
+        using var horizonPen = new Pen(Color.White, 2f);
 
-        g.Restore(backgroundState);
+        g.FillRectangle(skyBrush, -900, -900, 1800, 900);
+        g.FillRectangle(groundBrush, -900, 0, 1800, 900);
+        g.DrawLine(horizonPen, -900, 0, 900, 0);
 
-        // Pass 2: pitch ladder is deliberately constrained to the centre band.
-        // This keeps the normal presentation around +20/-20 while the blue and
-        // brown background continue to the physical edges of the display.
-        var ladderState = g.Save();
+        g.Restore(s);
+    }
+
+    private void DrawPitchLadder(Graphics g, double pitchDeg, double rollDeg)
+    {
+        var s = g.Save();
 
         g.SetClip(new RectangleF(
-            0f,
+            0,
             _layout.PitchWindowTop,
             _layout.AttitudeClipWidth,
             _layout.PitchWindowHeight
         ));
 
-        g.TranslateTransform(
-            _layout.AttitudeCenterX,
-            _layout.AttitudeCenterY
-        );
+        g.TranslateTransform(_layout.AttitudeCenterX, _layout.AttitudeCenterY);
         g.RotateTransform((float)-rollDeg);
-        g.TranslateTransform(
-            0f,
-            (float)(pitchDeg * _layout.PitchPixelsPerDegree)
-        );
+        g.TranslateTransform(0, (float)(pitchDeg * _layout.PitchPixelsPerDegree));
 
-        DrawCentered(g, "md302_ladder.png");
-        DrawCentered(g, "md302_hline.png");
+        using var pen = new Pen(Color.White, 2f);
+        using var font = new Font("Segoe UI", 8f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var brush = new SolidBrush(Color.White);
+        using var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 
-        if (Math.Abs(pitchDeg) >= _layout.UnusualPitchChevronThreshold)
-            DrawCentered(g, "md302_chevrons.png");
+        for (int deg = -90; deg <= 90; deg += 5)
+        {
+            if (deg == 0) continue;
 
-        g.Restore(ladderState);
+            var y = (float)(-deg * _layout.PitchPixelsPerDegree);
+            var major = deg % 10 == 0;
+            var halfWidth = major ? 34f : 18f;
+
+            g.DrawLine(pen, -halfWidth, y, halfWidth, y);
+
+            if (major)
+            {
+                var label = Math.Abs(deg).ToString();
+                g.DrawString(label, font, brush, new RectangleF(-64, y - 7, 24, 14), fmt);
+                g.DrawString(label, font, brush, new RectangleF(40, y - 7, 24, 14), fmt);
+            }
+        }
+
+        g.Restore(s);
     }
 
-    private void DrawFixedOverlays(Graphics g, double pitchDeg, double rollDeg)
+    private void DrawRollScale(Graphics g, double rollDeg)
     {
-        var clip = g.Save();
-        g.SetClip(new RectangleF(
-            0f,
-            0f,
-            _layout.AttitudeClipWidth,
-            _layout.AttitudeClipHeight
-        ));
+        var s = g.Save();
 
-        // Keep the Aerobask mask aligned to the 320-wide display but crop its
-        // lower portion so the heading presentation can occupy the bottom.
-        DrawAt(g, "md302_att_mask.png", 0f, 0f);
+        g.TranslateTransform(_layout.RollCenterX, _layout.RollCenterY);
 
-        if (_images.TryGetValue("md302_roll_scale.png", out var scale))
+        using var scalePen = new Pen(Color.White, 2f);
+        using var indexPen = new Pen(Color.White, 3f);
+        using var whiteBrush = new SolidBrush(Color.White);
+
+        foreach (var angle in new[] { -60f, -45f, -30f, -20f, -10f, 0f, 10f, 20f, 30f, 45f, 60f })
         {
-            g.DrawImage(
-                scale,
-                _layout.RollScaleX,
-                _layout.RollScaleY,
-                scale.Width,
-                scale.Height
-            );
+            var rad = (angle - 90f) * MathF.PI / 180f;
+            var outer = 108f;
+            var inner = angle == 0 ? 94f : 98f;
+
+            var x1 = MathF.Cos(rad) * inner;
+            var y1 = MathF.Sin(rad) * inner;
+            var x2 = MathF.Cos(rad) * outer;
+            var y2 = MathF.Sin(rad) * outer;
+
+            g.DrawLine(scalePen, x1, y1, x2, y2);
         }
 
-        if (_images.TryGetValue("md302_roll_index.png", out var index))
+        // Fixed top triangle.
+        PointF[] topTriangle =
         {
-            var state = g.Save();
-            g.TranslateTransform(
-                _layout.RollCenterX,
-                _layout.RollCenterY
-            );
-            g.RotateTransform((float)rollDeg);
+            new(-6f, -112f),
+            new(6f, -112f),
+            new(0f, -101f)
+        };
+        g.FillPolygon(whiteBrush, topTriangle);
 
-            g.DrawImage(
-                index,
-                -index.Width / 2f,
-                -_layout.RollPointerRadius - index.Height / 2f,
-                index.Width,
-                index.Height
-            );
+        // Moving bank pointer: deliberately inset so the tips do not touch.
+        var p = g.Save();
+        g.RotateTransform((float)rollDeg);
+        var r = _layout.RollPointerRadius;
+        PointF[] pointer =
+        {
+            new(-6f, -r + 10f),
+            new(6f, -r + 10f),
+            new(0f, -r)
+        };
+        g.FillPolygon(whiteBrush, pointer);
+        g.Restore(p);
 
-            g.Restore(state);
+        g.Restore(s);
+    }
+
+    private void DrawAircraftSymbol(Graphics g, double pitchDeg)
+    {
+        var s = g.Save();
+        g.TranslateTransform(_layout.AttitudeCenterX, _layout.AttitudeCenterY);
+
+        if (Math.Abs(pitchDeg) < _layout.UnusualPitchChevronThreshold)
+        {
+            using var pen = new Pen(Amber, 5f)
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round
+            };
+
+            g.DrawLine(pen, -48, 0, -14, 0);
+            g.DrawLine(pen, 14, 0, 48, 0);
+            g.DrawLine(pen, -14, 0, 0, 8);
+            g.DrawLine(pen, 0, 8, 14, 0);
+            g.DrawLine(pen, -48, 0, -48, 10);
+            g.DrawLine(pen, 48, 0, 48, 10);
+        }
+        else
+        {
+            using var pen = new Pen(Red, 5f)
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round
+            };
+
+            var direction = pitchDeg > 0 ? 1f : -1f;
+            g.DrawLine(pen, -42, -10 * direction, -12, 10 * direction);
+            g.DrawLine(pen, -12, 10 * direction, 0, -2 * direction);
+            g.DrawLine(pen, 0, -2 * direction, 12, 10 * direction);
+            g.DrawLine(pen, 12, 10 * direction, 42, -10 * direction);
         }
 
-        // Normal-flight aircraft reference. During unusual pitch recovery,
-        // the chevron presentation replaces this cue rather than stacking on it.
-        if (Math.Abs(pitchDeg) < _layout.UnusualPitchChevronThreshold &&
-            _images.TryGetValue("md302_symbol_trad.png", out var symbol))
-        {
-            g.DrawImage(
-                symbol,
-                _layout.AttitudeCenterX - symbol.Width / 2f,
-                _layout.AttitudeCenterY - symbol.Height / 2f,
-                symbol.Width,
-                symbol.Height
-            );
-        }
-
-        g.Restore(clip);
+        g.Restore(s);
     }
 
     public void DrawDebug(Graphics g, double pitchDeg, double rollDeg)
     {
-        if (!_layout.ShowDebug)
-            return;
+        if (!_layout.ShowDebug) return;
 
-        var state = g.Save();
+        var s = g.Save();
         g.TranslateTransform(_layout.AttitudeX, _layout.AttitudeY);
         g.ScaleTransform(_layout.AttitudeScale, _layout.AttitudeScale);
 
@@ -201,52 +192,11 @@ internal sealed class AttitudeRenderer : IDisposable
         using var font = new Font("Segoe UI", 10f, FontStyle.Bold);
         using var brush = new SolidBrush(Color.Lime);
 
-        g.DrawRectangle(
-            pen,
-            0f,
-            0f,
-            _layout.AttitudeClipWidth,
-            _layout.AttitudeClipHeight
-        );
+        g.DrawRectangle(pen, 0, 0, _layout.AttitudeClipWidth, _layout.AttitudeClipHeight);
+        g.DrawString($"PITCH {pitchDeg:+0.0;-0.0;0.0}°  ROLL {rollDeg:+0.0;-0.0;0.0}°", font, brush, 4, 4);
 
-        g.DrawString(
-            $"PITCH {pitchDeg:+0.0;-0.0;0.0}°   ROLL {rollDeg:+0.0;-0.0;0.0}°",
-            font,
-            brush,
-            4f,
-            4f
-        );
-
-        g.Restore(state);
+        g.Restore(s);
     }
 
-    private void DrawCentered(Graphics g, string key)
-    {
-        if (!_images.TryGetValue(key, out var image))
-            return;
-
-        g.DrawImage(
-            image,
-            -image.Width / 2f,
-            -image.Height / 2f,
-            image.Width,
-            image.Height
-        );
-    }
-
-    private void DrawAt(Graphics g, string key, float x, float y)
-    {
-        if (!_images.TryGetValue(key, out var image))
-            return;
-
-        g.DrawImage(image, x, y, image.Width, image.Height);
-    }
-
-    public void Dispose()
-    {
-        foreach (var image in _images.Values)
-            image.Dispose();
-
-        _images.Clear();
-    }
+    public void Dispose() { }
 }

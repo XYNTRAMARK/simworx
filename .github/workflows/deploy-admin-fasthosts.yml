@@ -95,7 +95,6 @@ jobs:
           set net:max-retries 2
           set net:timeout 20
           set ftp:ssl-allow no
-          mkdir -p /htdocs/admin
           mirror -R --verbose --no-perms --no-umask ./admin /htdocs/admin
           bye
           LFTP

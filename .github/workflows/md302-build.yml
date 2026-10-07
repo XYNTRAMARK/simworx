@@ -31,19 +31,20 @@ jobs:
       - name: Build
         run: dotnet build tools/md302-standalone/Simworx.MD302.csproj -c Release --no-restore
 
-      - name: Publish compact Windows x64 build
+      - name: Publish single-file Windows x64 test build
         run: >
           dotnet publish tools/md302-standalone/Simworx.MD302.csproj
           -c Release
           -r win-x64
           --self-contained false
+          /p:PublishSingleFile=true
           /p:DebugType=None
           /p:DebugSymbols=false
-          -o artifacts/MD302-compact
+          -o artifacts/MD302-single
 
-      - name: Upload compact MD302 Stage 2 artifact
+      - name: Upload single MD302 executable
         uses: actions/upload-artifact@v4
         with:
-          name: MD302_Stage2_Compact
-          path: artifacts/MD302-compact/**
+          name: SimworxMD302_Stage2_SingleFile
+          path: artifacts/MD302-single/SimworxMD302.exe
           if-no-files-found: error

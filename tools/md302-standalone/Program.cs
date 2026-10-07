@@ -21,8 +21,8 @@ internal sealed class LayoutConfig
     public float AttitudeClipHeight { get; set; } = 320f;
 
     // Pitch/attitude geometry. Normal view deliberately shows roughly +/-20°.
-    public float PitchWindowTop { get; set; } = 42f;
-    public float PitchWindowHeight { get; set; } = 170f;
+    public float PitchWindowTop { get; set; } = 51f;
+    public float PitchWindowHeight { get; set; } = 128f;
     public float AttitudeCenterX { get; set; } = 160f;
     public float AttitudeCenterY { get; set; } = 115f;
 

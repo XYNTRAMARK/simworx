@@ -34,8 +34,6 @@ document.getElementById('backBuilds').onclick=builds;
 document.getElementById('updateForm').onsubmit=async e=>{e.preventDefault();try{const v=document.getElementById('upProgress').value;await api('create_update',{build_id:id,company_id:b.company_id,title:document.getElementById('upTitle').value,body:document.getElementById('upBody').value,progress_percent:v===''?null:+v});toast('Build update published');buildDetail(id)}catch(err){toast(err.message)}};
 document.getElementById('mileForm').onsubmit=async e=>{e.preventDefault();try{await api('create_milestone',{build_id:id,company_id:b.company_id,title:document.getElementById('mileTitle').value,target_date:document.getElementById('mileDate').value||null});toast('Milestone added');buildDetail(id)}catch(err){toast(err.message)}};
 document.getElementById('issueForm').onsubmit=async e=>{e.preventDefault();try{await api('create_issue',{build_id:id,company_id:b.company_id,title:document.getElementById('issueTitle').value,description:document.getElementById('issueDesc').value,severity:document.getElementById('issueSeverity').value});toast('Issue logged');buildDetail(id)}catch(err){toast(err.message)}};}
-if(pin)unlock();
-})();
 async function editCustomer(c){
   if(!c)return;
   content.innerHTML=`<button id="backCustomers" class="btn ghost">← Back</button><h1>Edit Customer</h1>
@@ -170,3 +168,6 @@ async function editSimulator(c,s){
     }catch(err){toast(err.message)}
   };
 }
+
+if(pin)unlock();
+})();

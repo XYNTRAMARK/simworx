@@ -10,7 +10,26 @@ function setup(profile){
  document.getElementById('setupForm').onsubmit=async e=>{e.preventDefault();const m=document.getElementById('suMsg'),p=document.getElementById('suPass').value,p2=document.getElementById('suPass2').value;if(p!==p2){m.textContent='Passwords do not match.';return}const {error:a}=await sb.auth.updateUser({password:p});if(a){m.textContent=a.message;return}const {error:b}=await sb.from('profiles').update({username:document.getElementById('suUser').value.trim(),full_name:document.getElementById('suName').value.trim(),account_setup_complete:true}).eq('id',me.id);if(b){m.textContent=b.message;return}history.replaceState({},document.title,'/portal/');boot()};
 }
 async function boot(){const {data:{session}}=await sb.auth.getSession();if(!session){login.classList.remove('hidden');app.classList.add('hidden');return}me=session.user;const {data:p}=await sb.from('profiles').select('id,email,full_name,username,account_setup_complete').eq('id',me.id).maybeSingle();const recovery=location.hash.includes('type=recovery')||location.search.includes('recovery=1');if(recovery||!p?.account_setup_complete)return setup(p);const {data:links}=await sb.from('company_users').select('*,companies(id,legal_name,trading_name)').eq('user_id',me.id).eq('active',true);if(!links?.length){await sb.auth.signOut();return alert('No active Simworx client access is assigned to this account.')}companyLinks=links;login.classList.add('hidden');app.classList.remove('hidden');document.getElementById('who').textContent=p.username;render()}
-document.getElementById('loginForm').onsubmit=async e=>{e.preventDefault();const id=document.getElementById('identifier').value.trim(),pw=document.getElementById('password').value,msg=document.getElementById('loginMsg');msg.textContent='Signing in...';const r=await fetch(URL+'/functions/v1/client-password-login',{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY},body:JSON.stringify({identifier:id,password:pw})});const o=await r.json();if(!r.ok){msg.textContent=o.error||'Invalid username or password';return}const {error}=await sb.auth.setSession({access_token:o.access_token,refresh_token:o.refresh_token});if(error){msg.textContent=error.message;return}boot()};
+document.getElementById('loginForm').onsubmit=async e=>{
+  e.preventDefault();
+  const id=document.getElementById('identifier').value.trim();
+  const pw=document.getElementById('password').value;
+  const msg=document.getElementById('loginMsg');
+  msg.textContent='Signing in...';
+  try{
+    const invokePromise=sb.functions.invoke('client-password-login',{body:{identifier:id,password:pw}});
+    const timeoutPromise=new Promise((_,reject)=>setTimeout(()=>reject(new Error('Login service timed out. Please try again.')),12000));
+    const {data,error}=await Promise.race([invokePromise,timeoutPromise]);
+    if(error) throw error;
+    if(!data?.access_token||!data?.refresh_token) throw new Error(data?.error||'Login failed');
+    const {error:setError}=await sb.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token});
+    if(setError) throw setError;
+    msg.textContent='';
+    await boot();
+  }catch(err){
+    msg.textContent=err?.message||'Login failed';
+  }
+};
 document.getElementById('forgotPassword').onclick=async()=>{const email=prompt('Enter your registered email address:');if(!email)return;const {error}=await sb.auth.resetPasswordForEmail(email.trim(),{redirectTo:'https://sim-worx.com/portal/'});document.getElementById('loginMsg').textContent=error?error.message:'Password reset email sent.'};
 document.getElementById('signout').onclick=async()=>{await sb.auth.signOut();location.reload()};
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');view=b.dataset.view;render()});

@@ -28,6 +28,8 @@ internal sealed class AttitudeRenderer : IDisposable
         DrawPitchLadder(g, pitchDeg, rollDeg);
         DrawRollScale(g, rollDeg);
         DrawAircraftSymbol(g, pitchDeg);
+        DrawSlipIndicator(g);
+        DrawHeadingScale(g);
 
         g.Restore(assembly);
     }
@@ -187,6 +189,54 @@ internal sealed class AttitudeRenderer : IDisposable
         }
 
         g.Restore(s);
+    }
+
+    private void DrawSlipIndicator(Graphics g)
+    {
+        var y = 292f;
+        using var backing = new SolidBrush(Color.FromArgb(210, 0, 0, 0));
+        using var whiteBrush = new SolidBrush(Color.White);
+        using var whitePen = new Pen(Color.White, 2f);
+
+        var x = _layout.AttitudeCenterX;
+        g.FillRectangle(backing, x - 42f, y - 10f, 84f, 20f);
+        g.DrawLine(whitePen, x - 14f, y - 7f, x - 14f, y + 7f);
+        g.DrawLine(whitePen, x + 14f, y - 7f, x + 14f, y + 7f);
+        g.FillEllipse(whiteBrush, x - 5f, y - 5f, 10f, 10f);
+    }
+
+    private void DrawHeadingScale(Graphics g)
+    {
+        var yTop = 350f;
+        var yBottom = _layout.AttitudeClipHeight;
+        using var groundBrush = new SolidBrush(Ground);
+        using var whiteBrush = new SolidBrush(Color.White);
+        using var darkBrush = new SolidBrush(Color.FromArgb(25, 25, 25));
+        using var whitePen = new Pen(Color.White, 2f);
+        using var font = new Font("Segoe UI", 12f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var headingFont = new Font("Segoe UI", 18f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+
+        g.FillRectangle(groundBrush, 0, yTop, _layout.AttitudeClipWidth, yBottom - yTop);
+
+        var center = _layout.AttitudeCenterX;
+        for (int i = -4; i <= 4; i++)
+        {
+            var x = center + i * 28f;
+            var major = i % 3 == 0;
+            var h = major ? 18f : 11f;
+            g.DrawLine(whitePen, x, yTop + 7f, x, yTop + 7f + h);
+        }
+
+        g.DrawString("30", font, whiteBrush, new RectangleF(2, yTop + 38f, 34, 18), fmt);
+        g.DrawString("33", font, whiteBrush, new RectangleF(54, yTop + 38f, 34, 18), fmt);
+        g.DrawString("N", font, whiteBrush, new RectangleF(_layout.AttitudeClipWidth - 92, yTop + 38f, 30, 18), fmt);
+        g.DrawString("3", font, whiteBrush, new RectangleF(_layout.AttitudeClipWidth - 36, yTop + 38f, 28, 18), fmt);
+
+        var box = new RectangleF(center - 32f, yTop + 30f, 64f, 30f);
+        g.FillRectangle(darkBrush, box);
+        g.DrawRectangle(whitePen, box.X, box.Y, box.Width, box.Height);
+        g.DrawString("345", headingFont, whiteBrush, box, fmt);
     }
 
     public void DrawDebug(Graphics g, double pitchDeg, double rollDeg)

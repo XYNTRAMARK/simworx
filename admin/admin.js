@@ -596,6 +596,9 @@
     const selectedCompany = editing?.company_id || contractCompanyFilter || companies[0]?.id || '';
     const selectedProjects = new Set(editing ? links.filter((link) => link.contract_id === editing.id).map((link) => link.project_id) : []);
     const initialPreset = editing ? null : TIER_PRESETS.Basic;
+    const selectedTier = editing?.tier_name || initialPreset?.tier || 'Basic';
+    const tierOptions = Object.keys(TIER_PRESETS);
+    if (selectedTier && !tierOptions.includes(selectedTier)) tierOptions.push(selectedTier);
 
     content.innerHTML = `
       <h1>Support Contracts</h1>
@@ -604,7 +607,7 @@
         <div class="panel"><h3>${editing ? 'Edit contract' : 'Create support contract'}</h3><form id="contractForm" class="stack">
           <input id="contractId" type="hidden" value="${editing?.id || ''}">
           <label>Customer<select id="contractCompany" required>${companies.map((company) => `<option value="${company.id}" ${company.id === selectedCompany ? 'selected' : ''}>${esc(company.trading_name || company.legal_name)}</option>`).join('')}</select></label>
-          <label>Support level<input id="contractTier" list="supportTierOptions" value="${esc(editing?.tier_name || initialPreset?.tier || 'Basic')}" required><datalist id="supportTierOptions"><option value="Basic"><option value="Standard"><option value="Premium"><option value="Pay As You Go"></datalist></label>
+          <label>Support level<select id="contractTier" required>${tierOptions.map((tier) => `<option value="${esc(tier)}" ${tier === selectedTier ? 'selected' : ''}>${esc(tier)}</option>`).join('')}</select></label>
           <button id="applyTierDefaults" type="button" class="btn ghost">APPLY LEVEL DEFAULTS</button>
           <label>Contract title<input id="contractTitle" value="${esc(editing?.title || initialPreset?.title || '')}" required></label>
           <label>Response priority<input id="contractResponse" value="${esc(editing?.response_priority || initialPreset?.responsePriority || '')}"></label>

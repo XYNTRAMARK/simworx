@@ -17,20 +17,20 @@ internal sealed class LayoutConfig
 
     // Visible portion of the upper display. The heading strip will occupy
     // the space below this in the next stage.
-    public float AttitudeClipWidth { get; set; } = 320f;
-    public float AttitudeClipHeight { get; set; } = 320f;
+    public float AttitudeClipWidth { get; set; } = 340f;
+    public float AttitudeClipHeight { get; set; } = 426f;
 
     // Pitch/attitude geometry. Normal view deliberately shows roughly +/-20°.
-    public float PitchWindowTop { get; set; } = 51f;
-    public float PitchWindowHeight { get; set; } = 128f;
-    public float AttitudeCenterX { get; set; } = 160f;
-    public float AttitudeCenterY { get; set; } = 115f;
+    public float PitchWindowTop { get; set; } = 105f;
+    public float PitchWindowHeight { get; set; } = 140f;
+    public float AttitudeCenterX { get; set; } = 170f;
+    public float AttitudeCenterY { get; set; } = 175f;
 
     // Roll scale is independent from the pitch centre and pinned to the top.
     public float RollScaleX { get; set; } = 40f;
     public float RollScaleY { get; set; } = 0f;
-    public float RollCenterX { get; set; } = 160f;
-    public float RollCenterY { get; set; } = 120f;
+    public float RollCenterX { get; set; } = 170f;
+    public float RollCenterY { get; set; } = 168f;
     public float RollPointerRadius { get; set; } = 79f;
 
     public float PitchPixelsPerDegree { get; set; } = 3.2f;

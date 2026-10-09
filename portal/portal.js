@@ -41,6 +41,45 @@
     .replace(/\s+/g, '_')
     .slice(-140) || 'file';
 
+  const formatMinutes = (minutes) => {
+    const value = Math.max(0, Math.round(Number(minutes || 0)));
+    const hours = Math.floor(value / 60);
+    const remainder = value % 60;
+    if (!hours) return `${remainder}m`;
+    return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+  };
+
+  const formatMoney = (value, currency = 'EUR') => {
+    try {
+      return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'EUR' }).format(Number(value || 0));
+    } catch {
+      return `${currency || 'EUR'} ${Number(value || 0).toFixed(2)}`;
+    }
+  };
+
+  async function loadUsageMap(contractIds) {
+    const entries = await Promise.all([...new Set(contractIds.filter(Boolean))].map(async (contractId) => {
+      const { data, error } = await sb.rpc('support_contract_usage', { p_contract: contractId, p_when: new Date().toISOString() });
+      if (error) return [contractId, null];
+      return [contractId, Array.isArray(data) ? data[0] || null : data];
+    }));
+    return new Map(entries);
+  }
+
+  const usageCardHtml = (usage) => {
+    if (!usage) return '<p class="muted">Usage is not available yet.</p>';
+    const included = Number(usage.included_minutes || 0);
+    const used = Number(usage.used_minutes || 0);
+    const progress = included > 0 ? Math.min(100, Math.round((used / included) * 100)) : (used > 0 ? 100 : 0);
+    return `
+      <div>
+        <div style="display:flex;justify-content:space-between;gap:12px"><strong>${formatMinutes(used)} used</strong><span>${included ? `${formatMinutes(included)} included` : 'Pay as you go'}</span></div>
+        <div style="height:8px;background:#e8ecef;border-radius:9px;overflow:hidden;margin:8px 0"><div style="height:100%;width:${progress}%;background:${Number(usage.overage_minutes || 0) > 0 ? '#b83b3b' : '#f2a900'}"></div></div>
+        <div class="muted">Remaining ${formatMinutes(usage.remaining_minutes)} · Overage ${formatMinutes(usage.overage_minutes)}</div>
+        <p><strong>Estimated bill if the period ended now: ${formatMoney(usage.estimated_total, usage.currency)}</strong><br><span class="muted">Monthly fee ${formatMoney(usage.monthly_fee, usage.currency)} + overage ${formatMoney(usage.overage_amount, usage.currency)}</span></p>
+      </div>`;
+  };
+
   const currentCompanyIds = (supportOnly = false) => companyLinks
     .filter((link) => link.active && (!supportOnly || link.can_support))
     .map((link) => link.company_id);
@@ -220,17 +259,27 @@
   }
 
   async function dashboard() {
-    const [ticketsResult, buildsResult] = await Promise.all([
+    const companyIds = currentCompanyIds(true);
+    const [ticketsResult, buildsResult, contractsResult] = await Promise.all([
       linkSupport()
         ? sb.from('tickets').select('id,status,reference,subject').order('created_at', { ascending: false }).limit(5)
         : Promise.resolve({ data: [] }),
       linkBuild()
         ? sb.from('builds').select('id,title,status,progress_percent,current_stage').order('created_at', { ascending: false })
         : Promise.resolve({ data: [] }),
+      linkSupport()
+        ? sb.from('support_contracts').select('id,title,tier_name,response_priority,status,starts_on,ends_on').in('company_id', companyIds).eq('status', 'active')
+        : Promise.resolve({ data: [] }),
     ]);
+    const error = ticketsResult.error || buildsResult.error || contractsResult.error;
+    if (error) throw error;
 
     const tickets = ticketsResult.data || [];
     const activeBuilds = (buildsResult.data || []).filter((item) => item.status !== 'complete');
+    const today = new Date().toISOString().slice(0, 10);
+    const contracts = (contractsResult.data || []).filter((contract) => contract.starts_on <= today && (!contract.ends_on || contract.ends_on >= today));
+    const usageMap = await loadUsageMap(contracts.map((contract) => contract.id));
+
     content.innerHTML = `
       <h1>Welcome</h1>
       <div class="cards">
@@ -238,8 +287,10 @@
         <div class="card">Active builds<strong class="big">${activeBuilds.length}</strong></div>
         <div class="card">Account<strong class="big" style="font-size:18px">${esc(companyLinks[0]?.companies?.trading_name || companyLinks[0]?.companies?.legal_name)}</strong></div>
       </div>
+      ${contracts.map((contract) => `<div class="panel"><div style="display:flex;justify-content:space-between;gap:12px"><div><h3 style="margin:0">${esc(contract.tier_name)} — ${esc(contract.title)}</h3><p class="muted">Response priority: ${esc(contract.response_priority || 'Not specified')}</p></div></div>${usageCardHtml(usageMap.get(contract.id))}</div>`).join('')}
       ${activeBuilds[0] ? `<div class="panel"><h3>Latest build</h3><strong>${esc(activeBuilds[0].title)}</strong><p>${activeBuilds[0].progress_percent}% complete · ${esc(activeBuilds[0].current_stage || activeBuilds[0].status)}</p></div>` : ''}`;
   }
+
 
   async function loadTicketAttachments(ticketId) {
     const { data, error } = await sb
@@ -333,7 +384,7 @@
 
   async function ticket(id) {
     const [ticketResult, messagesResult, attachments] = await Promise.all([
-      sb.from('tickets').select('*,projects(name),support_contracts(title,tier_name)').eq('id', id).single(),
+      sb.from('tickets').select('*,projects(name),support_contracts(*)').eq('id', id).single(),
       sb.from('ticket_messages').select('*,profiles(full_name,is_simworx)').eq('ticket_id', id).order('created_at'),
       loadTicketAttachments(id),
     ]);
@@ -342,6 +393,8 @@
 
     const ticketData = ticketResult.data;
     const messages = messagesResult.data || [];
+    const usageMap = await loadUsageMap([ticketData.contract_id]);
+    const usage = usageMap.get(ticketData.contract_id);
     const initialAttachments = attachments.filter((item) => !item.message_id);
     const attachmentsByMessage = attachments.reduce((map, item) => {
       if (!item.message_id) return map;
@@ -376,11 +429,15 @@
             <div id="replyStatus" class="muted"></div>
           </form>
         </div>
-        <div class="panel">
-          <h3>Request details</h3>
-          <p><strong>Status:</strong> ${esc(ticketData.status)}</p>
-          <p><strong>Priority:</strong> ${esc(ticketData.priority)}</p>
-          <p><strong>Support contract:</strong><br>${esc(ticketData.support_contracts?.tier_name || ticketData.support_contracts?.title || 'Not assigned')}</p>
+        <div>
+          <div class="panel">
+            <h3>Request details</h3>
+            <p><strong>Status:</strong> ${esc(ticketData.status)}</p>
+            <p><strong>Priority:</strong> ${esc(ticketData.priority)}</p>
+            <p><strong>Support contract:</strong><br>${esc(ticketData.support_contracts?.tier_name || ticketData.support_contracts?.title || 'Not assigned')}</p>
+            <p><strong>Response priority:</strong><br>${esc(ticketData.support_contracts?.response_priority || 'Not specified')}</p>
+          </div>
+          <div class="panel"><h3>Support usage this period</h3>${usageCardHtml(usage)}</div>
         </div>
       </div>`;
 
@@ -402,13 +459,7 @@
       status.textContent = 'Sending…';
       const { data: message, error: messageError } = await sb
         .from('ticket_messages')
-        .insert({
-          ticket_id: ticketData.id,
-          company_id: ticketData.company_id,
-          author_id: me.id,
-          body: body || null,
-          visibility: 'customer',
-        })
+        .insert({ ticket_id: ticketData.id, company_id: ticketData.company_id, author_id: me.id, body: body || null, visibility: 'customer' })
         .select('id')
         .single();
       if (messageError) {
@@ -426,6 +477,7 @@
     };
   }
 
+
   async function newTicket() {
     if (!linkSupport()) {
       content.innerHTML = '<div class="panel">Support access is not enabled for this account.</div>';
@@ -435,7 +487,7 @@
     const companyIds = currentCompanyIds(true);
     const [projectsResult, contractsResult, linksResult, categoriesResult] = await Promise.all([
       sb.from('projects').select('id,name,company_id,simulator_model,serial_number').in('company_id', companyIds).eq('active', true).order('name'),
-      sb.from('support_contracts').select('id,company_id,title,tier_name,status,starts_on,ends_on').in('company_id', companyIds).eq('status', 'active'),
+      sb.from('support_contracts').select('*').in('company_id', companyIds).eq('status', 'active'),
       sb.from('support_contract_projects').select('contract_id,project_id'),
       sb.from('support_categories').select('id,name,company_id').eq('active', true).order('sort_order'),
     ]);
@@ -447,6 +499,7 @@
     const links = linksResult.data || [];
     const today = new Date().toISOString().slice(0, 10);
     const activeContracts = contracts.filter((contract) => contract.starts_on <= today && (!contract.ends_on || contract.ends_on >= today));
+    const usageMap = await loadUsageMap(activeContracts.map((contract) => contract.id));
     const coverage = new Map();
     links.forEach((link) => {
       const contract = activeContracts.find((item) => item.id === link.contract_id);
@@ -457,30 +510,14 @@
       <h1>Log a Fault</h1>
       <div class="panel">
         <form id="fault" class="stack">
-          <label>Simulator
-            <select id="project" required>
-              <option value="">Select simulator…</option>
-              ${projects.map((project) => `<option value="${project.id}">${esc(project.name)}${project.serial_number ? ` · S/N ${esc(project.serial_number)}` : ''}</option>`).join('')}
-            </select>
-          </label>
-          <div id="contractPanel" class="contract-status muted">Select a simulator to see its support contract.</div>
+          <label>Simulator<select id="project" required><option value="">Select simulator…</option>${projects.map((project) => `<option value="${project.id}">${esc(project.name)}${project.serial_number ? ` · S/N ${esc(project.serial_number)}` : ''}</option>`).join('')}</select></label>
+          <div id="contractPanel" class="contract-status muted">Select a simulator to see its support contract and current usage.</div>
           <label id="contractField" class="hidden">Support contract<select id="contract"></select></label>
-          <label>Priority
-            <select id="priority">
-              <option value="P3">P3 — Normal</option>
-              <option value="P2">P2 — High</option>
-              <option value="P1">P1 — Critical</option>
-              <option value="P4">P4 — Low</option>
-            </select>
-          </label>
-          <label>Category
-            <select id="category"><option value="">General / Other</option>${(categoriesResult.data || []).map((category) => `<option value="${category.id}">${esc(category.name)}</option>`).join('')}</select>
-          </label>
+          <label>Priority<select id="priority"><option value="P3">P3 — Normal</option><option value="P2">P2 — High</option><option value="P1">P1 — Critical</option><option value="P4">P4 — Low</option></select></label>
+          <label>Category<select id="category"><option value="">General / Other</option>${(categoriesResult.data || []).map((category) => `<option value="${category.id}">${esc(category.name)}</option>`).join('')}</select></label>
           <input id="subject" placeholder="Short fault description" required>
           <textarea id="overview" placeholder="Describe what happened, when it started, and any troubleshooting already attempted." required></textarea>
-          <label class="upload-box">Attach images, video clips, PDFs or ZIP files
-            <input id="faultFiles" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,video/mp4,video/webm,video/quicktime,application/pdf,text/plain,application/zip">
-          </label>
+          <label class="upload-box">Attach images, video clips, PDFs or ZIP files<input id="faultFiles" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,video/mp4,video/webm,video/quicktime,application/pdf,text/plain,application/zip"></label>
           <div id="faultFileList" class="muted">Maximum 100 MB per file.</div>
           <button id="submitFault" class="btn primary" disabled>SUBMIT SUPPORT REQUEST</button>
           <div id="faultStatus" class="muted"></div>
@@ -494,26 +531,33 @@
     const submitButton = document.getElementById('submitFault');
     const faultFiles = document.getElementById('faultFiles');
 
-    projectSelect.onchange = () => {
+    const renderContract = () => {
       const contractsForProject = coverage.get(projectSelect.value) || [];
-      contractSelect.innerHTML = contractsForProject.map((contract) => `<option value="${contract.id}">${esc(contract.tier_name)} — ${esc(contract.title)}</option>`).join('');
+      const selected = contractsForProject.find((contract) => contract.id === contractSelect.value) || contractsForProject[0];
       if (!projectSelect.value) {
         contractField.classList.add('hidden');
-        contractPanel.textContent = 'Select a simulator to see its support contract.';
+        contractPanel.textContent = 'Select a simulator to see its support contract and current usage.';
         contractPanel.className = 'contract-status muted';
         submitButton.disabled = true;
-      } else if (!contractsForProject.length) {
+      } else if (!selected) {
         contractField.classList.add('hidden');
         contractPanel.textContent = 'No active support contract is allocated to this simulator. Simworx Admin must assign one before a fault can be submitted.';
         contractPanel.className = 'contract-status error';
         submitButton.disabled = true;
       } else {
         contractField.classList.toggle('hidden', contractsForProject.length === 1);
-        contractPanel.innerHTML = `<strong>${esc(contractsForProject[0].tier_name)}</strong><br>${esc(contractsForProject[0].title)}`;
+        contractPanel.innerHTML = `<strong>${esc(selected.tier_name)} — ${esc(selected.title)}</strong><br><span class="muted">Response priority: ${esc(selected.response_priority || 'Not specified')} · Billing in ${selected.billing_increment_minutes || 15}-minute increments</span><div style="margin-top:10px">${usageCardHtml(usageMap.get(selected.id))}</div>`;
         contractPanel.className = 'contract-status ok';
         submitButton.disabled = false;
       }
     };
+
+    projectSelect.onchange = () => {
+      const contractsForProject = coverage.get(projectSelect.value) || [];
+      contractSelect.innerHTML = contractsForProject.map((contract) => `<option value="${contract.id}">${esc(contract.tier_name)} — ${esc(contract.title)}</option>`).join('');
+      renderContract();
+    };
+    contractSelect.onchange = renderContract;
 
     faultFiles.onchange = () => {
       document.getElementById('faultFileList').textContent = Array.from(faultFiles.files || []).map((file) => `${file.name} (${formatBytes(file.size)})`).join(' · ') || 'Maximum 100 MB per file.';
@@ -559,6 +603,7 @@
       }
     };
   }
+
 
   async function builds() {
     if (!linkBuild()) {

@@ -1,0 +1,1 @@
+Support level dropdown corrected to use a standard HTML select. 2026-10-09

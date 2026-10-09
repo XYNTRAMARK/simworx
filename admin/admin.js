@@ -594,7 +594,11 @@
     const usageByContract = new Map((data.usage || []).filter(Boolean).map((item) => [item.contract_id, item]));
     const editing = editId ? contractList.find((contract) => contract.id === editId) : null;
     const selectedCompany = editing?.company_id || contractCompanyFilter || companies[0]?.id || '';
-    const selectedProjects = new Set(editing ? links.filter((link) => link.contract_id === editing.id).map((link) => link.project_id) : []);
+    const selectedProjects = new Set(
+      editing
+        ? links.filter((link) => link.contract_id === editing.id).map((link) => link.project_id)
+        : projects.filter((project) => project.company_id === selectedCompany).map((project) => project.id)
+    );
     const initialPreset = editing ? null : TIER_PRESETS.Basic;
     const selectedTier = editing?.tier_name || initialPreset?.tier || 'Basic';
     const tierOptions = Object.keys(TIER_PRESETS);
@@ -620,7 +624,7 @@
           <label>Included services<textarea id="contractServices">${esc(editing?.included_services || initialPreset.includedServices)}</textarea></label>
           <label>Warranty notes<textarea id="contractWarranty">${esc(editing?.warranty_notes || DEFAULT_WARRANTY_NOTES)}</textarea></label>
           <label>Notes<textarea id="contractNotes">${esc(editing?.notes || '')}</textarea></label>
-          <label>Covered simulators<div id="projectChecks" class="check-list"></div></label>
+          <label>Covered simulators <span class="muted">All active simulators for the selected customer are chosen automatically. Untick any that are not covered.</span><div id="projectChecks" class="check-list"></div><div id="coveredProjectStatus" class="muted"></div></label>
           <label><input id="contractRollover" type="checkbox" ${editing?.rollover_enabled ? 'checked' : ''} style="width:auto"> Allow unused support hours to roll over</label>
           <label><input id="contractApproval" type="checkbox" ${editing?.overage_requires_approval ? 'checked' : ''} style="width:auto"> Overage requires customer approval before time is logged</label>
           <button class="btn primary">${editing ? 'SAVE CONTRACT' : 'CREATE CONTRACT'}</button>
@@ -635,13 +639,32 @@
       </div>`;
 
     const companySelect = document.getElementById('contractCompany');
+    const updateCoveredProjectStatus = () => {
+      const selected = Array.from(document.querySelectorAll('input[name="coveredProject"]:checked'));
+      const status = document.getElementById('coveredProjectStatus');
+      status.textContent = selected.length
+        ? `${selected.length} simulator${selected.length === 1 ? '' : 's'} will be covered by this contract.`
+        : 'Select at least one simulator before saving the contract.';
+      status.style.color = selected.length ? '#245f39' : '#9f2d2d';
+    };
+
     const renderProjectChecks = () => {
       const companyProjects = projects.filter((project) => project.company_id === companySelect.value);
-      document.getElementById('projectChecks').innerHTML = companyProjects.length ? companyProjects.map((project) => `<label><input type="checkbox" name="coveredProject" value="${project.id}" ${selectedProjects.has(project.id) ? 'checked' : ''}> ${esc(project.name)}${project.serial_number ? ` · S/N ${esc(project.serial_number)}` : ''}</label>`).join('') : '<span class="muted">This customer has no active simulators. Add a simulator first.</span>';
+      const container = document.getElementById('projectChecks');
+      container.innerHTML = companyProjects.length ? companyProjects.map((project) => `<label><input type="checkbox" name="coveredProject" value="${project.id}" ${selectedProjects.has(project.id) ? 'checked' : ''}> ${esc(project.name)}${project.serial_number ? ` · S/N ${esc(project.serial_number)}` : ''}</label>`).join('') : '<span class="muted">This customer has no active simulators. Add a simulator first.</span>';
+      container.querySelectorAll('input[name="coveredProject"]').forEach((input) => {
+        input.onchange = () => {
+          if (input.checked) selectedProjects.add(input.value);
+          else selectedProjects.delete(input.value);
+          updateCoveredProjectStatus();
+        };
+      });
+      updateCoveredProjectStatus();
     };
     renderProjectChecks();
     companySelect.onchange = () => {
       selectedProjects.clear();
+      projects.filter((project) => project.company_id === companySelect.value).forEach((project) => selectedProjects.add(project.id));
       renderProjectChecks();
     };
 
@@ -671,6 +694,14 @@
     document.getElementById('contractForm').onsubmit = async (event) => {
       event.preventDefault();
       const projectIds = Array.from(document.querySelectorAll('input[name="coveredProject"]:checked')).map((input) => input.value);
+      if (!projectIds.length) {
+        const projectBox = document.getElementById('projectChecks');
+        projectBox.style.borderColor = '#b83b3b';
+        projectBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        toast('Select at least one simulator covered by this contract.', true);
+        return;
+      }
+      document.getElementById('projectChecks').style.borderColor = '';
       try {
         await supportApi('save_contract', {
           id: document.getElementById('contractId').value || null,
@@ -696,7 +727,9 @@
           rollover_enabled: document.getElementById('contractRollover').checked,
           overage_requires_approval: document.getElementById('contractApproval').checked,
         });
-        toast(editing ? 'Contract updated' : 'Contract created');
+        const savedCustomer = companies.find((company) => company.id === companySelect.value);
+        const savedProjectNames = projects.filter((project) => projectIds.includes(project.id)).map((project) => project.name);
+        toast(`${editing ? 'Contract updated' : 'Contract created'} for ${savedCustomer?.trading_name || savedCustomer?.legal_name || 'customer'} — ${savedProjectNames.join(', ')}`);
         contractCompanyFilter = companySelect.value;
         await contracts();
       } catch (error) {

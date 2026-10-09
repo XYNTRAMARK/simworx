@@ -559,6 +559,12 @@
     };
     contractSelect.onchange = renderContract;
 
+    const firstCoveredProject = projects.find((project) => (coverage.get(project.id) || []).length > 0);
+    if (firstCoveredProject) {
+      projectSelect.value = firstCoveredProject.id;
+      projectSelect.onchange();
+    }
+
     faultFiles.onchange = () => {
       document.getElementById('faultFileList').textContent = Array.from(faultFiles.files || []).map((file) => `${file.name} (${formatBytes(file.size)})`).join(' · ') || 'Maximum 100 MB per file.';
     };

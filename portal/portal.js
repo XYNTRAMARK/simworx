@@ -7,7 +7,24 @@ function setup(profile){
  app.classList.add('hidden');login.classList.remove('hidden');
  box.innerHTML='<div class="brand">SIMWOR<b>X</b></div><h1>Create your account</h1><p class="muted">Choose the username and password you will use for future visits.</p><form id="setupForm" class="stack"><input id="suName" placeholder="Your name"><input id="suUser" placeholder="Choose a username" required minlength="3"><input id="suPass" type="password" placeholder="Choose a password" required minlength="8"><input id="suPass2" type="password" placeholder="Confirm password" required minlength="8"><button class="btn primary">CREATE ACCOUNT</button></form><p id="suMsg" class="muted"></p>';
  document.getElementById('suName').value=profile?.full_name||'';document.getElementById('suUser').value=profile?.username||'';
- document.getElementById('setupForm').onsubmit=async e=>{e.preventDefault();const m=document.getElementById('suMsg'),p=document.getElementById('suPass').value,p2=document.getElementById('suPass2').value;if(p!==p2){m.textContent='Passwords do not match.';return}const {error:a}=await sb.auth.updateUser({password:p});if(a){m.textContent=a.message;return}const {error:b}=await sb.from('profiles').update({username:document.getElementById('suUser').value.trim(),full_name:document.getElementById('suName').value.trim(),account_setup_complete:true}).eq('id',me.id);if(b){m.textContent=b.message;return}history.replaceState({},document.title,'/portal/');boot()};
+ document.getElementById('setupForm').onsubmit=async e=>{
+   e.preventDefault();
+   const m=document.getElementById('suMsg');
+   const username=document.getElementById('suUser').value.trim();
+   const fullName=document.getElementById('suName').value.trim();
+   const p=document.getElementById('suPass').value;
+   const p2=document.getElementById('suPass2').value;
+   if(p!==p2){m.textContent='Passwords do not match.';return}
+   if(!/^[A-Za-z0-9._-]{3,40}$/.test(username)){m.textContent='Username must be 3–40 characters using letters, numbers, dot, dash or underscore.';return}
+   m.textContent='Creating account...';
+   const {error:a}=await sb.auth.updateUser({password:p});
+   if(a){m.textContent=a.message;return}
+   const {error:b}=await sb.from('profiles').update({username,full_name:fullName,account_setup_complete:true}).eq('id',me.id);
+   if(b){m.textContent=b.message;return}
+   sessionStorage.setItem('simworx-account-created','1');
+   await sb.auth.signOut();
+   location.href='/portal/?created=1';
+ };
 }
 async function boot(){const {data:{session}}=await sb.auth.getSession();if(!session){login.classList.remove('hidden');app.classList.add('hidden');return}me=session.user;const {data:p}=await sb.from('profiles').select('id,email,full_name,username,account_setup_complete').eq('id',me.id).maybeSingle();const recovery=location.hash.includes('type=recovery')||location.search.includes('recovery=1');if(recovery||!p?.account_setup_complete)return setup(p);const {data:links}=await sb.from('company_users').select('*,companies(id,legal_name,trading_name)').eq('user_id',me.id).eq('active',true);if(!links?.length){await sb.auth.signOut();return alert('No active Simworx client access is assigned to this account.')}companyLinks=links;login.classList.add('hidden');app.classList.remove('hidden');document.getElementById('who').textContent=p.username;render()}
 document.getElementById('loginForm').onsubmit=async e=>{
@@ -32,6 +49,11 @@ document.getElementById('loginForm').onsubmit=async e=>{
 };
 document.getElementById('forgotPassword').onclick=async()=>{const email=prompt('Enter your registered email address:');if(!email)return;const {error}=await sb.auth.resetPasswordForEmail(email.trim(),{redirectTo:'https://sim-worx.com/portal/'});document.getElementById('loginMsg').textContent=error?error.message:'Password reset email sent.'};
 document.getElementById('signout').onclick=async()=>{await sb.auth.signOut();location.reload()};
+if(new URLSearchParams(location.search).get('created')==='1'||sessionStorage.getItem('simworx-account-created')==='1'){
+  sessionStorage.removeItem('simworx-account-created');
+  const msg=document.getElementById('loginMsg');
+  if(msg) msg.innerHTML='<strong>Account created successfully.</strong><br>You can now sign in with your username and password.';
+}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');view=b.dataset.view;render()});
 function linkSupport(){return companyLinks.some(x=>x.can_support)}function linkBuild(){return companyLinks.some(x=>x.can_build_updates)}async function render(){content.innerHTML='<div class="panel">Loading…</div>';if(view==='dashboard')return dashboard();if(view==='support')return support();if(view==='new-ticket')return newTicket();if(view==='builds')return builds();}
 async function dashboard(){const [{data:t},{data:b}]=await Promise.all([linkSupport()?sb.from('tickets').select('id,status,reference,subject').order('created_at',{ascending:false}).limit(5):Promise.resolve({data:[]}),linkBuild()?sb.from('builds').select('id,title,status,progress_percent,current_stage').order('created_at',{ascending:false}):Promise.resolve({data:[]})]);content.innerHTML=`<h1>Welcome</h1><div class="cards"><div class="card">Open support requests<strong class="big">${(t||[]).filter(x=>!['resolved','closed'].includes(x.status)).length}</strong></div><div class="card">Active builds<strong class="big">${(b||[]).filter(x=>x.status!=='complete').length}</strong></div><div class="card">Account<strong class="big" style="font-size:18px">${esc(companyLinks[0]?.companies?.trading_name||companyLinks[0]?.companies?.legal_name)}</strong></div></div>${(b||[])[0]?`<div class="panel"><h3>Latest build</h3><strong>${esc(b[0].title)}</strong><p>${b[0].progress_percent}% complete · ${esc(b[0].current_stage||b[0].status)}</p></div>`:''}`;}

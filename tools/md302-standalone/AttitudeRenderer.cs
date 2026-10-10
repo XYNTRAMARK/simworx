@@ -80,14 +80,12 @@ internal sealed class AttitudeRenderer : IDisposable
             var major = deg % 10 == 0;
             var halfWidth = major ? 34f : 18f;
 
-            // 0° is the horizon reference. Draw it exactly on the horizon line
-            // so the pitch ladder is visually anchored to the fixed reference.
+            // 0° is the horizon reference. The zero line sits exactly on
+            // the full-width horizon; the reference unit does not need 0 labels.
             if (deg == 0)
             {
                 using var zeroPen = new Pen(Color.White, 2.5f);
                 g.DrawLine(zeroPen, -40f, 0f, 40f, 0f);
-                g.DrawString("0", font, brush, new RectangleF(-68, -7, 24, 14), fmt);
-                g.DrawString("0", font, brush, new RectangleF(44, -7, 24, 14), fmt);
                 continue;
             }
 

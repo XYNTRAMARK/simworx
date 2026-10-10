@@ -485,25 +485,23 @@
     }
 
     const companyIds = currentCompanyIds(true);
-    const [projectsResult, contractsResult, linksResult, categoriesResult] = await Promise.all([
+    const [projectsResult, contractsResult, categoriesResult] = await Promise.all([
       sb.from('projects').select('id,name,company_id,simulator_model,serial_number').in('company_id', companyIds).eq('active', true).order('name'),
-      sb.from('support_contracts').select('*').in('company_id', companyIds).eq('status', 'active'),
-      sb.from('support_contract_projects').select('contract_id,project_id'),
+      sb.from('support_contracts').select('*').in('company_id', companyIds).eq('status', 'active').is('deleted_at', null),
       sb.from('support_categories').select('id,name,company_id').eq('active', true).order('sort_order'),
     ]);
-    const error = projectsResult.error || contractsResult.error || linksResult.error || categoriesResult.error;
+    const error = projectsResult.error || contractsResult.error || categoriesResult.error;
     if (error) throw error;
 
     const projects = projectsResult.data || [];
     const contracts = contractsResult.data || [];
-    const links = linksResult.data || [];
     const today = new Date().toISOString().slice(0, 10);
     const activeContracts = contracts.filter((contract) => contract.starts_on <= today && (!contract.ends_on || contract.ends_on >= today));
     const usageMap = await loadUsageMap(activeContracts.map((contract) => contract.id));
-    const coverage = new Map();
-    links.forEach((link) => {
-      const contract = activeContracts.find((item) => item.id === link.contract_id);
-      if (contract) (coverage.get(link.project_id) || coverage.set(link.project_id, []).get(link.project_id)).push(contract);
+    const contractsByCompany = new Map();
+    activeContracts.forEach((contract) => {
+      if (!contractsByCompany.has(contract.company_id)) contractsByCompany.set(contract.company_id, []);
+      contractsByCompany.get(contract.company_id).push(contract);
     });
 
     content.innerHTML = `
@@ -511,7 +509,7 @@
       <div class="panel">
         <form id="fault" class="stack">
           <label>Simulator<select id="project" required><option value="">Select simulator…</option>${projects.map((project) => `<option value="${project.id}">${esc(project.name)}${project.serial_number ? ` · S/N ${esc(project.serial_number)}` : ''}</option>`).join('')}</select></label>
-          <div id="contractPanel" class="contract-status muted">Select a simulator to see its support contract and current usage.</div>
+          <div id="contractPanel" class="contract-status muted">Select a simulator to see the support contract assigned to your company.</div>
           <label id="contractField" class="hidden">Support contract<select id="contract"></select></label>
           <label>Priority<select id="priority"><option value="P3">P3 — Normal</option><option value="P2">P2 — High</option><option value="P1">P1 — Critical</option><option value="P4">P4 — Low</option></select></label>
           <label>Category<select id="category"><option value="">General / Other</option>${(categoriesResult.data || []).map((category) => `<option value="${category.id}">${esc(category.name)}</option>`).join('')}</select></label>
@@ -531,35 +529,40 @@
     const submitButton = document.getElementById('submitFault');
     const faultFiles = document.getElementById('faultFiles');
 
+    const contractsForSelectedCustomer = () => {
+      const project = projects.find((item) => item.id === projectSelect.value);
+      return project ? (contractsByCompany.get(project.company_id) || []) : [];
+    };
+
     const renderContract = () => {
-      const contractsForProject = coverage.get(projectSelect.value) || [];
-      const selected = contractsForProject.find((contract) => contract.id === contractSelect.value) || contractsForProject[0];
+      const customerContracts = contractsForSelectedCustomer();
+      const selected = customerContracts.find((contract) => contract.id === contractSelect.value) || customerContracts[0];
       if (!projectSelect.value) {
         contractField.classList.add('hidden');
-        contractPanel.textContent = 'Select a simulator to see its support contract and current usage.';
+        contractPanel.textContent = 'Select a simulator to see the support contract assigned to your company.';
         contractPanel.className = 'contract-status muted';
         submitButton.disabled = true;
       } else if (!selected) {
         contractField.classList.add('hidden');
-        contractPanel.textContent = 'No active support contract is allocated to this simulator. Simworx Admin must assign one before a fault can be submitted.';
+        contractPanel.textContent = 'No active support contract is assigned to this customer account. Simworx Admin must assign one from Customers & Access before a fault can be submitted.';
         contractPanel.className = 'contract-status error';
         submitButton.disabled = true;
       } else {
-        contractField.classList.toggle('hidden', contractsForProject.length === 1);
-        contractPanel.innerHTML = `<strong>${esc(selected.tier_name)} — ${esc(selected.title)}</strong><br><span class="muted">Response priority: ${esc(selected.response_priority || 'Not specified')} · Billing in ${selected.billing_increment_minutes || 15}-minute increments</span><div style="margin-top:10px">${usageCardHtml(usageMap.get(selected.id))}</div>`;
+        contractField.classList.toggle('hidden', customerContracts.length === 1);
+        contractPanel.innerHTML = `<strong>${esc(selected.tier_name)} — ${esc(selected.title)}</strong><br><span class="muted">This contract applies to your customer account and all registered simulators. Response priority: ${esc(selected.response_priority || 'Not specified')} · Billing in ${selected.billing_increment_minutes || 15}-minute increments</span><div style="margin-top:10px">${usageCardHtml(usageMap.get(selected.id))}</div>`;
         contractPanel.className = 'contract-status ok';
         submitButton.disabled = false;
       }
     };
 
     projectSelect.onchange = () => {
-      const contractsForProject = coverage.get(projectSelect.value) || [];
-      contractSelect.innerHTML = contractsForProject.map((contract) => `<option value="${contract.id}">${esc(contract.tier_name)} — ${esc(contract.title)}</option>`).join('');
+      const customerContracts = contractsForSelectedCustomer();
+      contractSelect.innerHTML = customerContracts.map((contract) => `<option value="${contract.id}">${esc(contract.tier_name)} — ${esc(contract.title)}</option>`).join('');
       renderContract();
     };
     contractSelect.onchange = renderContract;
 
-    const firstCoveredProject = projects.find((project) => (coverage.get(project.id) || []).length > 0);
+    const firstCoveredProject = projects.find((project) => (contractsByCompany.get(project.company_id) || []).length > 0);
     if (firstCoveredProject) {
       projectSelect.value = firstCoveredProject.id;
       projectSelect.onchange();
@@ -573,10 +576,11 @@
       event.preventDefault();
       const projectId = projectSelect.value;
       const project = projects.find((item) => item.id === projectId);
-      const contractId = contractSelect.value || (coverage.get(projectId) || [])[0]?.id;
+      const customerContracts = contractsForSelectedCustomer();
+      const contractId = contractSelect.value || customerContracts[0]?.id;
       const status = document.getElementById('faultStatus');
       if (!project || !contractId) {
-        status.textContent = 'An active support contract must be allocated to this simulator.';
+        status.textContent = 'An active support contract must be assigned to this customer account.';
         return;
       }
 

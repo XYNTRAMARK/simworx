@@ -3,7 +3,7 @@
 
   const ADMIN_URL = 'https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/staff-pin-admin';
   const SUPPORT_URL = 'https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/support-portal-admin';
-  const DELETE_CONTRACT_URL = 'https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/support-contract-delete';
+  const CONTRACT_MANAGER_URL = 'https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/support-contract-manager';
   const PROJECT_URL = 'https://euttubfvsrgkeiescsdm.supabase.co';
   const KEY = 'sb_publishable_PEfCOwn6Xkwtl7RhWPAPVA_Ppgq08Wl';
   const BUCKET = 'support-attachments';
@@ -106,7 +106,7 @@
 
   const api = (action, payload = {}) => request(ADMIN_URL, action, payload);
   const supportApi = (action, payload = {}) => request(SUPPORT_URL, action, payload);
-  const deleteContractApi = (action, payload = {}) => request(DELETE_CONTRACT_URL, action, payload);
+  const contractManagerApi = (action, payload = {}) => request(CONTRACT_MANAGER_URL, action, payload);
 
   async function unlock() {
     try {
@@ -410,7 +410,6 @@
               <td><div class="row">
                 <button class="btn ghost" data-edit-company="${company.id}">Edit</button>
                 <button class="btn ghost" data-sims-company="${company.id}">Simulators</button>
-                <button class="btn ghost" data-contracts-company="${company.id}">Contracts</button>
               </div></td>
             </tr>`).join('')}</tbody>
         </table>
@@ -449,59 +448,180 @@
 
     document.querySelectorAll('[data-edit-company]').forEach((button) => button.onclick = () => editCustomer(companies.find((company) => company.id === button.dataset.editCompany)));
     document.querySelectorAll('[data-sims-company]').forEach((button) => button.onclick = () => manageSimulators(companies.find((company) => company.id === button.dataset.simsCompany)));
-    document.querySelectorAll('[data-contracts-company]').forEach((button) => button.onclick = () => {
-      contractCompanyFilter = button.dataset.contractsCompany;
-      document.querySelectorAll('#nav button').forEach((item) => item.classList.toggle('active', item.dataset.view === 'contracts'));
-      view = 'contracts';
-      contracts();
-    });
   }
 
   async function editCustomer(company) {
     if (!company) return;
+
+    const contractData = await contractManagerApi('customer_contracts', { company_id: company.id });
+    const templates = contractData.templates || [];
+    const assignments = contractData.assignments || [];
+    const today = new Date().toISOString().slice(0, 10);
+
+    const termEndDate = (startDate, months) => {
+      if (!startDate) return '';
+      const date = new Date(`${startDate}T00:00:00Z`);
+      date.setUTCMonth(date.getUTCMonth() + Math.max(1, Number(months || 12)));
+      date.setUTCDate(date.getUTCDate() - 1);
+      return date.toISOString().slice(0, 10);
+    };
+
     content.innerHTML = `
-      <button id="backCustomers" class="btn ghost">← Back</button><h1>Edit Customer</h1>
-      <div class="panel"><form id="editCustomerForm" class="stack">
-        <label>Legal name<input id="ecLegal" value="${esc(company.legal_name || '')}" required></label>
-        <label>Trading name<input id="ecTrading" value="${esc(company.trading_name || '')}"></label>
-        <label>Customer code<input id="ecCode" value="${esc(company.code || '')}" required></label>
-        <label>Country<input id="ecCountry" value="${esc(company.country || '')}"></label>
-        <label>General email<input id="ecEmail" type="email" value="${esc(company.general_email || '')}"></label>
-        <label>Phone<input id="ecPhone" value="${esc(company.phone || '')}"></label>
-        <label>Commercial contact<input id="ecCommercialName" value="${esc(company.commercial_contact_name || '')}"></label>
-        <label>Commercial contact email<input id="ecCommercialEmail" type="email" value="${esc(company.commercial_contact_email || '')}"></label>
-        <label>Technical contact<input id="ecTechnicalName" value="${esc(company.technical_contact_name || '')}"></label>
-        <label>Technical contact email<input id="ecTechnicalEmail" type="email" value="${esc(company.technical_contact_email || '')}"></label>
-        <label>Notes<textarea id="ecNotes">${esc(company.notes || '')}</textarea></label>
-        <label><input id="ecActive" type="checkbox" ${company.active ? 'checked' : ''} style="width:auto"> Active customer</label>
-        <button class="btn primary">SAVE CHANGES</button>
-      </form></div>`;
+      <button id="backCustomers" class="btn ghost">← Back</button><h1>Edit Customer — ${esc(company.trading_name || company.legal_name)}</h1>
+      <div class="grid">
+        <div class="panel"><h3>Customer details</h3><form id="editCustomerForm" class="stack">
+          <label>Legal name<input id="ecLegal" value="${esc(company.legal_name || '')}" required></label>
+          <label>Trading name<input id="ecTrading" value="${esc(company.trading_name || '')}"></label>
+          <label>Customer code<input id="ecCode" value="${esc(company.code || '')}" required></label>
+          <label>Country<input id="ecCountry" value="${esc(company.country || '')}"></label>
+          <label>General email<input id="ecEmail" type="email" value="${esc(company.general_email || '')}"></label>
+          <label>Phone<input id="ecPhone" value="${esc(company.phone || '')}"></label>
+          <label>Commercial contact<input id="ecCommercialName" value="${esc(company.commercial_contact_name || '')}"></label>
+          <label>Commercial contact email<input id="ecCommercialEmail" type="email" value="${esc(company.commercial_contact_email || '')}"></label>
+          <label>Technical contact<input id="ecTechnicalName" value="${esc(company.technical_contact_name || '')}"></label>
+          <label>Technical contact email<input id="ecTechnicalEmail" type="email" value="${esc(company.technical_contact_email || '')}"></label>
+          <label>Notes<textarea id="ecNotes">${esc(company.notes || '')}</textarea></label>
+          <label><input id="ecActive" type="checkbox" ${company.active ? 'checked' : ''} style="width:auto"> Active customer</label>
+          <button class="btn primary">SAVE CUSTOMER DETAILS</button>
+        </form></div>
+
+        <div class="panel"><h3>Assign a support contract</h3>
+          <div class="notice">Choose a reusable contract template for this customer. The assigned contract applies to the customer account and therefore covers all of its current and future simulators. It is not linked to an individual simulator.</div>
+          ${templates.length ? `<form id="assignContractForm" class="stack" style="margin-top:12px">
+            <label>Contract template<select id="assignTemplate" required>${templates.map((template) => `<option value="${template.id}">${esc(template.name)} — ${esc(template.tier_name)}</option>`).join('')}</select></label>
+            <div id="assignTemplateSummary" class="card"></div>
+            <label>Contract title for this customer<input id="assignTitle" required></label>
+            <div class="row"><label style="flex:1">Starts on<input id="assignStart" type="date" value="${today}" required></label><label style="flex:1">Ends on<input id="assignEnd" type="date"></label></div>
+            <label>Status<select id="assignStatus"><option value="active">Active</option><option value="draft">Draft</option></select></label>
+            <label>Customer-specific notes<textarea id="assignNotes" placeholder="Optional notes for this customer assignment"></textarea></label>
+            <button class="btn primary">ASSIGN CONTRACT TO CUSTOMER</button>
+          </form>` : '<p class="muted">No active contract templates are available. Create one in Contract Templates first.</p>'}
+        </div>
+      </div>
+
+      <div class="panel"><h3>Contracts currently assigned to this customer</h3>
+        <div class="stack">${assignments.length ? assignments.map((assignment) => `
+          <div class="card" data-assignment-card="${assignment.id}">
+            <div class="row" style="justify-content:space-between"><strong>${esc(assignment.title)}</strong><span class="tag">${esc(assignment.status)}</span></div>
+            <div class="muted">Template: ${esc(assignment.support_contract_templates?.name || 'Legacy / custom assignment')} · ${esc(assignment.tier_name)}</div>
+            <div class="muted">This contract covers the customer account, not a specific simulator.</div>
+            <div style="margin-top:8px"><strong>${formatMoney(assignment.monthly_fee, assignment.currency)}</strong> per month · ${formatMinutes(assignment.included_minutes)} included · ${formatMoney(assignment.first_line_rate, assignment.currency)}/hour excess</div>
+            <div class="grid" style="margin-top:10px">
+              <label>Customer contract title<input data-assignment-title value="${esc(assignment.title)}"></label>
+              <label>Status<select data-assignment-status>${['draft','active','expired','cancelled'].map((status) => `<option value="${status}" ${assignment.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
+              <label>Starts on<input data-assignment-start type="date" value="${assignment.starts_on || ''}"></label>
+              <label>Ends on<input data-assignment-end type="date" value="${assignment.ends_on || ''}"></label>
+            </div>
+            <label style="margin-top:8px">Assignment notes<textarea data-assignment-notes>${esc(assignment.notes || '')}</textarea></label>
+            <div class="row" style="margin-top:10px"><button class="btn ghost" data-save-assignment="${assignment.id}">SAVE ASSIGNMENT</button><button class="btn danger" data-remove-assignment="${assignment.id}">REMOVE CONTRACT</button></div>
+          </div>`).join('') : '<p class="muted">No support contract is assigned to this customer.</p>'}</div>
+      </div>`;
 
     document.getElementById('backCustomers').onclick = customers;
+
     document.getElementById('editCustomerForm').onsubmit = async (event) => {
       event.preventDefault();
+      const updatedCompany = {
+        ...company,
+        legal_name: document.getElementById('ecLegal').value.trim(),
+        trading_name: document.getElementById('ecTrading').value.trim(),
+        code: document.getElementById('ecCode').value.trim().toUpperCase(),
+        country: document.getElementById('ecCountry').value.trim(),
+        general_email: document.getElementById('ecEmail').value.trim(),
+        phone: document.getElementById('ecPhone').value.trim(),
+        commercial_contact_name: document.getElementById('ecCommercialName').value.trim(),
+        commercial_contact_email: document.getElementById('ecCommercialEmail').value.trim(),
+        technical_contact_name: document.getElementById('ecTechnicalName').value.trim(),
+        technical_contact_email: document.getElementById('ecTechnicalEmail').value.trim(),
+        notes: document.getElementById('ecNotes').value.trim(),
+        active: document.getElementById('ecActive').checked,
+      };
       try {
-        await api('update_customer', {
-          id: company.id,
-          legal_name: document.getElementById('ecLegal').value.trim(),
-          trading_name: document.getElementById('ecTrading').value.trim(),
-          code: document.getElementById('ecCode').value.trim().toUpperCase(),
-          country: document.getElementById('ecCountry').value.trim(),
-          general_email: document.getElementById('ecEmail').value.trim(),
-          phone: document.getElementById('ecPhone').value.trim(),
-          commercial_contact_name: document.getElementById('ecCommercialName').value.trim(),
-          commercial_contact_email: document.getElementById('ecCommercialEmail').value.trim(),
-          technical_contact_name: document.getElementById('ecTechnicalName').value.trim(),
-          technical_contact_email: document.getElementById('ecTechnicalEmail').value.trim(),
-          notes: document.getElementById('ecNotes').value.trim(),
-          active: document.getElementById('ecActive').checked,
-        });
+        await api('update_customer', { id: company.id, ...updatedCompany });
         toast('Customer updated');
-        await customers();
+        await editCustomer(updatedCompany);
       } catch (error) {
         toast(error.message, true);
       }
     };
+
+    if (templates.length) {
+      const templateSelect = document.getElementById('assignTemplate');
+      const startInput = document.getElementById('assignStart');
+      const endInput = document.getElementById('assignEnd');
+      const titleInput = document.getElementById('assignTitle');
+      const summary = document.getElementById('assignTemplateSummary');
+
+      const updateTemplatePreview = (resetValues = false) => {
+        const template = templates.find((item) => item.id === templateSelect.value) || templates[0];
+        if (!template) return;
+        summary.innerHTML = `<strong>${esc(template.title)}</strong><div class="muted">${esc(template.response_priority || 'Priority not specified')}</div><div style="margin-top:6px">${formatMoney(template.monthly_fee, template.currency)} per month · ${formatMinutes(template.included_minutes)} included · ${formatMoney(template.first_line_rate, template.currency)}/hour excess</div>`;
+        if (resetValues || !titleInput.value) titleInput.value = template.title;
+        if (resetValues || !endInput.value) endInput.value = termEndDate(startInput.value, template.default_term_months);
+      };
+
+      templateSelect.onchange = () => updateTemplatePreview(true);
+      startInput.onchange = () => {
+        const template = templates.find((item) => item.id === templateSelect.value) || templates[0];
+        if (template) endInput.value = termEndDate(startInput.value, template.default_term_months);
+      };
+      updateTemplatePreview(true);
+
+      document.getElementById('assignContractForm').onsubmit = async (event) => {
+        event.preventDefault();
+        try {
+          await contractManagerApi('assign_template', {
+            company_id: company.id,
+            template_id: templateSelect.value,
+            title: titleInput.value.trim(),
+            starts_on: startInput.value,
+            ends_on: endInput.value || null,
+            status: document.getElementById('assignStatus').value,
+            notes: document.getElementById('assignNotes').value.trim(),
+          });
+          toast('Contract assigned to customer');
+          await editCustomer(company);
+        } catch (error) {
+          toast(error.message, true);
+        }
+      };
+    }
+
+    document.querySelectorAll('[data-save-assignment]').forEach((button) => {
+      button.onclick = async () => {
+        const card = button.closest('[data-assignment-card]');
+        try {
+          await contractManagerApi('update_assignment', {
+            id: button.dataset.saveAssignment,
+            title: card.querySelector('[data-assignment-title]').value.trim(),
+            starts_on: card.querySelector('[data-assignment-start]').value,
+            ends_on: card.querySelector('[data-assignment-end]').value || null,
+            status: card.querySelector('[data-assignment-status]').value,
+            notes: card.querySelector('[data-assignment-notes]').value.trim(),
+          });
+          toast('Customer contract updated');
+          await editCustomer(company);
+        } catch (error) {
+          toast(error.message, true);
+        }
+      };
+    });
+
+    document.querySelectorAll('[data-remove-assignment]').forEach((button) => {
+      button.onclick = async () => {
+        const assignment = assignments.find((item) => item.id === button.dataset.removeAssignment);
+        if (!assignment || !window.confirm(`Remove "${assignment.title}" from this customer? Historical support tickets will be preserved.`)) return;
+        button.disabled = true;
+        try {
+          const result = await contractManagerApi('remove_assignment', { id: assignment.id });
+          toast(result.mode === 'archived' ? 'Contract removed; historical support requests were preserved.' : 'Contract removed from customer.');
+          await editCustomer(company);
+        } catch (error) {
+          button.disabled = false;
+          toast(error.message, true);
+        }
+      };
+    });
   }
 
   async function manageSimulators(company) {
@@ -588,175 +708,116 @@
   }
 
   async function contracts(editId = null) {
-    const data = await supportApi('list_contracts');
-    const companies = (data.companies || []).filter((company) => company.active);
-    const projects = (data.projects || []).filter((project) => project.active);
-    const contractList = (data.contracts || []).filter((contract) => !contract.deleted_at);
-    const links = data.links || [];
-    const usageByContract = new Map((data.usage || []).filter(Boolean).map((item) => [item.contract_id, item]));
-    const editing = editId ? contractList.find((contract) => contract.id === editId) : null;
-    const selectedCompany = editing?.company_id || contractCompanyFilter || companies[0]?.id || '';
-    const selectedProjects = new Set(
-      editing
-        ? links.filter((link) => link.contract_id === editing.id).map((link) => link.project_id)
-        : projects.filter((project) => project.company_id === selectedCompany).map((project) => project.id)
-    );
-    const initialPreset = editing ? null : TIER_PRESETS.Basic;
-    const selectedTier = editing?.tier_name || initialPreset?.tier || 'Basic';
-    const tierOptions = Object.keys(TIER_PRESETS);
-    if (selectedTier && !tierOptions.includes(selectedTier)) tierOptions.push(selectedTier);
+    const data = await contractManagerApi('list_templates');
+    const templates = data.templates || [];
+    const assignmentCounts = data.assignment_counts || {};
+    const editing = editId ? templates.find((template) => template.id === editId) : null;
+    const preset = editing ? null : TIER_PRESETS.Basic;
+    const selectedPreset = editing && TIER_PRESETS[editing.tier_name] ? editing.tier_name : (editing ? '' : 'Basic');
 
     content.innerHTML = `
-      <h1>Support Contracts</h1>
-      <div class="notice"><strong>Choose Basic, Standard, Premium or Pay As You Go to fill the published DA62 support values.</strong><br>Every populated field remains editable before saving. Published support time is calculated in 15-minute increments and unused hours do not roll over.</div>
+      <h1>Contract Templates</h1>
+      <div class="notice"><strong>Create reusable contract templates here, then assign one from Customers & Access → Edit.</strong><br>A template is not attached to a simulator. When assigned, it applies to that customer account and can cover one or many simulators.</div>
       <div class="grid">
-        <div class="panel"><h3>${editing ? 'Edit contract' : 'Create support contract'}</h3><form id="contractForm" class="stack">
-          <input id="contractId" type="hidden" value="${editing?.id || ''}">
-          <label>Customer<select id="contractCompany" required>${companies.map((company) => `<option value="${company.id}" ${company.id === selectedCompany ? 'selected' : ''}>${esc(company.trading_name || company.legal_name)}</option>`).join('')}</select></label>
-          <label>Support level<select id="contractTier" required>${tierOptions.map((tier) => `<option value="${esc(tier)}" ${tier === selectedTier ? 'selected' : ''}>${esc(tier)}</option>`).join('')}</select></label>
-          <button id="applyTierDefaults" type="button" class="btn ghost">APPLY LEVEL DEFAULTS</button>
-          <label>Contract title<input id="contractTitle" value="${esc(editing?.title || initialPreset?.title || '')}" required></label>
-          <label>Response priority<input id="contractResponse" value="${esc(editing?.response_priority || initialPreset?.responsePriority || '')}"></label>
-          <div class="row"><label style="flex:1">Status<select id="contractStatus"><option value="draft" ${editing?.status === 'draft' ? 'selected' : ''}>Draft</option><option value="active" ${!editing || editing.status === 'active' ? 'selected' : ''}>Active</option><option value="expired" ${editing?.status === 'expired' ? 'selected' : ''}>Expired</option><option value="cancelled" ${editing?.status === 'cancelled' ? 'selected' : ''}>Cancelled</option></select></label><label style="flex:1">Currency<input id="contractCurrency" value="${esc(editing?.currency || 'EUR')}"></label></div>
-          <div class="row"><label style="flex:1">Starts on<input id="contractStart" type="date" value="${editing?.starts_on || new Date().toISOString().slice(0,10)}" required></label><label style="flex:1">Ends on<input id="contractEnd" type="date" value="${editing?.ends_on || ''}"></label></div>
-          <div class="row"><label style="flex:1">Included hours/month<input id="contractHours" type="number" min="0" step="0.25" value="${editing ? Number(editing.included_minutes || 0) / 60 : initialPreset.includedHours}"></label><label style="flex:1">Monthly fee<input id="contractFee" type="number" min="0" step="0.01" value="${editing?.monthly_fee ?? initialPreset.monthlyFee}"></label></div>
-          <div class="row"><label style="flex:1">Excess rate/hour<input id="contractFirstRate" type="number" min="0" step="0.01" value="${editing?.first_line_rate ?? initialPreset.excessRate}"></label><label style="flex:1">Second-line excess rate/hour<input id="contractSecondRate" type="number" min="0" step="0.01" value="${editing?.second_line_rate ?? initialPreset.excessRate}"></label></div>
-          <div class="row"><label style="flex:1">Billing increment (minutes)<input id="contractIncrement" type="number" min="1" max="240" step="1" value="${editing?.billing_increment_minutes || initialPreset.billingIncrement}"></label><label style="flex:1">Billing day<input id="contractBillingDay" type="number" min="1" max="28" step="1" value="${editing?.billing_anchor_day || 1}"></label></div>
-          <label>Support operating hours<input id="contractSupportHours" value="${esc(editing?.support_hours || '')}" placeholder="Not defined in the tier summary — enter the agreed hours"></label>
-          <label>Included services<textarea id="contractServices">${esc(editing?.included_services || initialPreset.includedServices)}</textarea></label>
-          <label>Warranty notes<textarea id="contractWarranty">${esc(editing?.warranty_notes || DEFAULT_WARRANTY_NOTES)}</textarea></label>
-          <label>Notes<textarea id="contractNotes">${esc(editing?.notes || '')}</textarea></label>
-          <label>Covered simulators <span class="muted">All active simulators for the selected customer are chosen automatically. Untick any that are not covered.</span><div id="projectChecks" class="check-list"></div><div id="coveredProjectStatus" class="muted"></div></label>
-          <label><input id="contractRollover" type="checkbox" ${editing?.rollover_enabled ? 'checked' : ''} style="width:auto"> Allow unused support hours to roll over</label>
-          <label><input id="contractApproval" type="checkbox" ${editing?.overage_requires_approval ? 'checked' : ''} style="width:auto"> Overage requires customer approval before time is logged</label>
-          <button class="btn primary">${editing ? 'SAVE CONTRACT' : 'CREATE CONTRACT'}</button>
-          ${editing ? '<button id="cancelContractEdit" type="button" class="btn ghost">CANCEL EDITING</button>' : ''}
+        <div class="panel"><h3>${editing ? 'Edit contract template' : 'Create contract template'}</h3><form id="templateForm" class="stack">
+          <input id="templateId" type="hidden" value="${editing?.id || ''}">
+          <label>Start from default<select id="templatePreset"><option value="">Blank / custom</option>${Object.keys(TIER_PRESETS).map((name) => `<option value="${esc(name)}" ${selectedPreset === name ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></label>
+          <button id="applyTemplateDefaults" type="button" class="btn ghost">APPLY DEFAULT VALUES</button>
+          <label>Template name<input id="templateName" value="${esc(editing?.name || preset?.tier || '')}" placeholder="e.g. Multi-Simulator Premium Agreement" required></label>
+          <label>Contract title<input id="templateTitle" value="${esc(editing?.title || preset?.title || '')}" required></label>
+          <label>Support level name<input id="templateTier" value="${esc(editing?.tier_name || preset?.tier || '')}" required></label>
+          <label>Response priority<input id="templateResponse" value="${esc(editing?.response_priority || preset?.responsePriority || '')}"></label>
+          <div class="row"><label style="flex:1">Currency<input id="templateCurrency" value="${esc(editing?.currency || 'EUR')}"></label><label style="flex:1">Monthly fee<input id="templateFee" type="number" min="0" step="0.01" value="${editing?.monthly_fee ?? preset?.monthlyFee ?? 0}"></label></div>
+          <div class="row"><label style="flex:1">Included hours/month<input id="templateHours" type="number" min="0" step="0.25" value="${editing ? Number(editing.included_minutes || 0) / 60 : preset?.includedHours ?? 0}"></label><label style="flex:1">Excess rate/hour<input id="templateFirstRate" type="number" min="0" step="0.01" value="${editing?.first_line_rate ?? preset?.excessRate ?? 0}"></label></div>
+          <div class="row"><label style="flex:1">Second-line excess rate/hour<input id="templateSecondRate" type="number" min="0" step="0.01" value="${editing?.second_line_rate ?? preset?.excessRate ?? 0}"></label><label style="flex:1">Billing increment (minutes)<input id="templateIncrement" type="number" min="1" max="240" value="${editing?.billing_increment_minutes || preset?.billingIncrement || 15}"></label></div>
+          <div class="row"><label style="flex:1">Default contract term (months)<input id="templateTerm" type="number" min="1" max="120" value="${editing?.default_term_months || 12}"></label><label style="flex:1">Default billing day<input id="templateBillingDay" type="number" min="1" max="28" value="${editing?.default_billing_anchor_day || 1}"></label></div>
+          <label>Support operating hours<input id="templateSupportHours" value="${esc(editing?.support_hours || '')}" placeholder="Enter agreed support hours, if applicable"></label>
+          <label>Included services<textarea id="templateServices">${esc(editing?.included_services || preset?.includedServices || '')}</textarea></label>
+          <label>Warranty notes<textarea id="templateWarranty">${esc(editing?.warranty_notes || DEFAULT_WARRANTY_NOTES)}</textarea></label>
+          <label>Internal template notes<textarea id="templateNotes">${esc(editing?.notes || '')}</textarea></label>
+          <label><input id="templateRollover" type="checkbox" ${editing?.rollover_enabled ? 'checked' : ''} style="width:auto"> Allow unused support hours to roll over</label>
+          <label><input id="templateApproval" type="checkbox" ${editing?.overage_requires_approval ? 'checked' : ''} style="width:auto"> Overage requires customer approval</label>
+          <label><input id="templateActive" type="checkbox" ${editing ? (editing.active ? 'checked' : '') : 'checked'} style="width:auto"> Template available for assignment</label>
+          <button class="btn primary">${editing ? 'SAVE TEMPLATE' : 'CREATE TEMPLATE'}</button>
+          ${editing ? '<button id="cancelTemplateEdit" type="button" class="btn ghost">CANCEL EDITING</button>' : ''}
         </form></div>
-        <div class="panel"><h3>Existing contracts</h3><div class="stack">${contractList.length ? contractList.map((contract) => {
-          const company = companies.find((item) => item.id === contract.company_id);
-          const coveredNames = links.filter((link) => link.contract_id === contract.id).map((link) => projects.find((project) => project.id === link.project_id)?.name).filter(Boolean);
-          const usage = usageByContract.get(contract.id);
-          return `<div class="card"><div class="row" style="justify-content:space-between"><strong>${esc(contract.title)}</strong><span class="tag">${esc(contract.status)}</span></div><div class="muted">${esc(company?.trading_name || company?.legal_name || '')} · ${esc(contract.tier_name)} · ${esc(contract.response_priority || 'Priority not specified')}</div><div class="muted">${coveredNames.map(esc).join(', ') || 'No simulators assigned'}</div><div style="margin-top:12px">${usageSummaryHtml(usage)}</div><div class="row" style="margin-top:10px"><button class="btn ghost" data-edit-contract="${contract.id}">Edit</button><button class="btn danger" data-delete-contract="${contract.id}">Delete</button></div></div>`;
-        }).join('') : '<p class="muted">No support contracts have been created.</p>'}</div></div>
+
+        <div class="panel"><h3>Available templates</h3><div class="stack">${templates.length ? templates.map((template) => `
+          <div class="card">
+            <div class="row" style="justify-content:space-between"><strong>${esc(template.name)}</strong><span class="tag">${template.active ? 'available' : 'inactive'}</span></div>
+            <div class="muted">${esc(template.title)} · ${esc(template.tier_name)} · ${esc(template.response_priority || 'Priority not specified')}</div>
+            <div style="margin-top:8px">${formatMoney(template.monthly_fee, template.currency)} per month · ${formatMinutes(template.included_minutes)} included · ${formatMoney(template.first_line_rate, template.currency)}/hour excess</div>
+            <div class="muted" style="margin-top:5px">Assigned to ${assignmentCounts[template.id] || 0} customer contract${Number(assignmentCounts[template.id] || 0) === 1 ? '' : 's'}</div>
+            <div class="row" style="margin-top:10px"><button class="btn ghost" data-edit-template="${template.id}">Edit</button><button class="btn danger" data-delete-template="${template.id}">Delete</button></div>
+          </div>`).join('') : '<p class="muted">No contract templates have been created.</p>'}</div></div>
       </div>`;
 
-    const companySelect = document.getElementById('contractCompany');
-    const updateCoveredProjectStatus = () => {
-      const selected = Array.from(document.querySelectorAll('input[name="coveredProject"]:checked'));
-      const status = document.getElementById('coveredProjectStatus');
-      status.textContent = selected.length
-        ? `${selected.length} simulator${selected.length === 1 ? '' : 's'} will be covered by this contract.`
-        : 'Select at least one simulator before saving the contract.';
-      status.style.color = selected.length ? '#245f39' : '#9f2d2d';
-    };
-
-    const renderProjectChecks = () => {
-      const companyProjects = projects.filter((project) => project.company_id === companySelect.value);
-      const container = document.getElementById('projectChecks');
-      container.innerHTML = companyProjects.length ? companyProjects.map((project) => `<label><input type="checkbox" name="coveredProject" value="${project.id}" ${selectedProjects.has(project.id) ? 'checked' : ''}> ${esc(project.name)}${project.serial_number ? ` · S/N ${esc(project.serial_number)}` : ''}</label>`).join('') : '<span class="muted">This customer has no active simulators. Add a simulator first.</span>';
-      container.querySelectorAll('input[name="coveredProject"]').forEach((input) => {
-        input.onchange = () => {
-          if (input.checked) selectedProjects.add(input.value);
-          else selectedProjects.delete(input.value);
-          updateCoveredProjectStatus();
-        };
-      });
-      updateCoveredProjectStatus();
-    };
-    renderProjectChecks();
-    companySelect.onchange = () => {
-      selectedProjects.clear();
-      projects.filter((project) => project.company_id === companySelect.value).forEach((project) => selectedProjects.add(project.id));
-      renderProjectChecks();
-    };
-
     const applyPreset = () => {
-      const preset = TIER_PRESETS[document.getElementById('contractTier').value.trim()];
-      if (!preset) {
-        toast('Type Basic, Standard, Premium or Pay As You Go to apply published defaults.', true);
+      const selected = document.getElementById('templatePreset').value;
+      const values = TIER_PRESETS[selected];
+      if (!values) {
+        toast('Choose Basic, Standard, Premium or Pay As You Go first.', true);
         return;
       }
-      document.getElementById('contractTitle').value = preset.title;
-      document.getElementById('contractResponse').value = preset.responsePriority;
-      document.getElementById('contractHours').value = preset.includedHours;
-      document.getElementById('contractFee').value = preset.monthlyFee;
-      document.getElementById('contractFirstRate').value = preset.excessRate;
-      document.getElementById('contractSecondRate').value = preset.excessRate;
-      document.getElementById('contractIncrement').value = preset.billingIncrement;
-      document.getElementById('contractServices').value = preset.includedServices;
-      document.getElementById('contractRollover').checked = false;
-      document.getElementById('contractApproval').checked = false;
-      toast(`${preset.tier} defaults applied — every field can still be edited.`);
+      document.getElementById('templateName').value = values.tier;
+      document.getElementById('templateTitle').value = values.title;
+      document.getElementById('templateTier').value = values.tier;
+      document.getElementById('templateResponse').value = values.responsePriority;
+      document.getElementById('templateFee').value = values.monthlyFee;
+      document.getElementById('templateHours').value = values.includedHours;
+      document.getElementById('templateFirstRate').value = values.excessRate;
+      document.getElementById('templateSecondRate').value = values.excessRate;
+      document.getElementById('templateIncrement').value = values.billingIncrement;
+      document.getElementById('templateServices').value = values.includedServices;
+      document.getElementById('templateWarranty').value = DEFAULT_WARRANTY_NOTES;
+      document.getElementById('templateRollover').checked = false;
+      document.getElementById('templateApproval').checked = false;
+      toast(`${values.tier} defaults applied. Every field can still be edited.`);
     };
-    document.getElementById('applyTierDefaults').onclick = applyPreset;
-    document.getElementById('contractTier').onchange = () => {
-      if (TIER_PRESETS[document.getElementById('contractTier').value.trim()]) applyPreset();
-    };
+    document.getElementById('applyTemplateDefaults').onclick = applyPreset;
 
-    document.getElementById('contractForm').onsubmit = async (event) => {
+    document.getElementById('templateForm').onsubmit = async (event) => {
       event.preventDefault();
-      const projectIds = Array.from(document.querySelectorAll('input[name="coveredProject"]:checked')).map((input) => input.value);
-      if (!projectIds.length) {
-        const projectBox = document.getElementById('projectChecks');
-        projectBox.style.borderColor = '#b83b3b';
-        projectBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        toast('Select at least one simulator covered by this contract.', true);
-        return;
-      }
-      document.getElementById('projectChecks').style.borderColor = '';
       try {
-        await supportApi('save_contract', {
-          id: document.getElementById('contractId').value || null,
-          company_id: companySelect.value,
-          project_ids: projectIds,
-          title: document.getElementById('contractTitle').value.trim(),
-          tier_name: document.getElementById('contractTier').value.trim(),
-          response_priority: document.getElementById('contractResponse').value.trim(),
-          status: document.getElementById('contractStatus').value,
-          starts_on: document.getElementById('contractStart').value,
-          ends_on: document.getElementById('contractEnd').value || null,
-          monthly_fee: document.getElementById('contractFee').value,
-          included_minutes: Math.round(Number(document.getElementById('contractHours').value || 0) * 60),
-          first_line_rate: document.getElementById('contractFirstRate').value,
-          second_line_rate: document.getElementById('contractSecondRate').value,
-          currency: document.getElementById('contractCurrency').value,
-          billing_increment_minutes: document.getElementById('contractIncrement').value,
-          billing_anchor_day: document.getElementById('contractBillingDay').value,
-          support_hours: document.getElementById('contractSupportHours').value.trim(),
-          included_services: document.getElementById('contractServices').value.trim(),
-          warranty_notes: document.getElementById('contractWarranty').value.trim(),
-          notes: document.getElementById('contractNotes').value.trim(),
-          rollover_enabled: document.getElementById('contractRollover').checked,
-          overage_requires_approval: document.getElementById('contractApproval').checked,
+        await contractManagerApi('save_template', {
+          id: document.getElementById('templateId').value || null,
+          name: document.getElementById('templateName').value.trim(),
+          title: document.getElementById('templateTitle').value.trim(),
+          tier_name: document.getElementById('templateTier').value.trim(),
+          response_priority: document.getElementById('templateResponse').value.trim(),
+          monthly_fee: document.getElementById('templateFee').value,
+          included_minutes: Math.round(Number(document.getElementById('templateHours').value || 0) * 60),
+          first_line_rate: document.getElementById('templateFirstRate').value,
+          second_line_rate: document.getElementById('templateSecondRate').value,
+          currency: document.getElementById('templateCurrency').value,
+          billing_increment_minutes: document.getElementById('templateIncrement').value,
+          default_term_months: document.getElementById('templateTerm').value,
+          default_billing_anchor_day: document.getElementById('templateBillingDay').value,
+          support_hours: document.getElementById('templateSupportHours').value.trim(),
+          included_services: document.getElementById('templateServices').value.trim(),
+          warranty_notes: document.getElementById('templateWarranty').value.trim(),
+          notes: document.getElementById('templateNotes').value.trim(),
+          rollover_enabled: document.getElementById('templateRollover').checked,
+          overage_requires_approval: document.getElementById('templateApproval').checked,
+          active: document.getElementById('templateActive').checked,
         });
-        const savedCustomer = companies.find((company) => company.id === companySelect.value);
-        const savedProjectNames = projects.filter((project) => projectIds.includes(project.id)).map((project) => project.name);
-        toast(`${editing ? 'Contract updated' : 'Contract created'} for ${savedCustomer?.trading_name || savedCustomer?.legal_name || 'customer'} — ${savedProjectNames.join(', ')}`);
-        contractCompanyFilter = companySelect.value;
+        toast(editing ? 'Contract template updated' : 'Contract template created');
         await contracts();
       } catch (error) {
         toast(error.message, true);
       }
     };
 
-    if (editing) document.getElementById('cancelContractEdit').onclick = () => contracts();
-    document.querySelectorAll('[data-edit-contract]').forEach((button) => button.onclick = () => contracts(button.dataset.editContract));
-    document.querySelectorAll('[data-delete-contract]').forEach((button) => {
+    if (editing) document.getElementById('cancelTemplateEdit').onclick = () => contracts();
+    document.querySelectorAll('[data-edit-template]').forEach((button) => button.onclick = () => contracts(button.dataset.editTemplate));
+    document.querySelectorAll('[data-delete-template]').forEach((button) => {
       button.onclick = async () => {
-        const contract = contractList.find((item) => item.id === button.dataset.deleteContract);
-        if (!contract) return;
-        const confirmed = window.confirm(
-          `Delete "${contract.title}"?
-
-Unused contracts will be permanently deleted. If the contract has support-ticket history, it will be archived and removed from this list while the historical tickets remain available.`
-        );
-        if (!confirmed) return;
+        const template = templates.find((item) => item.id === button.dataset.deleteTemplate);
+        if (!template || !window.confirm(`Delete the template "${template.name}"? Existing customer contracts created from it will remain unchanged.`)) return;
         button.disabled = true;
         try {
-          const result = await deleteContractApi('delete_contract', { id: contract.id });
-          toast(result.mode === 'archived'
-            ? `Contract removed from the active list. ${result.ticket_count} historical support request${result.ticket_count === 1 ? '' : 's'} preserved.`
-            : 'Contract deleted.');
+          const result = await contractManagerApi('delete_template', { id: template.id });
+          toast(result.mode === 'archived' ? 'Template removed from future assignment; existing customer contracts were preserved.' : 'Template deleted.');
           await contracts();
         } catch (error) {
           button.disabled = false;

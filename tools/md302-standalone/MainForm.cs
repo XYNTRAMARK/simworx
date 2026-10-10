@@ -58,6 +58,7 @@ internal sealed class MainForm : Form
 
         Shown += (_, _) =>
         {
+            _attitudeRenderer.Load(Path.Combine(AppContext.BaseDirectory, "assets"));
             _animationTimer.Start();
             Invalidate();
         };

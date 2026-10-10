@@ -1,0 +1,50 @@
+name: MD302 Standalone Build
+
+on:
+  push:
+    branches:
+      - feature/md302-stage1
+    paths:
+      - "tools/md302-standalone/**"
+      - ".github/workflows/md302-build.yml"
+  pull_request:
+    paths:
+      - "tools/md302-standalone/**"
+      - ".github/workflows/md302-build.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore tools/md302-standalone/Simworx.MD302.csproj
+
+      - name: Build
+        run: dotnet build tools/md302-standalone/Simworx.MD302.csproj -c Release --no-restore
+
+      - name: Publish single-file Windows x64 test build
+        run: >
+          dotnet publish tools/md302-standalone/Simworx.MD302.csproj
+          -c Release
+          -r win-x64
+          --self-contained false
+          /p:PublishSingleFile=true
+          /p:DebugType=None
+          /p:DebugSymbols=false
+          -o artifacts/MD302-single
+
+      - name: Upload single MD302 executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimworxMD302_Stage2_SingleFile
+          path: artifacts/MD302-single/SimworxMD302.exe
+          if-no-files-found: error

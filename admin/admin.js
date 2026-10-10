@@ -486,7 +486,7 @@
         </form></div>
 
         <div class="panel"><h3>Assign a support contract</h3>
-          <div class="notice">Choose a reusable contract template for this customer. The assigned contract applies to the customer account and therefore covers all of its current and future simulators. It is not linked to an individual simulator.</div>
+          <div class="notice">Choose a reusable contract template for this customer. The assigned contract applies to the customer account and therefore covers all of its current and future simulators. It is not linked to an individual simulator. Assigning an Active contract replaces the customer’s current active contract; the previous contract remains in the customer’s contract history.</div>
           ${templates.length ? `<form id="assignContractForm" class="stack" style="margin-top:12px">
             <label>Contract template<select id="assignTemplate" required>${templates.map((template) => `<option value="${template.id}">${esc(template.name)} — ${esc(template.tier_name)}</option>`).join('')}</select></label>
             <div id="assignTemplateSummary" class="card"></div>
@@ -494,7 +494,7 @@
             <div class="row"><label style="flex:1">Starts on<input id="assignStart" type="date" value="${today}" required></label><label style="flex:1">Ends on<input id="assignEnd" type="date"></label></div>
             <label>Status<select id="assignStatus"><option value="active">Active</option><option value="draft">Draft</option></select></label>
             <label>Customer-specific notes<textarea id="assignNotes" placeholder="Optional notes for this customer assignment"></textarea></label>
-            <button class="btn primary">ASSIGN CONTRACT TO CUSTOMER</button>
+            <button class="btn primary">ASSIGN / REPLACE CUSTOMER CONTRACT</button>
           </form>` : '<p class="muted">No active contract templates are available. Create one in Contract Templates first.</p>'}
         </div>
       </div>
@@ -579,7 +579,7 @@
             status: document.getElementById('assignStatus').value,
             notes: document.getElementById('assignNotes').value.trim(),
           });
-          toast('Contract assigned to customer');
+          toast('Current customer contract updated');
           await editCustomer(company);
         } catch (error) {
           toast(error.message, true);

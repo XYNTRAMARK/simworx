@@ -268,7 +268,7 @@
         ? sb.from('builds').select('id,title,status,progress_percent,current_stage').order('created_at', { ascending: false })
         : Promise.resolve({ data: [] }),
       linkSupport()
-        ? sb.from('support_contracts').select('id,title,tier_name,response_priority,status,starts_on,ends_on').in('company_id', companyIds).eq('status', 'active')
+        ? sb.from('support_contracts').select('id,company_id,title,tier_name,response_priority,status,starts_on,ends_on,created_at').in('company_id', companyIds).eq('status', 'active').is('deleted_at', null).order('starts_on', { ascending: false }).order('created_at', { ascending: false })
         : Promise.resolve({ data: [] }),
     ]);
     const error = ticketsResult.error || buildsResult.error || contractsResult.error;
@@ -277,8 +277,16 @@
     const tickets = ticketsResult.data || [];
     const activeBuilds = (buildsResult.data || []).filter((item) => item.status !== 'complete');
     const today = new Date().toISOString().slice(0, 10);
-    const contracts = (contractsResult.data || []).filter((contract) => contract.starts_on <= today && (!contract.ends_on || contract.ends_on >= today));
-    const usageMap = await loadUsageMap(contracts.map((contract) => contract.id));
+    const activeContracts = (contractsResult.data || []).filter((contract) => contract.starts_on <= today && (!contract.ends_on || contract.ends_on >= today));
+    const currentContracts = [];
+    const seenCompanies = new Set();
+    activeContracts.forEach((contract) => {
+      if (!seenCompanies.has(contract.company_id)) {
+        seenCompanies.add(contract.company_id);
+        currentContracts.push(contract);
+      }
+    });
+    const usageMap = await loadUsageMap(currentContracts.map((contract) => contract.id));
 
     content.innerHTML = `
       <h1>Welcome</h1>
@@ -287,7 +295,7 @@
         <div class="card">Active builds<strong class="big">${activeBuilds.length}</strong></div>
         <div class="card">Account<strong class="big" style="font-size:18px">${esc(companyLinks[0]?.companies?.trading_name || companyLinks[0]?.companies?.legal_name)}</strong></div>
       </div>
-      ${contracts.map((contract) => `<div class="panel"><div style="display:flex;justify-content:space-between;gap:12px"><div><h3 style="margin:0">${esc(contract.tier_name)} — ${esc(contract.title)}</h3><p class="muted">Response priority: ${esc(contract.response_priority || 'Not specified')}</p></div></div>${usageCardHtml(usageMap.get(contract.id))}</div>`).join('')}
+      ${currentContracts.map((contract) => `<div class="panel"><div style="display:flex;justify-content:space-between;gap:12px"><div><h3 style="margin:0">${esc(contract.tier_name)} — ${esc(contract.title)}</h3><p class="muted">Your current customer support contract · Response priority: ${esc(contract.response_priority || 'Not specified')}</p></div></div>${usageCardHtml(usageMap.get(contract.id))}</div>`).join('')}
       ${activeBuilds[0] ? `<div class="panel"><h3>Latest build</h3><strong>${esc(activeBuilds[0].title)}</strong><p>${activeBuilds[0].progress_percent}% complete · ${esc(activeBuilds[0].current_stage || activeBuilds[0].status)}</p></div>` : ''}`;
   }
 
@@ -487,7 +495,7 @@
     const companyIds = currentCompanyIds(true);
     const [projectsResult, contractsResult, categoriesResult] = await Promise.all([
       sb.from('projects').select('id,name,company_id,simulator_model,serial_number').in('company_id', companyIds).eq('active', true).order('name'),
-      sb.from('support_contracts').select('*').in('company_id', companyIds).eq('status', 'active').is('deleted_at', null),
+      sb.from('support_contracts').select('*').in('company_id', companyIds).eq('status', 'active').is('deleted_at', null).order('starts_on', { ascending: false }).order('created_at', { ascending: false }),
       sb.from('support_categories').select('id,name,company_id').eq('active', true).order('sort_order'),
     ]);
     const error = projectsResult.error || contractsResult.error || categoriesResult.error;
@@ -500,8 +508,7 @@
     const usageMap = await loadUsageMap(activeContracts.map((contract) => contract.id));
     const contractsByCompany = new Map();
     activeContracts.forEach((contract) => {
-      if (!contractsByCompany.has(contract.company_id)) contractsByCompany.set(contract.company_id, []);
-      contractsByCompany.get(contract.company_id).push(contract);
+      if (!contractsByCompany.has(contract.company_id)) contractsByCompany.set(contract.company_id, [contract]);
     });
 
     content.innerHTML = `

@@ -3,6 +3,7 @@
 
   const ADMIN_URL = 'https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/staff-pin-admin';
   const SUPPORT_URL = 'https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/support-portal-admin';
+  const DELETE_CONTRACT_URL = 'https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/support-contract-delete';
   const PROJECT_URL = 'https://euttubfvsrgkeiescsdm.supabase.co';
   const KEY = 'sb_publishable_PEfCOwn6Xkwtl7RhWPAPVA_Ppgq08Wl';
   const BUCKET = 'support-attachments';
@@ -105,6 +106,7 @@
 
   const api = (action, payload = {}) => request(ADMIN_URL, action, payload);
   const supportApi = (action, payload = {}) => request(SUPPORT_URL, action, payload);
+  const deleteContractApi = (action, payload = {}) => request(DELETE_CONTRACT_URL, action, payload);
 
   async function unlock() {
     try {
@@ -589,7 +591,7 @@
     const data = await supportApi('list_contracts');
     const companies = (data.companies || []).filter((company) => company.active);
     const projects = (data.projects || []).filter((project) => project.active);
-    const contractList = data.contracts || [];
+    const contractList = (data.contracts || []).filter((contract) => !contract.deleted_at);
     const links = data.links || [];
     const usageByContract = new Map((data.usage || []).filter(Boolean).map((item) => [item.contract_id, item]));
     const editing = editId ? contractList.find((contract) => contract.id === editId) : null;
@@ -634,7 +636,7 @@
           const company = companies.find((item) => item.id === contract.company_id);
           const coveredNames = links.filter((link) => link.contract_id === contract.id).map((link) => projects.find((project) => project.id === link.project_id)?.name).filter(Boolean);
           const usage = usageByContract.get(contract.id);
-          return `<div class="card"><div class="row" style="justify-content:space-between"><strong>${esc(contract.title)}</strong><span class="tag">${esc(contract.status)}</span></div><div class="muted">${esc(company?.trading_name || company?.legal_name || '')} · ${esc(contract.tier_name)} · ${esc(contract.response_priority || 'Priority not specified')}</div><div class="muted">${coveredNames.map(esc).join(', ') || 'No simulators assigned'}</div><div style="margin-top:12px">${usageSummaryHtml(usage)}</div><div class="row" style="margin-top:10px"><button class="btn ghost" data-edit-contract="${contract.id}">Edit</button></div></div>`;
+          return `<div class="card"><div class="row" style="justify-content:space-between"><strong>${esc(contract.title)}</strong><span class="tag">${esc(contract.status)}</span></div><div class="muted">${esc(company?.trading_name || company?.legal_name || '')} · ${esc(contract.tier_name)} · ${esc(contract.response_priority || 'Priority not specified')}</div><div class="muted">${coveredNames.map(esc).join(', ') || 'No simulators assigned'}</div><div style="margin-top:12px">${usageSummaryHtml(usage)}</div><div class="row" style="margin-top:10px"><button class="btn ghost" data-edit-contract="${contract.id}">Edit</button><button class="btn danger" data-delete-contract="${contract.id}">Delete</button></div></div>`;
         }).join('') : '<p class="muted">No support contracts have been created.</p>'}</div></div>
       </div>`;
 
@@ -739,6 +741,29 @@
 
     if (editing) document.getElementById('cancelContractEdit').onclick = () => contracts();
     document.querySelectorAll('[data-edit-contract]').forEach((button) => button.onclick = () => contracts(button.dataset.editContract));
+    document.querySelectorAll('[data-delete-contract]').forEach((button) => {
+      button.onclick = async () => {
+        const contract = contractList.find((item) => item.id === button.dataset.deleteContract);
+        if (!contract) return;
+        const confirmed = window.confirm(
+          `Delete "${contract.title}"?
+
+Unused contracts will be permanently deleted. If the contract has support-ticket history, it will be archived and removed from this list while the historical tickets remain available.`
+        );
+        if (!confirmed) return;
+        button.disabled = true;
+        try {
+          const result = await deleteContractApi('delete_contract', { id: contract.id });
+          toast(result.mode === 'archived'
+            ? `Contract removed from the active list. ${result.ticket_count} historical support request${result.ticket_count === 1 ? '' : 's'} preserved.`
+            : 'Contract deleted.');
+          await contracts();
+        } catch (error) {
+          button.disabled = false;
+          toast(error.message, true);
+        }
+      };
+    });
   }
 
 

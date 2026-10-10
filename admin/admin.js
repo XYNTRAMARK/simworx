@@ -182,22 +182,24 @@
 
   async function tickets() {
     const { data = [] } = await api('tickets');
+    const openFaults = data.filter((item) => item.status !== 'closed');
+    const closedFaults = data.filter((item) => item.status === 'closed');
+    const rows = (items, actionLabel) => items.length ? items.map((ticketItem) => `
+      <tr>
+        <td>${esc(ticketItem.reference)}</td>
+        <td>${esc(ticketItem.companies?.trading_name || ticketItem.companies?.legal_name || '')}</td>
+        <td>${esc(ticketItem.subject)}</td>
+        <td>${esc(ticketItem.priority)}</td>
+        <td><span class="tag">${esc(ticketItem.status.replaceAll('_',' '))}</span></td>
+        <td>${new Date(ticketItem.created_at).toLocaleString()}</td>
+        <td><button class="btn ghost" data-ticket="${ticketItem.id}">${actionLabel}</button></td>
+      </tr>`).join('') : `<tr><td colspan="7" class="muted">No ${actionLabel === 'OPEN DISCUSSION' ? 'open' : 'closed'} faults.</td></tr>`;
+
     content.innerHTML = `
-      <h1>Support Requests</h1>
-      <div class="panel">
-        <table class="table">
-          <thead><tr><th>Reference</th><th>Customer</th><th>Subject</th><th>Priority</th><th>Status</th><th></th></tr></thead>
-          <tbody>${data.map((ticket) => `
-            <tr>
-              <td>${esc(ticket.reference)}</td>
-              <td>${esc(ticket.companies?.trading_name || ticket.companies?.legal_name || '')}</td>
-              <td>${esc(ticket.subject)}</td>
-              <td>${esc(ticket.priority)}</td>
-              <td><span class="tag">${esc(ticket.status)}</span></td>
-              <td><button class="btn ghost" data-ticket="${ticket.id}">Open</button></td>
-            </tr>`).join('')}</tbody>
-        </table>
-      </div>`;
+      <h1>Fault Log Register</h1>
+      <div class="cards"><div class="card">Open Faults<strong class="big">${openFaults.length}</strong></div><div class="card">Closed Faults<strong class="big">${closedFaults.length}</strong></div></div>
+      <div class="panel"><h2>Open Faults</h2><div style="overflow-x:auto"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Subject</th><th>Priority</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>${rows(openFaults, 'OPEN DISCUSSION')}</tbody></table></div></div>
+      <div class="panel"><h2>Closed Faults</h2><div style="overflow-x:auto"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Subject</th><th>Priority</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>${rows(closedFaults, 'VIEW HISTORY')}</tbody></table></div></div>`;
     document.querySelectorAll('[data-ticket]').forEach((button) => button.onclick = () => ticketDetail(button.dataset.ticket));
   }
 
@@ -246,8 +248,9 @@
     const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
     content.innerHTML = `
-      <button class="btn ghost" id="backTickets">← Back</button>
+      <button class="btn ghost" id="backTickets">← Fault Log Register</button>
       <h1>${esc(ticket.reference)} — ${esc(ticket.subject)}</h1>
+      ${ticket.status === 'closed' ? `<div class="notice"><strong>This fault is closed.</strong>${ticket.closed_at ? ` Closed ${new Date(ticket.closed_at).toLocaleString()}.` : ''}</div>` : ''}
       <div class="grid">
         <div>
           <div class="panel">
@@ -294,6 +297,7 @@
             <p><strong>Contract:</strong><br>${esc(ticket.support_contracts?.tier_name || ticket.support_contracts?.title || 'Not assigned')}</p>
             <p><strong>Response priority:</strong><br>${esc(ticket.support_contracts?.response_priority || 'Not specified')}</p>
             <p><strong>Priority:</strong> ${esc(ticket.priority)}</p>
+            ${ticket.status === 'closed' ? `<p><strong>Closed:</strong><br>${ticket.closed_at ? new Date(ticket.closed_at).toLocaleString() : 'Closed'}</p>` : '<button id="adminCloseFault" class="btn danger" style="width:100%">CLOSE FAULT</button>'}
           </div>
           <div class="panel"><h3>Current billing period</h3>${usageSummaryHtml(usage)}</div>
           <div class="panel">
@@ -317,10 +321,27 @@
       try {
         await api('ticket_status', { id, status: event.target.value });
         toast('Status updated');
+        await ticketDetail(id);
       } catch (error) {
         toast(error.message, true);
       }
     };
+
+    const adminCloseButton = document.getElementById('adminCloseFault');
+    if (adminCloseButton) {
+      adminCloseButton.onclick = async () => {
+        if (!window.confirm('Close this fault? It will remain available in Closed Faults.')) return;
+        adminCloseButton.disabled = true;
+        try {
+          await api('ticket_status', { id, status: 'closed' });
+          toast('Fault closed');
+          await ticketDetail(id);
+        } catch (error) {
+          adminCloseButton.disabled = false;
+          toast(error.message, true);
+        }
+      };
+    }
 
     const filesInput = document.getElementById('replyFiles');
     filesInput.onchange = () => {

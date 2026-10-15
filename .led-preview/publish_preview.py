@@ -19,10 +19,10 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-light-twin-review.html"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-light-twin-review.html"
-PREVIEW = Path(".led-preview/simworx-light-twin-review.html")
-EXPECTED_SHA = "a613425f9abd877e2d7647cb77ffb3a90e7b41246419d1df1b76864de803e99b"
+TARGET = "/htdocs/admin/simworx-light-twin-review-v2.html"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-light-twin-review-v2.html"
+PREVIEW = Path(".led-preview/simworx-light-twin-review-v2.html")
+EXPECTED_SHA = "2a334416bf71ab4792e4edc9d742b4cba80e8ee3865ee991e557a73ca9522249"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 

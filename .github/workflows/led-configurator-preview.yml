@@ -1,0 +1,54 @@
+name: LED configurator standalone review
+
+on:
+  push:
+    branches: [preview/led-configurator-review]
+    paths:
+      - '.led-preview/**'
+      - '.github/workflows/led-configurator-preview.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: simworx-led-review-only
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    name: Back up live site, then upload one new admin preview file
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify prepared preview and back up every live htdocs file
+        run: python3 .led-preview/publish_preview.py backup
+      - name: Encrypt verified backup using the existing hosting password
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/simworx-led-preview/verified-backup.json"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in "$RUNNER_TEMP/simworx-led-preview/live-htdocs.tar.gz" \
+            -out "$RUNNER_TEMP/simworx-led-preview/live-htdocs.tar.gz.enc" \
+            -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in "$RUNNER_TEMP/simworx-led-preview/live-htdocs.tar.gz.enc" \
+            -pass env:FTP_PASSWORD | cmp - "$RUNNER_TEMP/simworx-led-preview/live-htdocs.tar.gz"
+          cd "$RUNNER_TEMP/simworx-led-preview"
+          sha256sum live-htdocs.tar.gz.enc > live-htdocs.tar.gz.enc.sha256
+      - name: Retain encrypted full-site backup before any remote write
+        uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-live-backup-before-led-review-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/simworx-led-preview/live-htdocs.tar.gz.enc
+            ${{ runner.temp }}/simworx-led-preview/live-htdocs.tar.gz.enc.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload only the new admin preview and verify it over HTTPS
+        run: python3 .led-preview/publish_preview.py publish

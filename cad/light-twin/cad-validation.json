@@ -1,0 +1,640 @@
+{
+  "name": "Simworx light twin cockpit",
+  "units": "mm",
+  "outer_dimensions_mm": {
+    "width": 1700.0000002,
+    "depth": 1900.0000002,
+    "height": 1900.0000002000002,
+    "min": [
+      -850.0000001,
+      -950.0000001,
+      -1.0000002842170943e-07
+    ],
+    "max": [
+      850.0000001,
+      950.0000001,
+      1900.0000001
+    ]
+  },
+  "component_count": 66,
+  "all_components_valid": true,
+  "shell_solid_count": 1,
+  "triangles": 49834,
+  "parameters": {
+    "name": "Simworx light twin cockpit",
+    "units": "mm",
+    "width": 1700.0,
+    "depth": 1900.0,
+    "height": 1900.0,
+    "wall_thickness": 32.0,
+    "rear_opening_fraction": 0.32,
+    "source": "Eight reference views supplied by the customer; overall width 1.7 m, length 1.9 m and height 1.9 m supplied by the customer.",
+    "status": "Visual planning model. Window positions, shell thickness, internal details and other unmeasured features are approximations, not manufacturing dimensions."
+  },
+  "parts": [
+    {
+      "name": "Cabin_shell_with_window_and_rear_openings",
+      "colour": [
+        0.57,
+        0.58,
+        0.59
+      ],
+      "brep": "000-Cabin_shell_with_window_and_rear_openings.brep"
+    },
+    {
+      "name": "Cabin_floor_lining",
+      "colour": [
+        0.4,
+        0.41,
+        0.42
+      ],
+      "brep": "001-Cabin_floor_lining.brep"
+    },
+    {
+      "name": "Main_instrument_panel",
+      "colour": [
+        0.4,
+        0.41,
+        0.42
+      ],
+      "brep": "002-Main_instrument_panel.brep"
+    },
+    {
+      "name": "Instrument_panel_glareshield",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "003-Instrument_panel_glareshield.brep"
+    },
+    {
+      "name": "Gauge_rim_L1_0_0",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "004-Gauge_rim_L1_0_0.brep"
+    },
+    {
+      "name": "Gauge_face_L1_0_0",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "005-Gauge_face_L1_0_0.brep"
+    },
+    {
+      "name": "Gauge_rim_L1_0_1",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "006-Gauge_rim_L1_0_1.brep"
+    },
+    {
+      "name": "Gauge_face_L1_0_1",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "007-Gauge_face_L1_0_1.brep"
+    },
+    {
+      "name": "Gauge_rim_L1_0_2",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "008-Gauge_rim_L1_0_2.brep"
+    },
+    {
+      "name": "Gauge_face_L1_0_2",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "009-Gauge_face_L1_0_2.brep"
+    },
+    {
+      "name": "Gauge_rim_L1_1_0",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "010-Gauge_rim_L1_1_0.brep"
+    },
+    {
+      "name": "Gauge_face_L1_1_0",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "011-Gauge_face_L1_1_0.brep"
+    },
+    {
+      "name": "Gauge_rim_L1_1_1",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "012-Gauge_rim_L1_1_1.brep"
+    },
+    {
+      "name": "Gauge_face_L1_1_1",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "013-Gauge_face_L1_1_1.brep"
+    },
+    {
+      "name": "Gauge_rim_L1_1_2",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "014-Gauge_rim_L1_1_2.brep"
+    },
+    {
+      "name": "Gauge_face_L1_1_2",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "015-Gauge_face_L1_1_2.brep"
+    },
+    {
+      "name": "Avionics_display_L1",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "016-Avionics_display_L1.brep"
+    },
+    {
+      "name": "Gauge_rim_1_0_0",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "017-Gauge_rim_1_0_0.brep"
+    },
+    {
+      "name": "Gauge_face_1_0_0",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "018-Gauge_face_1_0_0.brep"
+    },
+    {
+      "name": "Gauge_rim_1_0_1",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "019-Gauge_rim_1_0_1.brep"
+    },
+    {
+      "name": "Gauge_face_1_0_1",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "020-Gauge_face_1_0_1.brep"
+    },
+    {
+      "name": "Gauge_rim_1_0_2",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "021-Gauge_rim_1_0_2.brep"
+    },
+    {
+      "name": "Gauge_face_1_0_2",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "022-Gauge_face_1_0_2.brep"
+    },
+    {
+      "name": "Gauge_rim_1_1_0",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "023-Gauge_rim_1_1_0.brep"
+    },
+    {
+      "name": "Gauge_face_1_1_0",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "024-Gauge_face_1_1_0.brep"
+    },
+    {
+      "name": "Gauge_rim_1_1_1",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "025-Gauge_rim_1_1_1.brep"
+    },
+    {
+      "name": "Gauge_face_1_1_1",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "026-Gauge_face_1_1_1.brep"
+    },
+    {
+      "name": "Gauge_rim_1_1_2",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "027-Gauge_rim_1_1_2.brep"
+    },
+    {
+      "name": "Gauge_face_1_1_2",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "028-Gauge_face_1_1_2.brep"
+    },
+    {
+      "name": "Avionics_display_1",
+      "colour": [
+        0.16,
+        0.17,
+        0.18
+      ],
+      "brep": "029-Avionics_display_1.brep"
+    },
+    {
+      "name": "Left_seat_pedestal",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "030-Left_seat_pedestal.brep"
+    },
+    {
+      "name": "Left_seat_cushion",
+      "colour": [
+        0.49,
+        0.5,
+        0.51
+      ],
+      "brep": "031-Left_seat_cushion.brep"
+    },
+    {
+      "name": "Left_seat_cushion_pad_L1",
+      "colour": [
+        0.61,
+        0.62,
+        0.63
+      ],
+      "brep": "032-Left_seat_cushion_pad_L1.brep"
+    },
+    {
+      "name": "Left_seat_cushion_pad_1",
+      "colour": [
+        0.61,
+        0.62,
+        0.63
+      ],
+      "brep": "033-Left_seat_cushion_pad_1.brep"
+    },
+    {
+      "name": "Left_seat_back",
+      "colour": [
+        0.49,
+        0.5,
+        0.51
+      ],
+      "brep": "034-Left_seat_back.brep"
+    },
+    {
+      "name": "Left_seat_headrest",
+      "colour": [
+        0.61,
+        0.62,
+        0.63
+      ],
+      "brep": "035-Left_seat_headrest.brep"
+    },
+    {
+      "name": "Left_armrest_L1",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "036-Left_armrest_L1.brep"
+    },
+    {
+      "name": "Left_armrest_1",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "037-Left_armrest_1.brep"
+    },
+    {
+      "name": "Left_yoke_and_column",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "038-Left_yoke_and_column.brep"
+    },
+    {
+      "name": "Left_pedal_L1",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "039-Left_pedal_L1.brep"
+    },
+    {
+      "name": "Left_pedal_1",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "040-Left_pedal_1.brep"
+    },
+    {
+      "name": "Right_seat_pedestal",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "041-Right_seat_pedestal.brep"
+    },
+    {
+      "name": "Right_seat_cushion",
+      "colour": [
+        0.49,
+        0.5,
+        0.51
+      ],
+      "brep": "042-Right_seat_cushion.brep"
+    },
+    {
+      "name": "Right_seat_cushion_pad_L1",
+      "colour": [
+        0.61,
+        0.62,
+        0.63
+      ],
+      "brep": "043-Right_seat_cushion_pad_L1.brep"
+    },
+    {
+      "name": "Right_seat_cushion_pad_1",
+      "colour": [
+        0.61,
+        0.62,
+        0.63
+      ],
+      "brep": "044-Right_seat_cushion_pad_1.brep"
+    },
+    {
+      "name": "Right_seat_back",
+      "colour": [
+        0.49,
+        0.5,
+        0.51
+      ],
+      "brep": "045-Right_seat_back.brep"
+    },
+    {
+      "name": "Right_seat_headrest",
+      "colour": [
+        0.61,
+        0.62,
+        0.63
+      ],
+      "brep": "046-Right_seat_headrest.brep"
+    },
+    {
+      "name": "Right_armrest_L1",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "047-Right_armrest_L1.brep"
+    },
+    {
+      "name": "Right_armrest_1",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "048-Right_armrest_1.brep"
+    },
+    {
+      "name": "Right_yoke_and_column",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "049-Right_yoke_and_column.brep"
+    },
+    {
+      "name": "Right_pedal_L1",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "050-Right_pedal_L1.brep"
+    },
+    {
+      "name": "Right_pedal_1",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "051-Right_pedal_1.brep"
+    },
+    {
+      "name": "Centre_pedestal",
+      "colour": [
+        0.4,
+        0.41,
+        0.42
+      ],
+      "brep": "052-Centre_pedestal.brep"
+    },
+    {
+      "name": "Centre_console_top",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "053-Centre_console_top.brep"
+    },
+    {
+      "name": "Throttle_lever_1",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "054-Throttle_lever_1.brep"
+    },
+    {
+      "name": "Throttle_lever_2",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "055-Throttle_lever_2.brep"
+    },
+    {
+      "name": "Throttle_lever_3",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "056-Throttle_lever_3.brep"
+    },
+    {
+      "name": "Throttle_lever_4",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "057-Throttle_lever_4.brep"
+    },
+    {
+      "name": "Rear_overhead_panel",
+      "colour": [
+        0.24,
+        0.25,
+        0.26
+      ],
+      "brep": "058-Rear_overhead_panel.brep"
+    },
+    {
+      "name": "Overhead_control_1",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "059-Overhead_control_1.brep"
+    },
+    {
+      "name": "Overhead_control_2",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "060-Overhead_control_2.brep"
+    },
+    {
+      "name": "Overhead_control_3",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "061-Overhead_control_3.brep"
+    },
+    {
+      "name": "Overhead_control_4",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "062-Overhead_control_4.brep"
+    },
+    {
+      "name": "Overhead_control_5",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "063-Overhead_control_5.brep"
+    },
+    {
+      "name": "Overhead_control_6",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "064-Overhead_control_6.brep"
+    },
+    {
+      "name": "Overhead_control_7",
+      "colour": [
+        0.68,
+        0.69,
+        0.7
+      ],
+      "brep": "065-Overhead_control_7.brep"
+    }
+  ],
+  "files": {
+    "simworx-light-twin-cockpit.step": {
+      "bytes": 3840515,
+      "sha256": "e4b199235e46ffab5e10fcae2e3fb8f053b65f9649ba8fb989d039f612bc58e0"
+    },
+    "simworx-light-twin-cockpit.glb": {
+      "bytes": 1759028,
+      "sha256": "a9014e3680ddad3bede0e6b14de676ad6db6823f461fe3cf7fa57eb7ddc17318"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "checks_passed": 5,
+  "checks": [
+    "Saved native FreeCAD document reopened without a custom macro or add-on.",
+    "Editing B1 recomputes actual width to 1870.0000000000002 mm and keeps the floor fixed.",
+    "Editing B2 recomputes actual depth to 2090.0 mm and keeps the floor fixed.",
+    "Editing B3 recomputes actual height to 2090.0 mm and keeps the floor fixed.",
+    "Original 1700 \u00d7 1900 \u00d7 1900 mm dimensions restored; saved file remains at customer dimensions."
+  ],
+  "original_dimensions_mm": {
+    "width": 1700.0000002,
+    "depth": 1900.0000002,
+    "height": 1900.0000002000002,
+    "floor_z": -1.0000002842170943e-07
+  },
+  "native_features": "Spreadsheet dimensions and App::Link ScaleVector expressions; no external Python dependency when opening the FCStd."
+}

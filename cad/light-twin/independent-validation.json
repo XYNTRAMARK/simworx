@@ -1,0 +1,54 @@
+{
+  "checks_passed": 24,
+  "checks": [
+    "Exported STEP reimports as valid solid geometry with the cockpit components retained.",
+    "Reimported STEP has the measured 1700 \u00d7 1900 \u00d7 1900 mm outer dimensions.",
+    "Reimported STEP rests on the Z=0 floor.",
+    "STEP contains explicit colour definitions and millimetre units.",
+    "The hollow cabin, window apertures and rear access remain one valid solid shell.",
+    "Right rear side window is a real opening.",
+    "Left rear side window is a real opening.",
+    "Rear centre access is a real opening.",
+    "Rear cheek wall remains beside the access opening.",
+    "Cabin floor remains beneath the interior.",
+    "Web file is a correctly sized binary glTF 2.0 container.",
+    "GLB contains both geometry metadata and embedded binary data.",
+    "GLB has no textures or external image dependencies.",
+    "All web materials use solid colours.",
+    "Material mat_0 is grey.",
+    "Material mat_1 is grey.",
+    "Material mat_2 is grey.",
+    "Material mat_3 is grey.",
+    "Material mat_4 is grey.",
+    "Material mat_5 is grey.",
+    "Material mat_6 is grey.",
+    "GLB has 1.7 \u00d7 1.9 \u00d7 1.9 metre bounds in the website coordinate system.",
+    "GLB uses Y-up with its base on the floor.",
+    "Web geometry stays below 60,000 triangles."
+  ],
+  "step_dimensions_mm": [
+    1700.0000002,
+    1900.0000002,
+    1900.0000002000002
+  ],
+  "step_solid_count": 76,
+  "glb_bounds_metres": {
+    "min": [
+      -0.85,
+      -2.2515322939398175e-16,
+      -0.9499999999999998
+    ],
+    "max": [
+      0.85,
+      1.8999999999999995,
+      0.9500000000000003
+    ],
+    "size": [
+      1.7,
+      1.8999999999999997,
+      1.9000000000000001
+    ]
+  },
+  "glb_triangles": 49834,
+  "textures": 0
+}

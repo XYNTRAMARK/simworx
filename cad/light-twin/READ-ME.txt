@@ -1,0 +1,68 @@
+SIMWORX LIGHT TWIN COCKPIT
+
+Overall dimensions supplied by Mark:
+Width: 1,700 mm (1.7 m)
+Front-to-back length: 1,900 mm (1.9 m)
+Height: 1,900 mm (1.9 m)
+
+WHAT YOU HAVE
+
+simworx-light-twin-cockpit.step
+The grey CAD assembly. Use this to import the cockpit into CAD software or share
+the geometry. It contains solid geometry and named components, with no textures.
+STEP is an exported shape; it does not retain the editable design parameters.
+
+simworx-light-twin-cockpit.FCStd
+The editable FreeCAD model. Its overall width, length and height can be changed
+without writing code or installing a special macro.
+
+simworx-light-twin-cockpit.glb
+The lighter 3D version intended for use on the Simworx website. Its units are
+metres, +Y is up and the cockpit faces -Z, matching the LED configurator.
+
+simworx-light-twin-review.html
+An interactive 3D review of the actual CAD model. For iPhone, use the hosted
+review link supplied in the chat. A downloaded HTML file is not a reliable
+interactive viewer on iPhone.
+
+HOW TO CHANGE THE DIMENSIONS IN FREECAD
+
+1. Open FreeCAD, then choose File > Open.
+2. Open simworx-light-twin-cockpit.FCStd.
+3. In the model tree, double-click "Dimensions - edit the three blue value cells".
+4. In the spreadsheet, change the blue values in column B:
+   B1 = overall width; B2 = front-to-back length; B3 = overall height.
+   Keep "mm" after the number. For example, enter "1800 mm" for 1.8 metres.
+5. Press F5 to recompute. Return to the model tab to see the changed shape.
+6. To fit the complete model on screen, choose View > Standard views > Fit all.
+7. If you need a new STEP export, select only
+   "LIGHT TWIN COCKPIT - dimension-driven assembly" in the model tree, then choose
+   File > Export and select STEP. Save under a new filename.
+
+The three dimensions scale the entire cockpit, including its windows and seats.
+They are overall planning dimensions, not an engineering feature tree for
+manufacturing. Changing one dimension independently stretches the proportions.
+
+MODEL CONTENT
+
+Rounded cabin shell, two front windscreen apertures and centre mullion, side
+windows and forward quarter windows, rear access opening, two seats and
+headrests, instrument panel and gauges, two yokes, pedals, centre pedestal,
+throttle controls and overhead panel. Grey materials only; no textures.
+The mannequin occupants in the reference pictures are not included.
+
+ACCURACY
+
+The overall dimensions are your measurements. The shape is reconstructed from
+the eight supplied views. Unmeasured contours, window positions, wall thickness,
+seat positions and instrument/control details are approximations for visual
+planning. This model is not a manufacturing drawing, a verified aircraft model,
+or a clearance/structural assessment.
+
+SOURCE FILES (OPTIONAL)
+
+dimensions.json contains the measured starting dimensions and model settings.
+build-light-twin.py rebuilds the solid geometry using CadQuery 2.7.0 and exports
+STEP, GLB, component BREP files, mesh data and a validation report.
+build-freecad.py creates the editable FCStd from those component files using
+FreeCAD 1.0. The saved FCStd does not require these scripts when opened normally.

@@ -22,10 +22,10 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-led-preview-v6.html"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v6.html"
-PREVIEW = Path(".led-preview/simworx-led-preview-v6.html")
-EXPECTED_SHA = "be2eba941809a3d54a84a48632fc4c18228e4450060c2f2d26f2ca0c682c9f2e"
+TARGET = "/htdocs/admin/simworx-led-preview-v7.html"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v7.html"
+PREVIEW = Path(".led-preview/simworx-led-preview-v7.html")
+EXPECTED_SHA = "fe03cfdec06f450f6668c49068a8634fb2d141aa4a467bb395759a338a84e025"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -87,7 +87,7 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if b"excludedDashboardSolids" not in content or b"LED SCREEN COST" not in content or b"noindex" not in content or b"light-twin-cad" not in content or b"SimworxLED" not in content or b"SUPPLIER COST REVIEW" not in content or b"helicopter-h135-cad" not in content or b"Email sending disabled in preview" not in content:
+    if b"led-pitch-options" not in content or b"led-readout-area" not in content or b"led-currency-reference" not in content or b"excludedDashboardSolids" not in content or b"LED SCREEN COST" not in content or b"noindex" not in content or b"light-twin-cad" not in content or b"SimworxLED" not in content or b"SUPPLIER COST REVIEW" not in content or b"helicopter-h135-cad" not in content or b"Email sending disabled in preview" not in content:
         raise RuntimeError("The expected self-contained review page is missing.")
     return content
 

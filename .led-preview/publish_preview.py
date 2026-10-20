@@ -22,10 +22,11 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-led-preview-v8.html"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v8.html"
-PREVIEW = Path(".led-preview/simworx-led-preview-v8.html")
-EXPECTED_SHA = "d456ddb531f63d2c5fd2fb60db0985a16406fa086f662e09e516f3513796ab01"
+TARGET = "/htdocs/admin/simworx-led-preview-v9.php"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v9.php"
+PREVIEW = Path(".led-preview/simworx-led-preview-v9.php")
+EXPECTED_SHA = "703abd4b17c0d777816c1e9868cd3413ad92d4b39526464a0b3117ca6423ada5"
+RENDERED_SHA = "285a4cf27dd8d0b9330a88a74629b78b8d2f5aa1d8aca49159c48a7ccb2b18bb"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -87,8 +88,11 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if b"led-simulatorY" not in content or b"led-viewer-simulator" not in content or b"Raise / lower screen" not in content or b"led-pitch-options" not in content or b"led-readout-area" not in content or b"led-currency-reference" not in content or b"excludedDashboardSolids" not in content or b"LED SCREEN COST" not in content or b"noindex" not in content or b"light-twin-cad" not in content or b"SimworxLED" not in content or b"SUPPLIER COST REVIEW" not in content or b"helicopter-h135-cad" not in content or b"Email sending disabled in preview" not in content:
-        raise RuntimeError("The expected self-contained review page is missing.")
+    if TARGET != "/htdocs/admin/simworx-led-preview-v9.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v9.php":
+        raise RuntimeError("Only the one new admin review path is authorized.")
+    for marker in [b"<?php",b"SimworxLedProfiles",b"captureViews",b"led-dimension-unit",b"led-save-profile",b"Print Quote",b"Email me Quote",b"noindex",b"helicopter-h135-cad",b"excludedDashboardSolids",b"led-simulatorY"]:
+        if marker not in content:
+            raise RuntimeError("The prepared complete quote/profile review page is missing.")
     return content
 
 
@@ -121,6 +125,8 @@ def backup_once():
             raise RuntimeError("The live files changed while the backup was being made; stopped before any upload.")
     if not manifest or not (site / "htdocs/index.html").is_file():
         raise RuntimeError("The complete live homepage backup could not be verified.")
+    if not (site / "htdocs/forms/anti-spam.php").is_file():
+        raise RuntimeError("The existing shared form protection is unavailable; no quote page published.")
     (site / "backup-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     archive = WORK / "live-htdocs.tar.gz"
     with tarfile.open(archive, "w:gz") as target:
@@ -169,7 +175,7 @@ def publish():
     # The workflow retains the encrypted, verified backup before calling this.
     if not (WORK / "live-htdocs.tar.gz.enc").is_file():
         raise RuntimeError("The encrypted backup is missing; no upload attempted.")
-    temporary = "/htdocs/admin/.led-review-" + EXPECTED_SHA[:16] + ".upload"
+    temporary = "/htdocs/admin/.led-review-" + EXPECTED_SHA[:16] + ".upload.php"
     with connect() as ftp:
         current = {posixpath.join("/htdocs/admin", name) for name, _ in entries(ftp, "/htdocs/admin")}
         if TARGET in current or temporary in current:
@@ -184,11 +190,14 @@ def publish():
             raise RuntimeError("The destination appeared during upload; existing file protected.")
         ftp.rename(temporary, TARGET)
     online = public_bytes(PUBLIC_URL + "?v=" + EXPECTED_SHA[:12])
-    if digest(online) != EXPECTED_SHA:
+    if digest(online) != RENDERED_SHA:
         raise RuntimeError("The hosted preview did not match the prepared file byte for byte.")
     home = public_bytes("https://www.sim-worx.com/?led-review-after=" + EXPECTED_SHA[:12])
     if digest(home) != evidence["homepage_sha256"]:
         raise RuntimeError("The live homepage changed during this run. The preview uploader only writes its one new admin file.")
+    capabilities=json.loads(public_bytes(PUBLIC_URL+"?action=capabilities"))
+    if not capabilities.get("ok") or not capabilities.get("protected"):
+        raise RuntimeError("The hosted PHP quote handler or existing form protection is unavailable.")
     print("Verified the exact hosted preview and unchanged live homepage: " + PUBLIC_URL)
 
 

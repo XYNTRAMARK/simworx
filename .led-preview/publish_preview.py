@@ -1,3 +1,4 @@
+# Retry on a new runner after FTP 425 stopped the prior backup before any write.
 """Back up the live site, then publish exactly one new self-contained review page.
 
 Runs only inside the isolated preview branch's GitHub Actions job. Credentials

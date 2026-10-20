@@ -22,11 +22,11 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-led-preview-v9.php"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v9.php"
-PREVIEW = Path(".led-preview/simworx-led-preview-v9.php")
-EXPECTED_SHA = "703abd4b17c0d777816c1e9868cd3413ad92d4b39526464a0b3117ca6423ada5"
-RENDERED_SHA = "285a4cf27dd8d0b9330a88a74629b78b8d2f5aa1d8aca49159c48a7ccb2b18bb"
+TARGET = "/htdocs/admin/simworx-led-preview-v10.php"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v10.php"
+PREVIEW = Path(".led-preview/simworx-led-preview-v10.php")
+EXPECTED_SHA = "ca47501dd064412b7e86cde822a3857f9c79aa016300e18ca82a2bb2ab96e385"
+RENDERED_SHA = "67fc3120636a94059bab3669620d2c4e05bb64989892945f3e271f9fbc8f68f2"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -88,9 +88,9 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if TARGET != "/htdocs/admin/simworx-led-preview-v9.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v9.php":
+    if TARGET != "/htdocs/admin/simworx-led-preview-v10.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v10.php":
         raise RuntimeError("Only the one new admin review path is authorized.")
-    for marker in [b"<?php",b"SimworxLedProfiles",b"captureViews",b"led-dimension-unit",b"led-save-profile",b"Print Quote",b"Email me Quote",b"noindex",b"helicopter-h135-cad",b"excludedDashboardSolids",b"led-simulatorY"]:
+    for marker in [b"<?php",b"SimworxLedProfiles",b"captureViews",b"led-dimension-unit",b"led-save-profile",b"quote-total-amount",b"recordQuote",b"Include Simworx system controller",b"Print Quote",b"Email me Quote",b"noindex",b"helicopter-h135-cad",b"excludedDashboardSolids",b"led-simulatorY"]:
         if marker not in content:
             raise RuntimeError("The prepared complete quote/profile review page is missing.")
     return content

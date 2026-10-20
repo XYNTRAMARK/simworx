@@ -35,6 +35,30 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+class ReviewFTP(ftplib.FTP_TLS):
+    """Try extended passive mode after a read-only data-channel refusal."""
+    prefer_epsv = False
+
+    def makepasv(self):
+        if self.prefer_epsv:
+            try:
+                return ftplib.parse229(self.sendcmd("EPSV"), self.sock.getpeername())
+            except ftplib.error_perm:
+                pass  # Servers without EPSV retain standard passive mode.
+        return super().makepasv()
+
+    def ntransfercmd(self, command, rest=None):
+        try:
+            return super().ntransfercmd(command, rest)
+        except ftplib.error_temp as error:
+            readonly = command.split(" ", 1)[0] in {"MLSD", "LIST", "RETR"}
+            if str(error).startswith("425") and readonly and not self.prefer_epsv:
+                self.prefer_epsv = True
+                print("Read-only FTP data channel refused; retrying with extended passive mode.", flush=True)
+                return super().ntransfercmd(command, rest)
+            raise
+
+
 def connect():
     raw = os.environ.get("FTP_HOST", "").strip()
     user = os.environ.get("FTP_USERNAME", "")
@@ -46,7 +70,7 @@ def connect():
         raise RuntimeError("FTP_HOST must identify the hosting FTP/FTPS server.")
     if parsed.username or parsed.password or parsed.path not in {"", "/"}:
         raise RuntimeError("FTP_HOST must contain only the server address; credentials use their separate secrets.")
-    ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=45)
+    ftp = ReviewFTP(context=ssl.create_default_context(), timeout=45)
     ftp.connect(parsed.hostname, parsed.port or 21)
     ftp.login(user, password)
     ftp.prot_p()
@@ -169,7 +193,7 @@ def backup():
             site = WORK / "site"
             if site.is_dir():
                 shutil.rmtree(site)
-            time.sleep(attempt * 3)
+            time.sleep(attempt * 15)
 
 
 def publish():

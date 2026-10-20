@@ -8,6 +8,8 @@ from __future__ import annotations
 import ftplib
 import hashlib
 import io
+import shutil
+import time
 import json
 import os
 from pathlib import Path
@@ -17,6 +19,7 @@ import sys
 import tarfile
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
 
 ROOT = "/htdocs"
 TARGET = "/htdocs/admin/simworx-led-preview-v5.html"
@@ -89,7 +92,7 @@ def validate_preview():
     return content
 
 
-def backup():
+def backup_once():
     validate_preview()
     WORK.mkdir(parents=True, exist_ok=True)
     site = WORK / "site"
@@ -135,6 +138,29 @@ def backup():
     print("Verified a complete live /htdocs backup: " + str(len(manifest)) + " files. No remote files changed.")
 
 
+
+def backup():
+    # Retry only read-only network failures. Every attempt starts a fresh full
+    # snapshot; publishing still requires the verified and retained backup.
+    for attempt in range(1, 4):
+        try:
+            print("Starting full-site backup attempt " + str(attempt) + ".", flush=True)
+            backup_once()
+            return
+        except (TimeoutError, ConnectionError, EOFError, ftplib.error_temp, ssl.SSLEOFError, URLError) as error:
+            if isinstance(error, HTTPError) and error.code not in {429, 500, 502, 503, 504}:
+                raise
+            if isinstance(error, URLError) and isinstance(error.reason, ssl.SSLCertVerificationError):
+                raise
+            if attempt == 3:
+                raise
+            print("::warning::Read-only backup connection interrupted (" + type(error).__name__ + "); restarting the complete backup before any upload.", flush=True)
+            site = WORK / "site"
+            if site.is_dir():
+                shutil.rmtree(site)
+            time.sleep(attempt * 3)
+
+
 def publish():
     content = validate_preview()
     evidence = json.loads((WORK / "verified-backup.json").read_text())
@@ -172,5 +198,11 @@ if __name__ == "__main__":
     try:
         {"backup": backup, "publish": publish}[sys.argv[1]]()
     except Exception as error:
-        print("Preview upload stopped: " + str(error), file=sys.stderr)
+        description = str(error)
+        for name in ("FTP_HOST", "FTP_USERNAME", "FTP_PASSWORD"):
+            value = os.environ.get(name, "")
+            if value:
+                description = description.replace(value, "[redacted]")
+        description = description[:700].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        print("::error::Preview upload stopped (" + type(error).__name__ + "): " + description, file=sys.stderr)
         raise SystemExit(1)

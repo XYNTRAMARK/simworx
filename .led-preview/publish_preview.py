@@ -25,8 +25,8 @@ ROOT = "/htdocs"
 TARGET = "/htdocs/admin/simworx-led-preview-v14.php"
 PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v14.php"
 PREVIEW = Path(".led-preview/simworx-led-preview-v14.php")
-EXPECTED_SHA = "662c74204681efe46a66489485a5a362f5875d54dc7d707c9f8c5c577fc41a06"
-RENDERED_SHA = "34f55bfd0e11d4eccbc172ee858f2af23d137d482572b4277c088475bbadf9d1"
+EXPECTED_SHA = "0bf4d81db3d74dd0b203f33d9cbdc7db6636290ce3424bdac1b2ed5ebdb4dcf6"
+RENDERED_SHA = "68941d244a4c8ea0db8373d23a9c6b8480fab7ae1a041306cb8b724abd12fe69"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 

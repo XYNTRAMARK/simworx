@@ -19,10 +19,10 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-light-twin-review-v2.html"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-light-twin-review-v2.html"
-PREVIEW = Path(".led-preview/simworx-light-twin-review-v2.html")
-EXPECTED_SHA = "2a334416bf71ab4792e4edc9d742b4cba80e8ee3865ee991e557a73ca9522249"
+TARGET = "/htdocs/admin/simworx-led-preview-v3.html"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v3.html"
+PREVIEW = Path(".led-preview/simworx-led-preview-v3.html")
+EXPECTED_SHA = "bb4d7856a4d9ec0f9e0a03cbd3acde04a46b0d020eb295ac9dc442c44571b8c6"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -84,7 +84,7 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if b"noindex" not in content or b"CockpitCAD" not in content:
+    if b"noindex" not in content or b"light-twin-cad" not in content or b"SimworxLED" not in content or b"Email sending disabled in preview" not in content:
         raise RuntimeError("The expected self-contained review page is missing.")
     return content
 

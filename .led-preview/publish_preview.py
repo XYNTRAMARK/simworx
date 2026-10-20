@@ -22,11 +22,11 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-led-preview-v11.php"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v11.php"
-PREVIEW = Path(".led-preview/simworx-led-preview-v11.php")
-EXPECTED_SHA = "19f82e5fc55003905142a34ed6f0acabbc648cfcdbe3381a4a230f125bc3b45d"
-RENDERED_SHA = "f9a0bd4cac163d2c29eb1799a345fad98ae94827afbd6935987f165ee1e90cfa"
+TARGET = "/htdocs/admin/simworx-led-preview-v12.php"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v12.php"
+PREVIEW = Path(".led-preview/simworx-led-preview-v12.php")
+EXPECTED_SHA = "910be3530f527dcdfe40dacede5cf3010dd4633df7757fe504e6c20b601f607e"
+RENDERED_SHA = "553e066d34da2a8887ea06c1339ae8ca4ce52b0d1985f5e492b8a4c98a181f77"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -88,13 +88,15 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if TARGET != "/htdocs/admin/simworx-led-preview-v11.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v11.php":
+    if TARGET != "/htdocs/admin/simworx-led-preview-v12.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v12.php":
         raise RuntimeError("Only the one new admin review path is authorized.")
     for marker in [b"<?php",b"SimworxLedProfiles",b"captureViews",b"led-dimension-unit",b"led-save-profile",b"Add 5-year extended warranty",b"quote-total-amount",b"recordQuote",b"Include Simworx system controller",b"Print Quote",b"Email me Quote",b"noindex",b"helicopter-h135-cad",b"excludedDashboardSolids",b"led-simulatorY"]:
         if marker not in content:
             raise RuntimeError("The prepared complete quote/profile review page is missing.")
     if b"Use illustrative starting dimensions" in content or b"The Helicopter reference uses the supplied H135 STEP" in content or b"led-simulator-example" in content:
         raise RuntimeError("The removed cockpit example button/text is still present.")
+    if b"Plan the installation with confidence." in content or b'class="led-technical"' in content or b"renderTechnical" in content:
+        raise RuntimeError("The removed technical section is still present.")
     return content
 
 

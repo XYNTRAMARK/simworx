@@ -19,10 +19,10 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-led-preview-v3.html"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v3.html"
-PREVIEW = Path(".led-preview/simworx-led-preview-v3.html")
-EXPECTED_SHA = "bb4d7856a4d9ec0f9e0a03cbd3acde04a46b0d020eb295ac9dc442c44571b8c6"
+TARGET = "/htdocs/admin/simworx-led-preview-v4.html"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v4.html"
+PREVIEW = Path(".led-preview/simworx-led-preview-v4.html")
+EXPECTED_SHA = "d4643f690750d628548e60fddda25a24882e9b97d4a74ccb36ccdaad499061b6"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -84,7 +84,7 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if b"noindex" not in content or b"light-twin-cad" not in content or b"SimworxLED" not in content or b"Email sending disabled in preview" not in content:
+    if b"noindex" not in content or b"light-twin-cad" not in content or b"SimworxLED" not in content or b"SUPPLIER COST REVIEW" not in content or b"Email sending disabled in preview" not in content:
         raise RuntimeError("The expected self-contained review page is missing.")
     return content
 

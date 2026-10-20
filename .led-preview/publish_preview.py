@@ -22,10 +22,10 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-led-preview-v7.html"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v7.html"
-PREVIEW = Path(".led-preview/simworx-led-preview-v7.html")
-EXPECTED_SHA = "fe03cfdec06f450f6668c49068a8634fb2d141aa4a467bb395759a338a84e025"
+TARGET = "/htdocs/admin/simworx-led-preview-v8.html"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v8.html"
+PREVIEW = Path(".led-preview/simworx-led-preview-v8.html")
+EXPECTED_SHA = "d456ddb531f63d2c5fd2fb60db0985a16406fa086f662e09e516f3513796ab01"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -87,7 +87,7 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if b"led-pitch-options" not in content or b"led-readout-area" not in content or b"led-currency-reference" not in content or b"excludedDashboardSolids" not in content or b"LED SCREEN COST" not in content or b"noindex" not in content or b"light-twin-cad" not in content or b"SimworxLED" not in content or b"SUPPLIER COST REVIEW" not in content or b"helicopter-h135-cad" not in content or b"Email sending disabled in preview" not in content:
+    if b"led-simulatorY" not in content or b"led-viewer-simulator" not in content or b"Raise / lower screen" not in content or b"led-pitch-options" not in content or b"led-readout-area" not in content or b"led-currency-reference" not in content or b"excludedDashboardSolids" not in content or b"LED SCREEN COST" not in content or b"noindex" not in content or b"light-twin-cad" not in content or b"SimworxLED" not in content or b"SUPPLIER COST REVIEW" not in content or b"helicopter-h135-cad" not in content or b"Email sending disabled in preview" not in content:
         raise RuntimeError("The expected self-contained review page is missing.")
     return content
 

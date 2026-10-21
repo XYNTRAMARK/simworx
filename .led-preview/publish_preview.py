@@ -22,11 +22,11 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-led-preview-v18.php"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v18.php"
-PREVIEW = Path(".led-preview/simworx-led-preview-v18.php")
-EXPECTED_SHA = "bb3b2b79382ea93e81adb428af0964a49e19d0c893b819874b1ea34e58dc8cb3"
-RENDERED_SHA = "e878d1963417a764bcfff3a535544ba69e21c6c9c2a04314a1c4c1ca5b376e12"
+TARGET = "/htdocs/admin/simworx-led-preview-v19.php"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v19.php"
+PREVIEW = Path(".led-preview/simworx-led-preview-v19.php")
+EXPECTED_SHA = "770b81f8b0339207c1cb67fe77e8d5f18a6b8398726f5cbb2c501bb678b96d09"
+RENDERED_SHA = "38291fef5e6d3217fe6789f2ced205f60317d99f3ea816208012edf155b1d2b4"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -112,7 +112,7 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if TARGET != "/htdocs/admin/simworx-led-preview-v18.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v18.php":
+    if TARGET != "/htdocs/admin/simworx-led-preview-v19.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v19.php":
         raise RuntimeError("Only the one new admin review path is authorized.")
     for marker in [b"<?php",b"SimworxLedProfiles",b"captureViews",b"led-dimension-unit",b"led-save-profile",b"Add 5-year extended warranty",b"quote-total-amount",b"recordQuote",b"Include Simworx system controller",b"Print Quote",b"Email me Quote",b"noindex",b"helicopter-h135-cad",b"excludedDashboardSolids",b"led-simulatorY",b"led-pitch-badge",b"Highest image clarity",b"LED screen only",b"createWarpControls",b"warpSupport",b"Pilot viewing distance",b"distanceOverride",b"SimworxLedViewingDistance",b"installationRates"]:
         if marker not in content:

@@ -1,4 +1,3 @@
-# Retry on a new runner after FTP 425 stopped the prior backup before any write.
 """Back up the live site, then publish exactly one new self-contained review page.
 
 Runs only inside the isolated preview branch's GitHub Actions job. Credentials
@@ -23,11 +22,11 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-led-preview-v14.php"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v14.php"
-PREVIEW = Path(".led-preview/simworx-led-preview-v14.php")
-EXPECTED_SHA = "0bf4d81db3d74dd0b203f33d9cbdc7db6636290ce3424bdac1b2ed5ebdb4dcf6"
-RENDERED_SHA = "68941d244a4c8ea0db8373d23a9c6b8480fab7ae1a041306cb8b724abd12fe69"
+TARGET = "/htdocs/admin/simworx-led-preview-v15.php"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v15.php"
+PREVIEW = Path(".led-preview/simworx-led-preview-v15.php")
+EXPECTED_SHA = "0f34065a2037f5b45d25df274d23d8785595c60f1d4fbbc6f4ed35bc6b2c71b1"
+RENDERED_SHA = "88b5ee91fcf5a4130deb0c49095e83452188b6274322020b4478818c602b016d"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -113,9 +112,9 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if TARGET != "/htdocs/admin/simworx-led-preview-v14.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v14.php":
+    if TARGET != "/htdocs/admin/simworx-led-preview-v15.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v15.php":
         raise RuntimeError("Only the one new admin review path is authorized.")
-    for marker in [b"<?php",b"SimworxLedProfiles",b"captureViews",b"led-dimension-unit",b"led-save-profile",b"Add 5-year extended warranty",b"quote-total-amount",b"recordQuote",b"Include Simworx system controller",b"Print Quote",b"Email me Quote",b"noindex",b"helicopter-h135-cad",b"excludedDashboardSolids",b"led-simulatorY"]:
+    for marker in [b"<?php",b"SimworxLedProfiles",b"captureViews",b"led-dimension-unit",b"led-save-profile",b"Add 5-year extended warranty",b"quote-total-amount",b"recordQuote",b"Include Simworx system controller",b"Print Quote",b"Email me Quote",b"noindex",b"helicopter-h135-cad",b"excludedDashboardSolids",b"led-simulatorY",b"led-pitch-badge",b"Finest image detail",b"LED screen only",b"createWarpControls",b"warpSupport"]:
         if marker not in content:
             raise RuntimeError("The prepared complete quote/profile review page is missing.")
     if b"Use illustrative starting dimensions" in content or b"The Helicopter reference uses the supplied H135 STEP" in content or b"led-simulator-example" in content:

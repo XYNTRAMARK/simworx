@@ -22,11 +22,11 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-led-preview-v15.php"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v15.php"
-PREVIEW = Path(".led-preview/simworx-led-preview-v15.php")
-EXPECTED_SHA = "0f34065a2037f5b45d25df274d23d8785595c60f1d4fbbc6f4ed35bc6b2c71b1"
-RENDERED_SHA = "88b5ee91fcf5a4130deb0c49095e83452188b6274322020b4478818c602b016d"
+TARGET = "/htdocs/admin/simworx-led-preview-v16.php"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v16.php"
+PREVIEW = Path(".led-preview/simworx-led-preview-v16.php")
+EXPECTED_SHA = "c8d06088854994e9e599b5ccf95af83a6880223523f7654aedbbca0182d95ae1"
+RENDERED_SHA = "ab0ff56d897df73216257d9fb071babc73020feadae9d594af4154ccaa5b249b"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -112,7 +112,7 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if TARGET != "/htdocs/admin/simworx-led-preview-v15.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v15.php":
+    if TARGET != "/htdocs/admin/simworx-led-preview-v16.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v16.php":
         raise RuntimeError("Only the one new admin review path is authorized.")
     for marker in [b"<?php",b"SimworxLedProfiles",b"captureViews",b"led-dimension-unit",b"led-save-profile",b"Add 5-year extended warranty",b"quote-total-amount",b"recordQuote",b"Include Simworx system controller",b"Print Quote",b"Email me Quote",b"noindex",b"helicopter-h135-cad",b"excludedDashboardSolids",b"led-simulatorY",b"led-pitch-badge",b"Finest image detail",b"LED screen only",b"createWarpControls",b"warpSupport"]:
         if marker not in content:

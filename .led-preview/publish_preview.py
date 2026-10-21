@@ -22,11 +22,11 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-led-preview-v16.php"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v16.php"
-PREVIEW = Path(".led-preview/simworx-led-preview-v16.php")
-EXPECTED_SHA = "c8d06088854994e9e599b5ccf95af83a6880223523f7654aedbbca0182d95ae1"
-RENDERED_SHA = "ab0ff56d897df73216257d9fb071babc73020feadae9d594af4154ccaa5b249b"
+TARGET = "/htdocs/admin/simworx-led-preview-v17.php"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v17.php"
+PREVIEW = Path(".led-preview/simworx-led-preview-v17.php")
+EXPECTED_SHA = "7cd6b1404696a3b1423ec9c1975457c61b4803c825a17835eeba705746ad524a"
+RENDERED_SHA = "9e60e6e6194b7f8b5a33e0a37423cb96924a0368bf69652744740532ec2f1954"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -112,9 +112,9 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if TARGET != "/htdocs/admin/simworx-led-preview-v16.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v16.php":
+    if TARGET != "/htdocs/admin/simworx-led-preview-v17.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v17.php":
         raise RuntimeError("Only the one new admin review path is authorized.")
-    for marker in [b"<?php",b"SimworxLedProfiles",b"captureViews",b"led-dimension-unit",b"led-save-profile",b"Add 5-year extended warranty",b"quote-total-amount",b"recordQuote",b"Include Simworx system controller",b"Print Quote",b"Email me Quote",b"noindex",b"helicopter-h135-cad",b"excludedDashboardSolids",b"led-simulatorY",b"led-pitch-badge",b"Finest image detail",b"LED screen only",b"createWarpControls",b"warpSupport"]:
+    for marker in [b"<?php",b"SimworxLedProfiles",b"captureViews",b"led-dimension-unit",b"led-save-profile",b"Add 5-year extended warranty",b"quote-total-amount",b"recordQuote",b"Include Simworx system controller",b"Print Quote",b"Email me Quote",b"noindex",b"helicopter-h135-cad",b"excludedDashboardSolids",b"led-simulatorY",b"led-pitch-badge",b"Highest image clarity",b"LED screen only",b"createWarpControls",b"warpSupport",b"Pilot viewing distance",b"distanceOverride",b"SimworxLedViewingDistance",b"installationRates"]:
         if marker not in content:
             raise RuntimeError("The prepared complete quote/profile review page is missing.")
     if b"Use illustrative starting dimensions" in content or b"The Helicopter reference uses the supplied H135 STEP" in content or b"led-simulator-example" in content:

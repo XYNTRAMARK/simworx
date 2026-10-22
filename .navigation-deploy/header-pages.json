@@ -1,115 +1,117 @@
 {
   "a320-full-cockpit.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "a320-single-seat.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "a320-supershort.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "about.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "certification-pro.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "contact.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "cookie-notice.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "custom-simulator.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "f16-frames.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "frames.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "index.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "legal-notice.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "mission-scenarios.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "mission-systems.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "privacy-policy.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "projects.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "simstarter-pro-software.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "simstarter.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "simulators.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "software.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "terms-and-conditions.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "visual-systems.html": {
     "kind": "references",
-    "css_url": "assets/css/global-header.css",
-    "js_url": "assets/js/global-header.js"
+    "css_url": "assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "assets/js/global-header.js?v=nav-20261022-1"
   },
   "led-screen-configurator.html": {
-    "kind": "inline_legacy"
+    "kind": "references",
+    "css_url": "/assets/css/global-header.css?v=nav-20261022-1",
+    "js_url": "/assets/js/global-header.js?v=nav-20261022-1"
   }
 }

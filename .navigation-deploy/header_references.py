@@ -2,7 +2,7 @@
 import re
 from urllib.parse import urlsplit
 
-NAV_VERSION = "nav-20261022-1"
+NAV_VERSION = "nav-20261022-2"
 REFERENCE_PAGES = (
     "a320-full-cockpit.html", "a320-single-seat.html", "a320-supershort.html",
     "about.html", "certification-pro.html", "contact.html", "cookie-notice.html",

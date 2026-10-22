@@ -1,8 +1,11 @@
-# Shared navigation release
+# Shared navigation font correction
 
-This release implements the authorised Visual Systems dropdown, connects the LED
-configurator to the shared header, and versions the header asset references so
-returning visitors receive the current CSS and JavaScript.
+This release corrects the Visual Systems dropdown typography on the LED
+configurator. Its page-level button styling was overriding the shared navigation
+font size and weight. The shared CSS now scopes the trigger rule through
+`.global-nav` at each existing breakpoint and explicitly inherits the header font.
+The menu script is unchanged. Header asset references receive a new version so
+returning visitors receive the corrected styling.
 
 ## Exact deployment scope
 
@@ -13,22 +16,23 @@ keys must match the fixed list. Seven observed legacy/redirect pages without the
 shared header are excluded. No other HTML, admin or private configuration is
 uploaded.
 
-For each ordinary page, the publisher replaces only the quoted URL value of its
+For each of the 23 pages, the publisher replaces only the quoted URL value of its
 single shared-header CSS `href` and JavaScript `src`. Whitespace, quotes, other
 attributes and every other page byte are preserved. The references receive
-`?v=nav-20261022-1`. The current live page must match its reviewed before checksum,
+`?v=nav-20261022-2`. The current live page must match its reviewed before checksum,
 and the result must match its reviewed after checksum in `manifest.json`.
 
-The configurator currently embeds its header. `configurator_header.py` accepts the
-reviewed whole-page checksum and replaces exactly one pinned legacy header style
-block and one pinned legacy header script block with versioned shared references.
-Its output has a fixed reviewed whole-page checksum. Every other byte, including
-pricing, 3D functionality and quotation logic, remains identical. All pages are
-derived from verified current public files; stale repository HTML is never used.
+The configurator already uses the shared header. All 23 catalog entries use
+`references`, with their observed `nav-20261022-1` URLs as the reviewed source
+values. This release updates only those two URL values on each page, including
+the configurator. Every other page byte, including pricing, 3D functionality and
+quotation logic, remains identical; reversing the two URL edits reproduces each
+downloaded source exactly. All pages are derived from fresh verified public
+snapshots; stale repository HTML is never used.
 
-The source LED preview branch still embeds the old header. Any future configurator
-build should preserve the versioned shared references now used by the public page,
-or deliberately apply the same header integration before publication.
+Future configurator builds should preserve the versioned shared references used
+by the public page, or deliberately apply the same header integration before
+publication.
 
 ## Backup and publication
 
@@ -51,8 +55,9 @@ all unrelated file inventory. Failure after a write attempts conditional rollbac
 from the verified backup; concurrent third-party edits are preserved. It never
 synchronises the repository root or cleans a live directory.
 
-This follow-up expects the first shared-header release to have succeeded: both
-asset entries have that release's new checksums as their before and after values.
+This correction expects the preceding shared-header release to have succeeded.
+The CSS entry pins the reviewed font correction; the JavaScript entry retains
+equal before and after checksums.
 
 ## Future menu changes
 

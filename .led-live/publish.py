@@ -127,6 +127,9 @@ def validate_payload():
 def remote_sha(ftp,path):
     h=hashlib.sha256();ftp.retrbinary("RETR "+path,h.update);return h.hexdigest()
 
+class SnapshotChanged(RuntimeError):
+    "A read-only full backup no longer matches its initial inventory."
+
 def backup_once():
     validate_payload()
     WORK.mkdir(parents=True, exist_ok=True)
@@ -150,10 +153,10 @@ def backup_once():
             with local.open("wb") as handle:
                 ftp.retrbinary("RETR " + remote, handle.write)
             if "size" in facts and local.stat().st_size != int(facts["size"]):
-                raise RuntimeError("A backup file size did not match the live file.")
+                raise SnapshotChanged("A backup file size did not match the live file; restarting the full snapshot.")
             manifest["htdocs/" + relative] = digest(local.read_bytes())
         if inventory(ftp) != before:
-            raise RuntimeError("The live files changed while the backup was being made; stopped before any upload.")
+            raise SnapshotChanged("The live files changed during the read-only backup; restarting the full snapshot.")
     if not manifest or not (site / "htdocs/index.html").is_file():
         raise RuntimeError("The complete live homepage backup could not be verified.")
     if not (site / "htdocs/forms/anti-spam.php").is_file():
@@ -185,14 +188,14 @@ def backup():
             print("Starting full-site backup attempt " + str(attempt) + ".", flush=True)
             backup_once()
             return
-        except (TimeoutError, ConnectionError, EOFError, ftplib.error_temp, ssl.SSLEOFError, URLError) as error:
+        except (SnapshotChanged, TimeoutError, ConnectionError, EOFError, ftplib.error_temp, ssl.SSLEOFError, URLError) as error:
             if isinstance(error, HTTPError) and error.code not in {429, 500, 502, 503, 504}:
                 raise
             if isinstance(error, URLError) and isinstance(error.reason, ssl.SSLCertVerificationError):
                 raise
             if attempt == 3:
                 raise
-            print("::warning::Read-only backup connection interrupted (" + type(error).__name__ + "); restarting the complete backup before any upload.", flush=True)
+            print("::warning::Read-only backup snapshot interrupted (" + type(error).__name__ + "); restarting the complete backup before any upload.", flush=True)
             site = WORK / "site"
             if site.is_dir():
                 shutil.rmtree(site)

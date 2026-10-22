@@ -31,7 +31,7 @@ jobs:
       - name: Build
         run: dotnet build tools/md302-standalone/Simworx.MD302.csproj -c Release --no-restore
 
-      - name: Publish single-file Windows x64 test build
+      - name: Publish Windows x64 review build
         run: >
           dotnet publish tools/md302-standalone/Simworx.MD302.csproj
           -c Release
@@ -40,11 +40,11 @@ jobs:
           /p:PublishSingleFile=true
           /p:DebugType=None
           /p:DebugSymbols=false
-          -o artifacts/MD302-single
+          -o artifacts/MD302-review
 
-      - name: Upload single MD302 executable
+      - name: Upload complete MD302 review package
         uses: actions/upload-artifact@v4
         with:
-          name: SimworxMD302_Stage2_SingleFile
-          path: artifacts/MD302-single/SimworxMD302.exe
+          name: SimworxMD302_TopAndLower_Review
+          path: artifacts/MD302-review/**
           if-no-files-found: error

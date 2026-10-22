@@ -1,0 +1,54 @@
+name: Publish public LED configurator
+
+on:
+  push:
+    branches: [preview/led-configurator-review]
+    paths:
+      - '.led-live/**'
+      - '.github/workflows/led-configurator-live.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: simworx-led-review-only
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Back up live site, then publish exactly two new public LED files
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify prepared public files and back up every live htdocs file
+        run: python3 .led-live/publish.py backup
+      - name: Encrypt verified backup using the existing hosting password
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/simworx-led-live/verified-backup.json"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in "$RUNNER_TEMP/simworx-led-live/live-htdocs.tar.gz" \
+            -out "$RUNNER_TEMP/simworx-led-live/live-htdocs.tar.gz.enc" \
+            -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in "$RUNNER_TEMP/simworx-led-live/live-htdocs.tar.gz.enc" \
+            -pass env:FTP_PASSWORD | cmp - "$RUNNER_TEMP/simworx-led-live/live-htdocs.tar.gz"
+          cd "$RUNNER_TEMP/simworx-led-live"
+          sha256sum live-htdocs.tar.gz.enc > live-htdocs.tar.gz.enc.sha256
+      - name: Retain encrypted full-site backup before any remote write
+        uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-live-backup-before-led-public-launch-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/simworx-led-live/live-htdocs.tar.gz.enc
+            ${{ runner.temp }}/simworx-led-live/live-htdocs.tar.gz.enc.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload only the two new public LED files and verify over HTTPS
+        run: python3 .led-live/publish.py publish

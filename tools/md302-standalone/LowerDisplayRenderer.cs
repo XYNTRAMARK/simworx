@@ -1,14 +1,35 @@
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 
 namespace Simworx.MD302;
 
-internal sealed class LowerDisplayRenderer
+internal sealed class LowerDisplayRenderer : IDisposable
 {
     private readonly LowerDisplayConfig _layout;
+    private readonly Dictionary<string, Image> _images = new(StringComparer.OrdinalIgnoreCase);
 
     public LowerDisplayRenderer(LowerDisplayConfig layout)
     {
         _layout = layout;
+    }
+
+    public void Load(string assetDirectory)
+    {
+        DisposeImages();
+        LoadImage("airspeedFrame", Path.Combine(assetDirectory, "md302_oriel_s_v.png"));
+        LoadImage("baroFrame", Path.Combine(assetDirectory, "md302_oriel_baro.png"));
+        LoadImage("baroSync", Path.Combine(assetDirectory, "md302_baro_sync.png"));
+        LoadImage("altitudeFrame", Path.Combine(assetDirectory, "md302_oriel_a_v.png"));
+    }
+
+    private void LoadImage(string key, string path)
+    {
+        if (!File.Exists(path))
+            return;
+
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var source = Image.FromStream(stream);
+        _images[key] = new Bitmap(source);
     }
 
     public void Draw(Graphics g)
@@ -34,7 +55,7 @@ internal sealed class LowerDisplayRenderer
         }
     }
 
-    private static void DrawElement(Graphics g, string key, ElementLayout element)
+    private void DrawElement(Graphics g, string key, ElementLayout element)
     {
         switch (key)
         {
@@ -48,16 +69,20 @@ internal sealed class LowerDisplayRenderer
                 DrawAirspeedTape(g, element);
                 break;
             case "airspeedFrame":
-                DrawAirspeedFrame(g, element);
+                if (!DrawImageAsset(g, key, element))
+                    DrawAirspeedFrameFallback(g, element);
                 break;
             case "baroFrame":
-                DrawBaroFrame(g, element);
+                if (!DrawImageAsset(g, key, element))
+                    DrawBaroFrameFallback(g, element);
                 break;
             case "baroSync":
-                DrawBaroSync(g, element);
+                if (!DrawImageAsset(g, key, element))
+                    DrawBaroSyncFallback(g, element);
                 break;
             case "altitudeFrame":
-                DrawAltitudeFrame(g, element);
+                if (!DrawImageAsset(g, key, element))
+                    DrawAltitudeFrameFallback(g, element);
                 break;
             case "altitudeTape":
                 DrawAltitudeTape(g, element);
@@ -70,8 +95,41 @@ internal sealed class LowerDisplayRenderer
                     DrawText(g, element);
                 else if (element.Kind.Equals("rect", StringComparison.OrdinalIgnoreCase))
                     DrawRectangle(g, element);
+                else if (element.Kind.Equals("image", StringComparison.OrdinalIgnoreCase))
+                    DrawImageAsset(g, key, element);
                 break;
         }
+    }
+
+    private bool DrawImageAsset(Graphics g, string key, ElementLayout element)
+    {
+        if (!_images.TryGetValue(key, out var image))
+            return false;
+
+        var destination = new RectangleF(element.X, element.Y, element.W, element.H);
+        var opacity = Math.Clamp(element.Opacity, 0f, 1f);
+
+        if (opacity >= 0.999f)
+        {
+            g.DrawImage(image, destination);
+            return true;
+        }
+
+        using var attributes = new ImageAttributes();
+        var matrix = new ColorMatrix { Matrix33 = opacity };
+        attributes.SetColorMatrix(matrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+
+        g.DrawImage(
+            image,
+            Rectangle.Round(destination),
+            0,
+            0,
+            image.Width,
+            image.Height,
+            GraphicsUnit.Pixel,
+            attributes
+        );
+        return true;
     }
 
     private static void DrawRectangle(Graphics g, ElementLayout element)
@@ -88,20 +146,25 @@ internal sealed class LowerDisplayRenderer
         var fontSize = element.FontSize > 0f ? element.FontSize : Math.Max(10f, element.H * 0.62f);
 
         using var font = new Font("Segoe UI", fontSize, fontStyle, GraphicsUnit.Pixel);
-        using var brush = new SolidBrush(ParseColor(element.Color, Color.White, element.Opacity));
-        using var format = new StringFormat
+        var color = ParseColor(element.Color, Color.White, element.Opacity);
+        var rectangle = Rectangle.Round(new RectangleF(element.X, element.Y, element.W, element.H));
+
+        var flags = TextFormatFlags.NoPadding |
+                    TextFormatFlags.NoPrefix |
+                    TextFormatFlags.SingleLine |
+                    TextFormatFlags.VerticalCenter |
+                    TextFormatFlags.PreserveGraphicsClipping;
+
+        flags |= element.Align?.ToLowerInvariant() switch
         {
-            LineAlignment = StringAlignment.Center,
-            Alignment = element.Align?.ToLowerInvariant() switch
-            {
-                "right" => StringAlignment.Far,
-                "center" => StringAlignment.Center,
-                _ => StringAlignment.Near
-            }
+            "right" => TextFormatFlags.Right,
+            "center" => TextFormatFlags.HorizontalCenter,
+            _ => TextFormatFlags.Left
         };
 
-        g.DrawString(element.Text ?? string.Empty, font, brush,
-            new RectangleF(element.X, element.Y, element.W, element.H), format);
+        // TextRenderer with NoPadding mirrors the browser calibrator's fillText
+        // anchoring more closely than GDI+ DrawString's padded layout rectangle.
+        TextRenderer.DrawText(g, element.Text ?? string.Empty, font, rectangle, color, flags);
     }
 
     private static void DrawAirspeedBand(Graphics g, ElementLayout element)
@@ -122,10 +185,11 @@ internal sealed class LowerDisplayRenderer
         using var pen = new Pen(Color.White, 2f);
         using var brush = new SolidBrush(Color.White);
         using var font = new Font("Segoe UI", Math.Max(11f, element.W * 0.27f), FontStyle.Regular, GraphicsUnit.Pixel);
-        using var format = new StringFormat
+        using var format = new StringFormat(StringFormat.GenericTypographic)
         {
             Alignment = StringAlignment.Near,
-            LineAlignment = StringAlignment.Center
+            LineAlignment = StringAlignment.Center,
+            FormatFlags = StringFormatFlags.NoClip
         };
 
         for (var i = 0; i < values.Length; i++)
@@ -143,7 +207,7 @@ internal sealed class LowerDisplayRenderer
         }
     }
 
-    private static void DrawAirspeedFrame(Graphics g, ElementLayout element)
+    private static void DrawAirspeedFrameFallback(Graphics g, ElementLayout element)
     {
         using var pen = new Pen(Color.White, 2.2f);
         using var darkBrush = new SolidBrush(Color.Black);
@@ -154,7 +218,6 @@ internal sealed class LowerDisplayRenderer
         var top = element.Y + element.H * 0.06f;
         var bottom = element.Y + element.H * 0.92f;
         var centerY = element.Y + element.H / 2f;
-        var notch = element.W * 0.18f;
 
         path.AddPolygon(
         [
@@ -170,17 +233,9 @@ internal sealed class LowerDisplayRenderer
 
         g.FillPath(darkBrush, path);
         g.DrawPath(pen, path);
-
-        using var smallFont = new Font("Segoe UI", Math.Max(9f, element.W * 0.15f), FontStyle.Bold, GraphicsUnit.Pixel);
-        using var whiteBrush = new SolidBrush(Color.White);
-        using var centerFormat = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        g.DrawString("0", smallFont, whiteBrush,
-            new RectangleF(right - notch, top + 2f, notch, element.H * 0.20f), centerFormat);
-        g.DrawString("0", smallFont, whiteBrush,
-            new RectangleF(right - notch, bottom - element.H * 0.20f - 2f, notch, element.H * 0.20f), centerFormat);
     }
 
-    private static void DrawBaroFrame(Graphics g, ElementLayout element)
+    private static void DrawBaroFrameFallback(Graphics g, ElementLayout element)
     {
         using var darkBrush = new SolidBrush(Color.Black);
         using var pen = new Pen(Color.White, 2f);
@@ -188,7 +243,7 @@ internal sealed class LowerDisplayRenderer
         g.DrawRectangle(pen, element.X, element.Y, element.W, element.H);
     }
 
-    private static void DrawBaroSync(Graphics g, ElementLayout element)
+    private static void DrawBaroSyncFallback(Graphics g, ElementLayout element)
     {
         using var pen = new Pen(Color.LightGray, Math.Max(1f, element.H * 0.20f));
         var centerY = element.Y + element.H / 2f;
@@ -203,7 +258,7 @@ internal sealed class LowerDisplayRenderer
         g.DrawLine(pen, centerX + inset, centerY, centerX + inset + 4f, centerY + 3f);
     }
 
-    private static void DrawAltitudeFrame(Graphics g, ElementLayout element)
+    private static void DrawAltitudeFrameFallback(Graphics g, ElementLayout element)
     {
         using var pen = new Pen(Color.White, 2.2f);
         using var darkBrush = new SolidBrush(Color.Black);
@@ -229,14 +284,6 @@ internal sealed class LowerDisplayRenderer
 
         g.FillPath(darkBrush, path);
         g.DrawPath(pen, path);
-
-        using var smallFont = new Font("Segoe UI", Math.Max(9f, element.W * 0.13f), FontStyle.Bold, GraphicsUnit.Pixel);
-        using var whiteBrush = new SolidBrush(Color.White);
-        using var centerFormat = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        g.DrawString("00", smallFont, whiteBrush,
-            new RectangleF(right - element.W * 0.18f, top, element.W * 0.18f, element.H * 0.22f), centerFormat);
-        g.DrawString("20", smallFont, whiteBrush,
-            new RectangleF(right - element.W * 0.18f, bottom - element.H * 0.22f, element.W * 0.18f, element.H * 0.22f), centerFormat);
     }
 
     private static void DrawAltitudeTape(Graphics g, ElementLayout element)
@@ -245,10 +292,11 @@ internal sealed class LowerDisplayRenderer
         using var pen = new Pen(Color.White, 2f);
         using var brush = new SolidBrush(Color.White);
         using var font = new Font("Segoe UI", Math.Max(11f, element.W * 0.20f), FontStyle.Regular, GraphicsUnit.Pixel);
-        using var format = new StringFormat
+        using var format = new StringFormat(StringFormat.GenericTypographic)
         {
             Alignment = StringAlignment.Far,
-            LineAlignment = StringAlignment.Center
+            LineAlignment = StringAlignment.Center,
+            FormatFlags = StringFormatFlags.NoClip
         };
 
         for (var i = 0; i < values.Length; i++)
@@ -294,5 +342,17 @@ internal sealed class LowerDisplayRenderer
 
         var alpha = Math.Clamp((int)Math.Round(opacity * 255f), 0, 255);
         return Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B);
+    }
+
+    private void DisposeImages()
+    {
+        foreach (var image in _images.Values)
+            image.Dispose();
+        _images.Clear();
+    }
+
+    public void Dispose()
+    {
+        DisposeImages();
     }
 }

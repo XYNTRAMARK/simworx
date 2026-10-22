@@ -1,188 +1,42 @@
-#!/usr/bin/env python3
-"""Deterministic publication tests; never connect to the live host."""
-import importlib.util
+"""Read-only fixtures for the single-page publisher. No credentials/network used."""
 from pathlib import Path
-import posixpath
-import unittest
-
-spec = importlib.util.spec_from_file_location("projection_publish", Path(__file__).with_name("publish.py"))
-publish = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(publish)
-
-PAYLOAD = (b'<!doctype html><html><head><meta name="robots" content="noindex, nofollow">'
-           b'<meta name="simworx-projection-build" content="static-preview"></head><body>Preview</body></html>')
-MANIFEST = {"schemaVersion": 1, "path": publish.FILENAME, **publish.fingerprint(PAYLOAD)}
-TOKEN = "1" * 32
-TEMPORARY = publish.ROOT + "/.projection-preview-" + TOKEN + ".upload"
-
-
-class FakeFTP:
-    def __init__(self, files=None):
-        self.files = dict(files or {})
-        self.writes = []
-        self.corrupt_upload = False
-        self.on_upload = None
-
-    def mlsd(self, folder, facts=None):
-        return [(posixpath.basename(path), {"type": "file"}) for path in self.files
-                if posixpath.dirname(path) == folder]
-
-    def retrbinary(self, command, callback):
-        verb, path = command.split(" ", 1)
-        assert verb == "RETR"
-        callback(self.files[path])
-
-    def storbinary(self, command, source):
-        verb, path = command.split(" ", 1)
-        assert verb == "STOR"
-        self.writes.append(("store", path))
-        self.files[path] = b"corrupted" if self.corrupt_upload else source.read()
-        if self.on_upload:
-            self.on_upload(self)
-
-    def rename(self, old, new):
-        self.writes.append(("rename", old, new))
-        self.files[new] = self.files.pop(old)
-
-    def delete(self, path):
-        self.writes.append(("delete", path))
-        del self.files[path]
-
-
-class FakePublic:
-    def __init__(self, ftp):
-        self.ftp = ftp
-        self.target_wrong = False
-        self.protected_changed = False
-        self.target_callback = None
-
-    def __call__(self, path, nonce):
-        if path == "/" + publish.FILENAME:
-            if self.target_callback:
-                self.target_callback(self.ftp)
-            if self.target_wrong:
-                return publish.fingerprint(b"wrong public response")
-            return publish.fingerprint(self.ftp.files[publish.TARGET])
-        value = path.encode()
-        if self.protected_changed and nonce.endswith("-after") and path == "/led-screen-configurator.html":
-            value += b"concurrent change"
-        return publish.fingerprint(value)
-
-
-def publisher(ftp, reader=None):
-    return publish.SingleFilePublisher(ftp, PAYLOAD, MANIFEST, reader=reader or FakePublic(ftp),
-                                       sleeper=lambda _seconds: None, token=TOKEN, attempts=1)
-
-
-class PublicationTests(unittest.TestCase):
-    def test_new_preview_only_writes_fixed_target_and_owned_staging(self):
-        protected = {publish.ROOT + path: b"untouched" for path in publish.PROTECTED}
-        ftp = FakeFTP(protected)
-        result = publisher(ftp).run()
-        self.assertEqual(result["status"], "created")
-        self.assertEqual(result["protectedFilesUnchanged"], 7)
-        self.assertEqual(ftp.files[publish.TARGET], PAYLOAD)
-        self.assertNotIn(TEMPORARY, ftp.files)
-        self.assertEqual(ftp.writes, [("store", TEMPORARY), ("rename", TEMPORARY, publish.TARGET)])
-        for path, value in protected.items():
-            self.assertEqual(ftp.files[path], value)
-
-    def test_different_existing_target_is_never_overwritten(self):
-        ftp = FakeFTP({publish.TARGET: b"another page"})
-        with self.assertRaisesRegex(publish.DeploymentError, "already exists"):
-            publisher(ftp).run()
-        self.assertEqual(ftp.files[publish.TARGET], b"another page")
-        self.assertEqual(ftp.writes, [])
-
-    def test_matching_existing_target_is_idempotent_without_writes(self):
-        ftp = FakeFTP({publish.TARGET: PAYLOAD})
-        self.assertEqual(publisher(ftp).run()["status"], "already-current")
-        self.assertEqual(ftp.writes, [])
-
-    def test_corrupt_staging_is_never_renamed_or_deleted_as_verified_content(self):
-        ftp = FakeFTP()
-        ftp.corrupt_upload = True
-        with self.assertRaisesRegex(publish.DeploymentError, "staged upload"):
-            publisher(ftp).run()
-        self.assertNotIn(publish.TARGET, ftp.files)
-        self.assertEqual(ftp.writes, [("store", TEMPORARY)])
-
-    def test_target_created_by_another_writer_during_upload_is_preserved(self):
-        ftp = FakeFTP()
-        ftp.on_upload = lambda connection: connection.files.update({publish.TARGET: b"concurrent page"})
-        with self.assertRaisesRegex(publish.DeploymentError, "appeared during upload"):
-            publisher(ftp).run()
-        self.assertEqual(ftp.files, {publish.TARGET: b"concurrent page"})
-        self.assertEqual(ftp.writes, [("store", TEMPORARY), ("delete", TEMPORARY)])
-
-    def test_same_target_appearing_during_upload_becomes_idempotent(self):
-        ftp = FakeFTP()
-        ftp.on_upload = lambda connection: connection.files.update({publish.TARGET: PAYLOAD})
-        self.assertEqual(publisher(ftp).run()["status"], "already-current")
-        self.assertEqual(ftp.writes, [("store", TEMPORARY), ("delete", TEMPORARY)])
-
-    def test_failed_public_check_removes_only_our_matching_new_preview(self):
-        ftp = FakeFTP()
-        reader = FakePublic(ftp)
-        reader.target_wrong = True
-        with self.assertRaisesRegex(publish.DeploymentError, "public preview"):
-            publisher(ftp, reader).run()
-        self.assertEqual(ftp.files, {})
-        self.assertEqual(ftp.writes[-1], ("delete", publish.TARGET))
-
-    def test_failed_public_check_never_deletes_an_existing_matching_preview(self):
-        ftp = FakeFTP({publish.TARGET: PAYLOAD})
-        reader = FakePublic(ftp)
-        reader.target_wrong = True
-        with self.assertRaises(publish.DeploymentError):
-            publisher(ftp, reader).run()
-        self.assertEqual(ftp.files[publish.TARGET], PAYLOAD)
-        self.assertEqual(ftp.writes, [])
-
-    def test_concurrent_changed_preview_is_preserved_during_cleanup(self):
-        ftp = FakeFTP()
-        reader = FakePublic(ftp)
-        reader.target_callback = lambda connection: connection.files.update({publish.TARGET: b"later edit"})
-        with self.assertRaises(publish.DeploymentError):
-            publisher(ftp, reader).run()
-        self.assertEqual(ftp.files[publish.TARGET], b"later edit")
-        self.assertFalse(any(command[0] == "delete" for command in ftp.writes))
-
-    def test_protected_change_causes_conditional_removal_without_touching_protected_files(self):
-        ftp = FakeFTP({publish.ROOT + "/led-screen-configurator.html": b"LED"})
-        reader = FakePublic(ftp)
-        reader.protected_changed = True
-        with self.assertRaisesRegex(publish.DeploymentError, "protected live file"):
-            publisher(ftp, reader).run()
-        self.assertEqual(ftp.files, {publish.ROOT + "/led-screen-configurator.html": b"LED"})
-
-    def test_existing_staging_file_is_never_overwritten_or_deleted(self):
-        ftp = FakeFTP({TEMPORARY: b"unrelated staging"})
-        with self.assertRaisesRegex(publish.DeploymentError, "staging path"):
-            publisher(ftp).run()
-        self.assertEqual(ftp.writes, [])
-
-    def test_cleanup_rejects_any_path_outside_fixed_allowlist(self):
-        ftp = FakeFTP({publish.ROOT + "/index.html": PAYLOAD})
-        deployment = publisher(ftp)
-        self.assertFalse(deployment.conditional_delete(publish.ROOT + "/index.html", True))
-        self.assertEqual(ftp.writes, [])
-
-    def test_manifest_cannot_select_an_existing_site_path(self):
-        for path in ("index.html", "../index.html", "led-screen-configurator.html", "/htdocs/index.html"):
-            with self.subTest(path=path), self.assertRaises(publish.DeploymentError):
-                publish.validate_bytes(PAYLOAD, {**MANIFEST, "path": path})
-
-    def test_local_checksum_and_size_are_both_required(self):
-        for change in ({"sha256": "0" * 64}, {"size": len(PAYLOAD) + 1}, {"size": True}):
-            with self.subTest(change=change), self.assertRaises(publish.DeploymentError):
-                publish.validate_bytes(PAYLOAD, {**MANIFEST, **change})
-
-    def test_noindex_and_static_preview_marker_are_required(self):
-        for body in (PAYLOAD.replace(b"noindex", b"index"), PAYLOAD.replace(b"static-preview", b"released")):
-            with self.subTest(body=body), self.assertRaises(publish.DeploymentError):
-                publish.validate_bytes(body, {**MANIFEST, **publish.fingerprint(body)})
-
-
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
+import importlib.util,tempfile,os,json,tarfile,shutil
+from unittest.mock import patch
+ROOT=Path(__file__).resolve().parents[1]
+spec=importlib.util.spec_from_file_location('publisher',Path(__file__).with_name('publish.py'));m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+original={m.TARGET:b'original projection preview','/htdocs/index.html':b'homepage','/htdocs/led-screen-configurator.html':b'unchanged LED','/htdocs/visual-systems.html':b'visual','/htdocs/assets/css/global-header.css':b'header CSS','/htdocs/assets/js/global-header.js':b'header JS','/htdocs/sitemap.xml':b'sitemap','/htdocs/robots.txt':b'robots','/htdocs/forms/anti-spam.php':b'guard','/htdocs/.hidden':b'hidden'}
+files=dict(original);dirs={'/htdocs','/htdocs/assets','/htdocs/assets/css','/htdocs/assets/js','/htdocs/forms'};writes=[];checks=[];short_read=False
+class FTP:
+ def __enter__(self):return self
+ def __exit__(self,*args):pass
+ def mlsd(self,folder):
+  for path in sorted(dirs|files.keys()):
+   if str(Path(path).parent)==folder and path!=folder:yield Path(path).name,{'type':'dir' if path in dirs else 'file','size':str(len(files.get(path,b''))),'modify':'20261022000000'}
+ def retrbinary(self,cmd,callback):
+  global short_read
+  path=cmd.removeprefix('RETR ')
+  if short_read and path=='/htdocs/assets/css/global-header.css':short_read=False;callback(b'x');return
+  callback(files[path])
+ def storbinary(self,cmd,stream):
+  path=cmd.removeprefix('STOR ');assert path=='/htdocs/.projection-guided-'+m.PAYLOAD[m.FILENAME]['sha256'][:16]+'.html' and path not in files;files[path]=stream.read();writes.append(('upload',path))
+ def rename(self,source,target):assert target==m.TARGET and files[target]==original[target];files[target]=files.pop(source);writes.append(('rename',target))
+def web(url):
+ path=url.removeprefix(m.BASE_URL);return files['/htdocs'+('/index.html' if path=='/' else path)]
+def check(ok,label):assert ok,label;checks.append(label)
+def refused(fn,part):
+ try:fn();raise AssertionError('Unsafe action was accepted')
+ except RuntimeError as e:assert part in str(e),(part,str(e))
+with tempfile.TemporaryDirectory() as tmp,patch.object(m,'connect',return_value=FTP()),patch.object(m,'public_bytes',side_effect=web):
+ task=Path(tmp);(task/'.projection-deploy').mkdir();shutil.copy2(ROOT/m.FILENAME,task/m.FILENAME);shutil.copy2(ROOT/'.projection-deploy/manifest.json',task/'.projection-deploy/manifest.json');os.chdir(task);m.EXPECTED_OLD=m.digest(original[m.TARGET]);m.PROTECTED_PUBLIC={p:m.digest(web(m.BASE_URL+p)) for p in m.PROTECTED_PUBLIC};m.WORK=task/'snapshot';short_read=True
+ m.backup();check(not writes and files==original,'Full stable backup is read-only');e=json.loads((m.WORK/'verified-backup.json').read_text());check(e['files']==len(original),'Every live file backed up');check(not short_read,'Incomplete transfer is re-read before archive acceptance')
+ with tarfile.open(m.WORK/'live-htdocs.tar.gz') as archive:check(archive.extractfile('htdocs/.hidden').read()==original['/htdocs/.hidden'] and archive.extractfile('htdocs/'+m.FILENAME).read()==original[m.TARGET],'Hidden files and original preview byte-verified in complete archive')
+ refused(m.publish,'encrypted backup');check(not writes,'No upload without encrypted backup');(m.WORK/'live-htdocs.tar.gz.enc').write_bytes(b'mock encrypted archive')
+ with patch.dict(os.environ,{'RETAINED_BACKUP_ARTIFACT_ID':''}):refused(m.publish,'retention was not confirmed')
+ check(not writes,'No upload without confirmed backup retention')
+ with patch.dict(os.environ,{'RETAINED_BACKUP_ARTIFACT_ID':'123'}):
+  files['/htdocs/.hidden']+=b'changed';refused(m.publish,'changed after the backup');files.update(original);check(not writes,'Unrelated live changes block upload')
+  files[m.TARGET]=b'x'*len(original[m.TARGET]);refused(m.publish,'no longer matches');files.update(original);check(not writes,'Changed original bytes block overwrite even with same size')
+  with patch.object(m,'EXPECTED_SHA','tampered'):refused(m.publish,'manifest changed')
+  check(not writes,'Tampered manifest blocks upload');m.publish();check(files[m.TARGET]==(ROOT/m.FILENAME).read_bytes(),'Authorised preview receives exact reviewed bytes');check(all(files[k]==v for k,v in original.items() if k!=m.TARGET),'LED, homepage, headers and other files unchanged');check(set(files)==set(original),'Temporary staging leaves no extra live files');check(len(writes)==2 and writes[-1]==('rename',m.TARGET),'One staged upload and atomic replacement only');refused(m.publish,'changed after the backup');check(len(writes)==2,'Repeated publication refuses stale baseline')
+workflow=(ROOT/'.github/workflows/projection-preview.yml').read_text();check(workflow.index('publish.py backup')<workflow.index('openssl enc -aes')<workflow.index('actions/upload-artifact')<workflow.index('publish.py publish'),'Verified full backup encrypted and retained before publication');check('RETAINED_BACKUP_ARTIFACT_ID:' in workflow and 'simworx-navigation-production' in workflow and 'cancel-in-progress: false' in workflow,'Retention receipt and shared non-cancelling publication queue enforced')
+print(str(len(checks))+' single-preview publication and full backup checks passed')

@@ -1,0 +1,637 @@
+{
+  "commercial": {
+    "schemaVersion": 1,
+    "catalogueVersion": "development-unpriced-v1",
+    "baseCurrency": "EUR",
+    "approved": false,
+    "notice": "Development catalogue. Manufacturing templates, STEP assemblies and all new selling prices await Simworx input. Null means unknown, never free.",
+    "fabrication": {
+      "setupEur": null,
+      "framePerArcMetreEur": null,
+      "horizontalRailCount": null,
+      "uprightPerMetreEur": null,
+      "uprightCount": null,
+      "labourPerM2Eur": null,
+      "packagingEur": null
+    },
+    "limits": {
+      "diameterMin": null,
+      "diameterMax": null,
+      "heightMin": null,
+      "heightMax": null,
+      "arcMin": null,
+      "arcMax": null
+    },
+    "materials": {
+      "matte-white": {
+        "label": "Matte white",
+        "ratePerM2Eur": null,
+        "rollWidthM": null,
+        "edgeAllowanceM": null,
+        "wastePercent": null,
+        "seamAllowed": null,
+        "seamPerMetreEur": null,
+        "gain": null,
+        "recommendedBrightnessFL": null
+      },
+      "backed-white": {
+        "label": "Opaque-backed white",
+        "ratePerM2Eur": null,
+        "rollWidthM": null,
+        "edgeAllowanceM": null,
+        "wastePercent": null,
+        "seamAllowed": null,
+        "seamPerMetreEur": null,
+        "gain": null,
+        "recommendedBrightnessFL": null
+      },
+      "simulation-grey": {
+        "label": "Simulation grey",
+        "ratePerM2Eur": null,
+        "rollWidthM": null,
+        "edgeAllowanceM": null,
+        "wastePercent": null,
+        "seamAllowed": null,
+        "seamPerMetreEur": null,
+        "gain": null,
+        "recommendedBrightnessFL": null
+      }
+    },
+    "enclosures": {
+      "screen-only": {
+        "label": "Screen only",
+        "fixedEur": 0,
+        "perM2Eur": 0
+      },
+      "semi-enclosed": {
+        "label": "Semi enclosed screen",
+        "fixedEur": null,
+        "perM2Eur": null
+      },
+      "fully-enclosed": {
+        "label": "Fully enclosed screen",
+        "fixedEur": null,
+        "perM2Eur": null
+      }
+    },
+    "projectorPricesEur": {
+      "benq-mw632st": null,
+      "benq-lh600st": null,
+      "benq-lu960st2": null
+    },
+    "mountingKit": {
+      "priceEur": null,
+      "includedIn": []
+    },
+    "taxRate": null,
+    "deliveryEur": null,
+    "validityDays": null
+  },
+  "ledTariff": {
+    "schemaVersion": 1,
+    "catalogueVersion": "2026-10-21-advisory-distance-and-clear-priced-options",
+    "source": {
+      "url": "https://www.sim-worx.com/led-screen-configurator.html",
+      "file": "_sources/led-live-reference/modules/page.js",
+      "sha256": "aa23450d58b85c3927814c8dfda823aa5eea1d3106fac5f31f4f3542783bc5e7",
+      "capturedAt": "2026-10-22",
+      "scope": "Read-only extracted snapshot; no live synchronization."
+    },
+    "activeServicePlanPricing": true,
+    "servicePlans": [
+      {
+        "id": "self",
+        "label": "A · I’ll arrange warping myself",
+        "description": "You supply the warp software and handle screen assembly and calibration. No Simworx service charge.",
+        "quoteLabel": "Customer installation, software & warping",
+        "rate": {
+          "amount": 0,
+          "currency": "EUR"
+        }
+      },
+      {
+        "id": "spain",
+        "label": "B · Simworx calibration in Spain",
+        "description": "Software licence, screen assembly, calibration and dismantling in Spain included. Shipping and export packing are additional.",
+        "quoteLabel": "Spain assembly & calibration — licence included",
+        "rate": {
+          "amount": 3500,
+          "currency": "EUR"
+        }
+      },
+      {
+        "id": "onsite",
+        "label": "C · Simworx onsite installation & warping",
+        "description": "Screen assembly, software licence and image calibration at your site included. Shipping, flights, travel, accommodation and expenses are additional.",
+        "quoteLabel": "Onsite installation & warping — licence included",
+        "rate": {
+          "amount": 5000,
+          "currency": "EUR"
+        }
+      }
+    ],
+    "pricing": {
+      "baseCurrency": "USD",
+      "exchangeRates": {
+        "USD": 1,
+        "EUR": 0.89051549,
+        "GBP": 0.75039498
+      },
+      "exchangeRateReference": {
+        "provider": "Currency API reference rates",
+        "source": "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json",
+        "date": "2026-10-19",
+        "retrievedAtUtc": "2026-10-20T11:43:01.316631+00:00",
+        "sourceSha256": "71ca9d6bcc9a0d843507318840d233e8f5fa1ac43beec74e12753d46323c6a01",
+        "baseCurrency": "USD",
+        "indicative": true
+      },
+      "roundEstimateTo": 100
+    },
+    "inactiveLegacyWarping": {
+      "warpFile": {
+        "no": 0,
+        "yes": null
+      },
+      "warpSoftware": {
+        "none": 0,
+        "home": null,
+        "professional": null
+      },
+      "warpSupport": {
+        "no": 0,
+        "yes": null
+      },
+      "warpSoftwareRates": {
+        "home": {
+          "amount": 450,
+          "currency": "EUR",
+          "provisional": false,
+          "source": "Simworx instruction, 21 October 2026 — complete Home / enthusiast software package"
+        }
+      }
+    }
+  },
+  "projectors": [
+    {
+      "id": "benq-mw632st",
+      "manufacturer": "BenQ",
+      "model": "MW632ST",
+      "displayName": "BenQ MW632ST",
+      "tier": "value",
+      "tierLabel": "Lamp short throw",
+      "approvalStatus": "candidate",
+      "sellPriceEur": null,
+      "supplierAvailability": null,
+      "lightSource": "lamp",
+      "displayEngine": "single-chip DLP",
+      "resolution": {
+        "width": 1280,
+        "height": 800,
+        "aspectWidth": 16,
+        "aspectHeight": 10,
+        "kind": "manufacturer_declared_native",
+        "sourceId": "mw632st-spec"
+      },
+      "brightness": {
+        "lumens": 3200,
+        "basis": "ANSI lumens",
+        "measurementNote": "The current US specification labels the value ANSI lumens and has a footnote referring to ISO 21118. No measured installed or calibrated light output is supplied.",
+        "sourceId": "mw632st-spec"
+      },
+      "lens": {
+        "model": "Integrated standard short-throw zoom lens",
+        "partNumber": null,
+        "interchangeable": false,
+        "focalLengthMm": null,
+        "fNumber": null,
+        "note": "The official manual and current product specification conflict on focal length and f-number; these fields remain unknown. Coverage uses the published throw range and manual reference table."
+      },
+      "throwRatio": {
+        "min": 0.72,
+        "max": 0.87,
+        "definition": "Lens-to-planar-screen distance divided by projected image width",
+        "sourceId": "mw632st-spec",
+        "note": "The detailed specification and manual table support this range. An official shopping-page subtitle instead says 0.9–1.08 and is not used. Published throw values are rounded."
+      },
+      "opticalZoomRatio": 1.2,
+      "opticalOffset": {
+        "manufacturerValue": 105,
+        "manufacturerUnit": "percent",
+        "manufacturerConvention": "Projection Offset (Full-Height), exactly as labelled on the product specification; do not directly interpret this label as an image-centre fraction.",
+        "normalizedCenterOffsetImageHeights": 0.525,
+        "bottomEdgeOffsetImageHeights": 0.025,
+        "normalizationStatus": "manual_table_derived_approximation",
+        "derivation": "Manual page 16 gives 40 mm below the lower image edge for a 1615 mm high image, and 34 mm for a 1346 mm high image. The tabulated edge offsets approximate 0.025H; image centre is therefore about 0.525H above the axis upright.",
+        "sourceId": "mw632st-manual",
+        "sourcePage": 16
+      },
+      "lensShift": {
+        "supported": null,
+        "horizontalMin": null,
+        "horizontalMax": null,
+        "verticalMin": null,
+        "verticalMax": null,
+        "convention": null,
+        "coupledEnvelope": null,
+        "previewAllowedRange": {
+          "horizontal": [
+            0,
+            0
+          ],
+          "vertical": [
+            0,
+            0
+          ]
+        },
+        "note": "No optical lens-shift range is documented in the reviewed sources. The preview only uses the fixed offset; digital keystone does not expand optical coverage."
+      },
+      "body": {
+        "widthMm": 287.3,
+        "heightMm": 114.4,
+        "depthMm": 232.6,
+        "weightKg": 2.6,
+        "lensOriginMm": null,
+        "sourceId": "mw632st-manual",
+        "sourcePage": 57,
+        "note": "Do not infer a dimensioned lens origin from a product photograph. Place the planning origin at the optical lens point; body illustration is indicative until its origin is verified."
+      },
+      "installation": {
+        "orientations": [
+          "upright",
+          "ceiling-inverted"
+        ],
+        "maxPitchFromLevelDeg": 15,
+        "maxRollFromMountOrientationDeg": 10,
+        "wallClearanceMm": 500,
+        "sourceId": "mw632st-manual",
+        "sourcePages": [
+          5,
+          6,
+          14
+        ],
+        "focusDistanceM": null,
+        "curvedSurfaceFocusValidated": false
+      },
+      "referenceCases": [
+        {
+          "sourceId": "mw632st-manual",
+          "page": 16,
+          "diagonalInches": 100,
+          "widthMm": 2154,
+          "heightMm": 1346,
+          "minThrowDistanceMm": 1563,
+          "maxThrowDistanceMm": 1875,
+          "bottomEdgeOffsetMm": 34
+        },
+        {
+          "sourceId": "mw632st-manual",
+          "page": 16,
+          "diagonalInches": 120,
+          "widthMm": 2585,
+          "heightMm": 1615,
+          "minThrowDistanceMm": 1875,
+          "maxThrowDistanceMm": 2250,
+          "bottomEdgeOffsetMm": 40
+        }
+      ],
+      "plannerReady": true,
+      "fullVerificationAllowed": false,
+      "verificationStatus": "candidate_geometry_only",
+      "planningWarnings": [
+        "Illustrative candidate; selling price and regional availability are unapproved.",
+        "Geometry is a manual-derived planning estimate, not a calibrated curved-screen installation.",
+        "Lens-centre position within the physical body and curved-screen focus behaviour are unverified.",
+        "Official sources conflict on focal length and on one marketing throw-ratio subtitle; retained reference tables show the evidence used."
+      ],
+      "sources": [
+        {
+          "id": "mw632st-spec",
+          "title": "BenQ MW632ST Specifications",
+          "url": "https://www.benq.com/en-us/projector/business/mw632st/spec.html",
+          "type": "manufacturer_specification",
+          "pages": null,
+          "accessedAt": "2026-10-22"
+        },
+        {
+          "id": "mw632st-manual",
+          "title": "BenQ MS630ST MX631ST MW632ST User Manual",
+          "url": "https://esupportdownload.benq.com/esupport/PROJECTOR/UserManual/MW632ST/MW632ST_UM_EN_231229092226.pdf",
+          "type": "manufacturer_manual",
+          "pages": [
+            5,
+            6,
+            14,
+            16,
+            56,
+            57
+          ],
+          "revision": "Filename timestamp 231229092226",
+          "accessedAt": "2026-10-22"
+        },
+        {
+          "id": "mw632st-conflicting-marketing",
+          "title": "BenQ MW632ST Product Info",
+          "url": "https://www.benq.com/en-us/projector/business/mw632st/buy.html",
+          "type": "manufacturer_marketing_conflict",
+          "pages": null,
+          "accessedAt": "2026-10-22"
+        }
+      ]
+    },
+    {
+      "id": "benq-lh600st",
+      "manufacturer": "BenQ",
+      "model": "LH600ST",
+      "displayName": "BenQ LH600ST",
+      "tier": "led",
+      "tierLabel": "LED short throw",
+      "approvalStatus": "candidate",
+      "sellPriceEur": null,
+      "supplierAvailability": null,
+      "lightSource": "4LED",
+      "displayEngine": "single-chip DLP",
+      "resolution": {
+        "width": 1920,
+        "height": 1080,
+        "aspectWidth": 16,
+        "aspectHeight": 9,
+        "kind": "manufacturer_declared_native_default_mode",
+        "sourceId": "lh600st-spec"
+      },
+      "brightness": {
+        "lumens": 2500,
+        "basis": "ANSI lumens",
+        "measurementNote": "Use this exact LH600ST model. Do not substitute LH600ST+ or its regional brightness values. No calibrated installed output is supplied.",
+        "sourceId": "lh600st-spec"
+      },
+      "lens": {
+        "model": "Integrated standard short-throw zoom lens",
+        "partNumber": null,
+        "interchangeable": false,
+        "focalLengthMm": {
+          "min": 10.2,
+          "max": 12.24
+        },
+        "fNumber": {
+          "min": 2.6,
+          "max": 2.78
+        },
+        "sourceId": "lh600st-manual",
+        "sourcePage": 48
+      },
+      "throwRatio": {
+        "min": 0.69,
+        "max": 0.83,
+        "definition": "Lens-to-planar-screen distance divided by projected image width",
+        "sourceId": "lh600st-spec"
+      },
+      "opticalZoomRatio": 1.2,
+      "opticalOffset": {
+        "manufacturerValue": 100,
+        "manufacturerUnit": "percent",
+        "manufacturerConvention": "Projection Offset (Full-Height), exactly as labelled on the product specification.",
+        "normalizedCenterOffsetImageHeights": 0.525,
+        "bottomEdgeOffsetImageHeights": 0.025,
+        "normalizationStatus": "manual_table_derived_with_unresolved_specification_conflict",
+        "derivation": "Exact non-plus manual page 14 gives an edge offset of 31 mm at H=1245 mm and 37 mm at H=1494 mm, approximately 0.025H. Preview centre offset uses 0.5H+0.025H. The product page's 100% offset label is not silently treated as matching this table.",
+        "sourceId": "lh600st-manual",
+        "sourcePage": 14,
+        "conflict": true
+      },
+      "lensShift": {
+        "supported": null,
+        "horizontalMin": null,
+        "horizontalMax": null,
+        "verticalMin": null,
+        "verticalMax": null,
+        "convention": null,
+        "coupledEnvelope": null,
+        "previewAllowedRange": {
+          "horizontal": [
+            0,
+            0
+          ],
+          "vertical": [
+            0,
+            0
+          ]
+        },
+        "note": "The manual describes digital lens shift after changing Screen Fill. It does not establish optical lens shift. The full optical beam remains based on the native default image and fixed offset."
+      },
+      "body": {
+        "widthMm": 303.5,
+        "heightMm": 107.4,
+        "depthMm": 220.7,
+        "weightKg": 2.65,
+        "lensOriginMm": null,
+        "sourceId": "lh600st-manual",
+        "sourcePage": 49,
+        "note": "Dimensions are verified; exact lens origin within the body is not."
+      },
+      "installation": {
+        "orientations": [
+          "upright",
+          "ceiling-inverted"
+        ],
+        "maxPitchFromLevelDeg": 15,
+        "maxRollFromMountOrientationDeg": 10,
+        "wallClearanceMm": 500,
+        "sourceId": "lh600st-manual",
+        "sourcePages": [
+          5,
+          6,
+          12
+        ],
+        "focusDistanceM": null,
+        "curvedSurfaceFocusValidated": false
+      },
+      "referenceCases": [
+        {
+          "sourceId": "lh600st-manual",
+          "page": 14,
+          "diagonalInches": 100,
+          "widthMm": 2214,
+          "heightMm": 1245,
+          "minThrowDistanceMm": 1528,
+          "maxThrowDistanceMm": 1837,
+          "bottomEdgeOffsetMm": 31
+        },
+        {
+          "sourceId": "lh600st-manual",
+          "page": 14,
+          "diagonalInches": 120,
+          "widthMm": 2657,
+          "heightMm": 1494,
+          "minThrowDistanceMm": 1833,
+          "maxThrowDistanceMm": 2205,
+          "bottomEdgeOffsetMm": 37
+        }
+      ],
+      "plannerReady": true,
+      "fullVerificationAllowed": false,
+      "verificationStatus": "candidate_with_offset_source_conflict",
+      "planningWarnings": [
+        "Illustrative candidate; selling price and regional availability are unapproved.",
+        "Offset is provisional: official manual geometry and the specification-page percentage are not reconciled. The preview uses the manual table and cannot claim verified placement.",
+        "Exact lens origin and curved-screen focus behaviour are unverified.",
+        "Digital image adjustment is not optical lens shift and cannot create light outside the physical beam."
+      ],
+      "sources": [
+        {
+          "id": "lh600st-spec",
+          "title": "BenQ Europe LH600ST Specifications",
+          "url": "https://www.benq.eu/en-eu/business/projector/lh600st/specifications.html",
+          "type": "manufacturer_specification",
+          "pages": null,
+          "accessedAt": "2026-10-22"
+        },
+        {
+          "id": "lh600st-manual",
+          "title": "BenQ LW600ST LH600ST User Manual",
+          "url": "https://esupportdownload.benq.com/esupport/PROJECTOR/UserManual/LH600ST/UM_EN_231128145404.pdf",
+          "type": "manufacturer_manual",
+          "pages": [
+            5,
+            6,
+            12,
+            14,
+            39,
+            40,
+            48,
+            49
+          ],
+          "revision": "V1.02; filename timestamp 231128145404",
+          "accessedAt": "2026-10-22"
+        }
+      ]
+    },
+    {
+      "id": "benq-lu960st2",
+      "manufacturer": "BenQ",
+      "model": "LU960ST2",
+      "displayName": "BenQ LU960ST2",
+      "tier": "laser",
+      "tierLabel": "Laser simulation short throw",
+      "approvalStatus": "candidate",
+      "sellPriceEur": null,
+      "supplierAvailability": null,
+      "lightSource": "laser",
+      "displayEngine": "single-chip DLP",
+      "resolution": {
+        "width": 1920,
+        "height": 1200,
+        "aspectWidth": 16,
+        "aspectHeight": 10,
+        "kind": "manufacturer_declared_native",
+        "sourceId": "lu960st2-datasheet"
+      },
+      "brightness": {
+        "lumens": 5200,
+        "basis": "ANSI lumens",
+        "measurementNote": "No calibrated installed output or curved-screen luminance is supplied.",
+        "sourceId": "lu960st2-datasheet"
+      },
+      "lens": {
+        "model": "Integrated standard fixed 0.5 short-throw lens",
+        "partNumber": null,
+        "interchangeable": false,
+        "focalLengthMm": null,
+        "fNumber": null,
+        "sourceId": "lu960st2-datasheet"
+      },
+      "throwRatio": {
+        "min": 0.5,
+        "max": 0.5,
+        "definition": "Lens-to-planar-screen distance divided by projected image width",
+        "sourceId": "lu960st2-datasheet"
+      },
+      "opticalZoomRatio": 1,
+      "opticalOffset": {
+        "manufacturerValue": 0,
+        "manufacturerUnit": "percent",
+        "manufacturerConvention": "Projection Offset 0% on the model-specific datasheet, with lens shift at its central setting.",
+        "normalizedCenterOffsetImageHeights": 0,
+        "bottomEdgeOffsetImageHeights": null,
+        "normalizationStatus": "datasheet_central_axis_zero_shift",
+        "sourceId": "lu960st2-datasheet",
+        "sourcePage": 1
+      },
+      "lensShift": {
+        "supported": true,
+        "horizontalMin": -0.23,
+        "horizontalMax": 0.23,
+        "verticalMin": -0.55,
+        "verticalMax": 0.55,
+        "convention": "Fractions of full projected image width and height; stated maxima are not a guaranteed rectangular simultaneous operating envelope.",
+        "coupledEnvelope": null,
+        "previewAllowedRange": {
+          "horizontal": [
+            0,
+            0
+          ],
+          "vertical": [
+            0,
+            0
+          ]
+        },
+        "sourceId": "lu960st2-datasheet",
+        "note": "Model-specific maximum shifts are recorded, but simultaneous coupled limits have not been verified. Initial preview locks shift at zero; never grant independent full-range sliders from these maxima alone."
+      },
+      "body": {
+        "widthMm": 479.6,
+        "heightMm": 182.8,
+        "depthMm": 402,
+        "weightKg": 12,
+        "lensOriginMm": null,
+        "sourceId": "lu960st2-spec",
+        "sourcePage": null,
+        "note": "Dimensions are verified; exact lens origin within the body is not."
+      },
+      "installation": {
+        "orientations": null,
+        "maxPitchFromLevelDeg": null,
+        "maxRollFromMountOrientationDeg": null,
+        "wallClearanceMm": null,
+        "sourceId": "lu960st2-datasheet",
+        "focusDistanceM": null,
+        "imageDiagonalInches": {
+          "min": 82,
+          "max": 205
+        },
+        "curvedSurfaceFocusValidated": false
+      },
+      "referenceCases": [],
+      "plannerReady": true,
+      "fullVerificationAllowed": false,
+      "verificationStatus": "candidate_zero_shift_geometry_only",
+      "planningWarnings": [
+        "Illustrative candidate; selling price and regional availability are unapproved.",
+        "The candidate preview uses a centred fixed lens at zero optical shift.",
+        "Coupled lens-shift limits, lens origin, installation clearances and curved-screen focus require verification.",
+        "Physical coverage alone does not establish focus, blending quality or training-device qualification."
+      ],
+      "sources": [
+        {
+          "id": "lu960st2-datasheet",
+          "title": "BenQ LU960ST2 Datasheet",
+          "url": "https://www.benq.eu/content/dam/newb2b/en-eu/projector/lu960st2/LU960ST2_Datasheet_0223_EN.PDF",
+          "type": "manufacturer_datasheet",
+          "pages": [
+            1
+          ],
+          "revision": "0223 EN",
+          "accessedAt": "2026-10-22"
+        },
+        {
+          "id": "lu960st2-spec",
+          "title": "BenQ Europe LU960ST2 Specifications",
+          "url": "https://www.benq.eu/en-eu/business/projector/lu960st2/specifications.html",
+          "type": "manufacturer_specification",
+          "pages": null,
+          "accessedAt": "2026-10-22"
+        }
+      ]
+    }
+  ]
+}

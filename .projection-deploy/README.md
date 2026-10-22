@@ -1,48 +1,41 @@
-# Projection preview publication
+# Guided projection preview publication
 
-This helper adds only `projection-screen-configurator-preview.html` at the same
-path under live `/htdocs`. It never synchronises directories or edits existing
-pages, menus, assets, LED functionality or server configuration.
+This publisher updates only the existing, owner-requested
+`/htdocs/projection-screen-configurator-preview.html`. It never synchronises
+directories or deploys navigation, LED functionality, shared assets or server
+configuration. The previous live page and the new payload are pinned by SHA-256.
 
-The reviewed manifest has exactly these fields:
+Editable application sources are in `projection/`. Rebuild the standalone HTML
+and its manifest with `python3 tools/build-projection-guided.py`. The publisher's
+reviewed `PAYLOAD` and manifest digest must also match the final build; changing
+source after review invalidates the prepared release.
 
-```json
-{"schemaVersion":1,"path":"projection-screen-configurator-preview.html","sha256":"<64 lowercase hex characters>","size":123}
-```
-
-The payload must match its SHA-256 and byte count and include both a robots
-`noindex` meta and `<meta name="simworx-projection-build" content="static-preview">`.
-
-Run from the separate deployment checkout:
+Local checks, without credentials or remote writes:
 
 ```sh
+node --experimental-loader ./tests/projection/loader.mjs tests/projection/layout-planner.mjs
 python3 .projection-deploy/test_publish.py
 python3 .projection-deploy/publish.py validate
-python3 .projection-deploy/publish.py publish
 ```
 
-Publication uses the existing `FTP_HOST`, `FTP_USERNAME` and `FTP_PASSWORD`
-environment secrets through certificate-verified FTPS with protected data
-connections. Credentials and raw connection errors are never printed.
+The workflow uses the existing FTP secrets over certificate-verified FTPS with
+protected data connections. Before any upload it downloads every live `/htdocs`
+file, including hidden files, checks for a stable inventory, and verifies every
+file inside a complete archive. It then encrypts the archive, verifies decryption
+against the original, and retains the encrypted backup as a GitHub artifact for
+14 days. Publication requires the artifact's retention receipt.
 
-An existing different target is refused. An identical target is verified without
-writing. A new upload is staged under a unique name, retrieved and checked, then
-the final target is checked again before rename. The HTTPS result must match the
-reviewed bytes. Homepage, LED page, visual-systems page, shared header CSS/JS,
-sitemap and robots hashes must match their pre-publication baseline.
+Immediately before uploading, the publisher rechecks the complete live inventory
+and the previous preview's bytes. It stages exactly one reviewed HTML payload,
+verifies its checksum, rechecks the old target, and atomically renames the staged
+file over that exact target. It verifies the hosted HTML and the protected
+homepage, LED page, visual-systems page, shared header CSS/JS, sitemap and robots.
+Any unexpected concurrent change stops publication. Uncertain uploads are left
+for inspection; protected files are never restored or overwritten.
 
-On failure, cleanup only deletes this attempt's staged or newly created preview
-if its current bytes still match the reviewed upload. Existing targets and
-concurrent edits are preserved. A corrupt/partial staging upload or an uncertain
-rename outcome is deliberately left for inspection. Protected files are never
-restored or overwritten. Do not enable shell tracing or print secret variables.
+The workflow shares the `simworx-navigation-production` concurrency queue with
+navigation publication, using `queue: max` and `cancel-in-progress: false`.
+Do not invoke the navigation, portal or Base44 publishers for this change.
 
-The workflow should be separately scoped to this helper and the preview payload.
-Do not invoke the navigation, portal or Base44 sync publishers for this task.
-
-The dedicated workflow shares the existing `simworx-navigation-production`
-concurrency group with navigation publication and sets `queue: max` with
-`cancel-in-progress: false`. This queues the preview without cancelling another
-release, and avoids adding a file during a navigation backup or inventory check.
-GitHub documents this queue behaviour at
-https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax.
+The page remains an isolated, noindex, offline preview. New product prices are
+unapproved, and its estimate/enquiry functions do not send customer messages.

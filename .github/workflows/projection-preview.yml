@@ -1,5 +1,4 @@
 name: Publish projection configurator preview
-
 on:
   push:
     branches: [main]
@@ -7,30 +6,49 @@ on:
       - 'projection-screen-configurator-preview.html'
       - '.projection-deploy/**'
       - '.github/workflows/projection-preview.yml'
-
 permissions:
   contents: read
-
 concurrency:
-  # Share the site's publication queue so a navigation backup cannot overlap.
   group: simworx-navigation-production
   queue: max
   cancel-in-progress: false
-
 jobs:
   publish:
-    name: Add the separate projection preview only
+    name: Back up live site, then update only guided projection preview
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - name: Validate the reviewed preview payload
+      - name: Validate exact reviewed projection preview
         run: python3 .projection-deploy/publish.py validate
-      - name: Verify create-only publication and cleanup rules
+      - name: Test one-page scope and backup requirements
         run: python3 .projection-deploy/test_publish.py
-      - name: Upload the new preview and verify existing pages unchanged
+      - name: Back up and verify all live htdocs files before any write
+        run: python3 .projection-deploy/publish.py backup
+      - name: Encrypt and verify complete site backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/simworx-projection-guided/verified-backup.json"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in "$RUNNER_TEMP/simworx-projection-guided/live-htdocs.tar.gz" -out "$RUNNER_TEMP/simworx-projection-guided/live-htdocs.tar.gz.enc" -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$RUNNER_TEMP/simworx-projection-guided/live-htdocs.tar.gz.enc" -pass env:FTP_PASSWORD | cmp - "$RUNNER_TEMP/simworx-projection-guided/live-htdocs.tar.gz"
+          cd "$RUNNER_TEMP/simworx-projection-guided"
+          sha256sum live-htdocs.tar.gz.enc > live-htdocs.tar.gz.enc.sha256
+      - name: Retain encrypted backup before publishing
+        id: retained_backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-live-backup-before-projection-guide-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/simworx-projection-guided/live-htdocs.tar.gz.enc
+            ${{ runner.temp }}/simworx-projection-guided/live-htdocs.tar.gz.enc.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - name: Update only projection preview and verify all protected pages
         env:
-          FTP_HOST: ${{ secrets.FTP_HOST }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          RETAINED_BACKUP_ARTIFACT_ID: ${{ steps.retained_backup.outputs.artifact-id }}
         run: python3 .projection-deploy/publish.py publish

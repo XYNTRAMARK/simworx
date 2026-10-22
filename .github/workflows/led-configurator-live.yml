@@ -31,23 +31,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s "$RUNNER_TEMP/simworx-led-cockpit-controls/verified-backup.json"
+          test -s "$RUNNER_TEMP/simworx-led-designer-domain/verified-backup.json"
           openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
-            -in "$RUNNER_TEMP/simworx-led-cockpit-controls/live-htdocs.tar.gz" \
-            -out "$RUNNER_TEMP/simworx-led-cockpit-controls/live-htdocs.tar.gz.enc" \
+            -in "$RUNNER_TEMP/simworx-led-designer-domain/live-htdocs.tar.gz" \
+            -out "$RUNNER_TEMP/simworx-led-designer-domain/live-htdocs.tar.gz.enc" \
             -pass env:FTP_PASSWORD
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
-            -in "$RUNNER_TEMP/simworx-led-cockpit-controls/live-htdocs.tar.gz.enc" \
-            -pass env:FTP_PASSWORD | cmp - "$RUNNER_TEMP/simworx-led-cockpit-controls/live-htdocs.tar.gz"
-          cd "$RUNNER_TEMP/simworx-led-cockpit-controls"
+            -in "$RUNNER_TEMP/simworx-led-designer-domain/live-htdocs.tar.gz.enc" \
+            -pass env:FTP_PASSWORD | cmp - "$RUNNER_TEMP/simworx-led-designer-domain/live-htdocs.tar.gz"
+          cd "$RUNNER_TEMP/simworx-led-designer-domain"
           sha256sum live-htdocs.tar.gz.enc > live-htdocs.tar.gz.enc.sha256
       - name: Retain encrypted full-site backup before any remote write
         uses: actions/upload-artifact@v4
         with:
-          name: encrypted-live-backup-before-led-cockpit-controls-${{ github.sha }}
+          name: encrypted-live-backup-before-led-designer-domain-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/simworx-led-cockpit-controls/live-htdocs.tar.gz.enc
-            ${{ runner.temp }}/simworx-led-cockpit-controls/live-htdocs.tar.gz.enc.sha256
+            ${{ runner.temp }}/simworx-led-designer-domain/live-htdocs.tar.gz.enc
+            ${{ runner.temp }}/simworx-led-designer-domain/live-htdocs.tar.gz.enc.sha256
           if-no-files-found: error
           retention-days: 14
       - name: Update only authorised LED configurator HTML and verify over HTTPS

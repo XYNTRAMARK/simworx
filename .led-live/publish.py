@@ -26,12 +26,12 @@ ROOT="/htdocs"
 BASE_URL="https://www.sim-worx.com"
 PUBLIC_URL=BASE_URL+"/led-screen-configurator.html"
 TARGET=ROOT+"/led-screen-configurator.html"
-PAYLOAD={'led-screen-configurator.html': {'target': '/htdocs/led-screen-configurator.html', 'source': '.led-live/led-screen-configurator.html', 'sha256': '91c6aef7ce39216938899c4bafe29fc58f2604228f5530496d087a7f58321105'}}
+PAYLOAD={'led-screen-configurator.html': {'target': '/htdocs/led-screen-configurator.html', 'source': '.led-live/led-screen-configurator.html', 'sha256': '6239ccf3300c86f9593603ff482f022120d16f53990b37d9235ac9baf3b6d861'}}
 PROTECTED_PUBLIC={'/': 'f16e29fd6759eb3f3ce99cf38c8694ecbf2a0400b702d71513086f17e5729903', '/visual-systems.html': 'dfd5672e16a6baab6e1eef6866577a4e52e3cca230f4e29988fac47391e8324e', '/sitemap.xml': '0a55385d1dc8ae62153cdb6f584f8813d75c1a55389706badb10df9ac4c2e65c', '/robots.txt': '2dca06af68eefa426114379271f4619708c6cd5ad9d862233e9b3cf8d361b82b', '/admin/simworx-led-preview-v30.php': 'a0ca0c5bcdfcd5cca16998cdff0edff138aaf877cbe0e1984634151781ce793a', '/led-quote-submit.php?action=capabilities': 'd4ac4be3a275f210a404de89bed8ebb4e352d8c27f3a73a8ca6d228392bf5949'}
-EXPECTED_OLD='e953f572b5021706a84dfa7105de3b4ab3686379ca9fc9e03c2b0cc9621d516f'
+EXPECTED_OLD='91c6aef7ce39216938899c4bafe29fc58f2604228f5530496d087a7f58321105'
 API_SHA='247f762d5e79322295920d3bc8a042bc51286f5e0dc72df61124f4b1eb7f49e0'
-EXPECTED_SHA='e8f76316a27bb2ea920cdb9f0b591134bee2323cb656569909274fb2ed3de12e'
-WORK=Path(os.environ.get("RUNNER_TEMP","/tmp"))/"simworx-led-cockpit-controls"
+EXPECTED_SHA='43f108ef8d5cc17ee0bc018a6dd81dd24e2cc0aeeb9ed1b02bdb6d090d6943b1'
+WORK=Path(os.environ.get("RUNNER_TEMP","/tmp"))/"simworx-led-designer-domain"
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
@@ -118,7 +118,7 @@ def validate_payload():
     if digest(json.dumps(PAYLOAD,sort_keys=True).encode())!=EXPECTED_SHA:raise RuntimeError("Prepared publication manifest changed.")
     html=Path(info["source"]).read_bytes()
     if digest(html)!=info["sha256"]:raise RuntimeError("Prepared public page failed checksum verification.")
-    for marker in [b'id="led-cockpit-size"',b'Change the size of your cockpit',b'id="led-reset-cockpit-size"',b'Reset cockpit size',b'id="led-simulatorY"',b'id="led-simulatorZ"',b'Custom configurator by',b'www.xyntra-holdings.com',b'action="led-quote-submit.php"',b'https://www.sim-worx.com/led-screen-configurator.html']:
+    for marker in [b'id="led-cockpit-size"',b'Change the size of your cockpit',b'id="led-reset-cockpit-size"',b'Reset cockpit size',b'id="led-simulatorY"',b'id="led-simulatorZ"',b'Custom configurator by',b'www.xyntraholdings.com',b'action="led-quote-submit.php"',b'https://www.sim-worx.com/led-screen-configurator.html']:
         if marker not in html:raise RuntimeError("A required public feature is missing.")
     for removed in [b'Interactive preview',b'Review version',b'led-preview-notice',b'noindex,nofollow',b'data-led-quote-preview="offline"']:
         if removed in html:raise RuntimeError("A preview marker remains in the public page.")
@@ -206,7 +206,7 @@ def publish():
     content=validate_payload();evidence=json.loads((WORK/"verified-backup.json").read_text())
     if evidence["payload_sha256"]!=EXPECTED_SHA or evidence["files"]<1:raise RuntimeError("Verified complete backup is missing.")
     if not (WORK/"live-htdocs.tar.gz.enc").is_file():raise RuntimeError("Retained encrypted backup is missing; no upload attempted.")
-    original=json.loads((WORK/"before-inventory.json").read_text());info=PAYLOAD["led-screen-configurator.html"];temporary=ROOT+"/.led-cockpit-controls-"+info["sha256"][:16]+".html"
+    original=json.loads((WORK/"before-inventory.json").read_text());info=PAYLOAD["led-screen-configurator.html"];temporary=ROOT+"/.led-designer-domain-"+info["sha256"][:16]+".html"
     with connect() as ftp:
         if inventory(ftp)!=original:raise RuntimeError("Live files changed after the backup; stopped before any remote write.")
         if remote_sha(ftp,TARGET)!=EXPECTED_OLD:raise RuntimeError("Current configurator no longer matches its backup.")

@@ -39,7 +39,6 @@ internal sealed class LowerDisplayRenderer : IDisposable
             if (!_layout.Elements.TryGetValue(key, out var element) || !element.Visible)
                 continue;
 
-            // The calibration reference is intentionally not part of the production instrument.
             if (key.Equals("referenceImage", StringComparison.OrdinalIgnoreCase))
                 continue;
 
@@ -118,17 +117,8 @@ internal sealed class LowerDisplayRenderer : IDisposable
         using var attributes = new ImageAttributes();
         var matrix = new ColorMatrix { Matrix33 = opacity };
         attributes.SetColorMatrix(matrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
-
-        g.DrawImage(
-            image,
-            Rectangle.Round(destination),
-            0,
-            0,
-            image.Width,
-            image.Height,
-            GraphicsUnit.Pixel,
-            attributes
-        );
+        g.DrawImage(image, Rectangle.Round(destination), 0, 0, image.Width, image.Height,
+            GraphicsUnit.Pixel, attributes);
         return true;
     }
 
@@ -162,8 +152,6 @@ internal sealed class LowerDisplayRenderer : IDisposable
             _ => TextFormatFlags.Left
         };
 
-        // TextRenderer with NoPadding mirrors the browser calibrator's fillText
-        // anchoring more closely than GDI+ DrawString's padded layout rectangle.
         TextRenderer.DrawText(g, element.Text ?? string.Empty, font, rectangle, color, flags);
     }
 
@@ -211,12 +199,15 @@ internal sealed class LowerDisplayRenderer : IDisposable
     {
         using var pen = new Pen(Color.White, 2.2f);
         using var darkBrush = new SolidBrush(Color.Black);
+        using var whiteBrush = new SolidBrush(Color.White);
         using var path = new GraphicsPath();
 
+        // The element rectangle is the calibrated PNG destination. The visible
+        // fallback therefore occupies that exact box instead of adding hidden margins.
         var left = element.X + element.W * 0.20f;
-        var right = element.X + element.W * 0.92f;
-        var top = element.Y + element.H * 0.06f;
-        var bottom = element.Y + element.H * 0.92f;
+        var right = element.X + element.W;
+        var top = element.Y;
+        var bottom = element.Y + element.H;
         var centerY = element.Y + element.H / 2f;
 
         path.AddPolygon(
@@ -230,9 +221,22 @@ internal sealed class LowerDisplayRenderer : IDisposable
             new PointF(left, centerY - element.H * 0.10f)
         ]);
         path.CloseFigure();
-
         g.FillPath(darkBrush, path);
         g.DrawPath(pen, path);
+
+        using var smallFont = new Font("Segoe UI", Math.Max(8f, element.W * 0.14f),
+            FontStyle.Bold, GraphicsUnit.Pixel);
+        using var format = new StringFormat(StringFormat.GenericTypographic)
+        {
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Center
+        };
+        var labelWidth = element.W * 0.18f;
+        g.DrawString("0", smallFont, whiteBrush,
+            new RectangleF(right - labelWidth, top + 1f, labelWidth, element.H * 0.20f), format);
+        g.DrawString("0", smallFont, whiteBrush,
+            new RectangleF(right - labelWidth, bottom - element.H * 0.20f - 1f,
+                labelWidth, element.H * 0.20f), format);
     }
 
     private static void DrawBaroFrameFallback(Graphics g, ElementLayout element)
@@ -262,12 +266,13 @@ internal sealed class LowerDisplayRenderer : IDisposable
     {
         using var pen = new Pen(Color.White, 2.2f);
         using var darkBrush = new SolidBrush(Color.Black);
+        using var whiteBrush = new SolidBrush(Color.White);
         using var path = new GraphicsPath();
 
-        var left = element.X + element.W * 0.05f;
+        var left = element.X;
         var right = element.X + element.W * 0.78f;
-        var top = element.Y + element.H * 0.08f;
-        var bottom = element.Y + element.H * 0.92f;
+        var top = element.Y;
+        var bottom = element.Y + element.H;
         var centerY = element.Y + element.H / 2f;
 
         path.AddPolygon(
@@ -281,9 +286,22 @@ internal sealed class LowerDisplayRenderer : IDisposable
             new PointF(left, bottom)
         ]);
         path.CloseFigure();
-
         g.FillPath(darkBrush, path);
         g.DrawPath(pen, path);
+
+        using var smallFont = new Font("Segoe UI", Math.Max(8f, element.W * 0.12f),
+            FontStyle.Bold, GraphicsUnit.Pixel);
+        using var format = new StringFormat(StringFormat.GenericTypographic)
+        {
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Center
+        };
+        var labelWidth = element.W * 0.18f;
+        g.DrawString("00", smallFont, whiteBrush,
+            new RectangleF(right - labelWidth, top + 1f, labelWidth, element.H * 0.22f), format);
+        g.DrawString("20", smallFont, whiteBrush,
+            new RectangleF(right - labelWidth, bottom - element.H * 0.22f - 1f,
+                labelWidth, element.H * 0.22f), format);
     }
 
     private static void DrawAltitudeTape(Graphics g, ElementLayout element)

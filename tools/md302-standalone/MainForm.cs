@@ -6,6 +6,7 @@ internal sealed class MainForm : Form
 {
     private readonly AppConfig _config;
     private readonly AttitudeRenderer _attitudeRenderer;
+    private readonly LowerDisplayRenderer _lowerDisplayRenderer;
     private readonly System.Windows.Forms.Timer _animationTimer = new();
 
     private double _pitchDeg;
@@ -21,8 +22,9 @@ internal sealed class MainForm : Form
     {
         _config = config;
         _attitudeRenderer = new AttitudeRenderer(_config.Layout);
+        _lowerDisplayRenderer = new LowerDisplayRenderer(_config.LowerDisplay);
 
-        Text = "Simworx MD302 - Stage 2";
+        Text = "Simworx MD302 - Top and Lower Display Review";
         BackColor = Color.Black;
         DoubleBuffered = true;
         KeyPreview = true;
@@ -164,6 +166,7 @@ internal sealed class MainForm : Form
         );
 
         _attitudeRenderer.Draw(g, _pitchDeg, _rollDeg);
+        _lowerDisplayRenderer.Draw(g);
         _attitudeRenderer.DrawDebug(g, _pitchDeg, _rollDeg);
 
         g.Restore(state);

@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Back up live site, then publish exactly two new public LED files
+    name: Back up live site, then update only LED configurator HTML
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -31,24 +31,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s "$RUNNER_TEMP/simworx-led-live/verified-backup.json"
+          test -s "$RUNNER_TEMP/simworx-led-cockpit-controls/verified-backup.json"
           openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
-            -in "$RUNNER_TEMP/simworx-led-live/live-htdocs.tar.gz" \
-            -out "$RUNNER_TEMP/simworx-led-live/live-htdocs.tar.gz.enc" \
+            -in "$RUNNER_TEMP/simworx-led-cockpit-controls/live-htdocs.tar.gz" \
+            -out "$RUNNER_TEMP/simworx-led-cockpit-controls/live-htdocs.tar.gz.enc" \
             -pass env:FTP_PASSWORD
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
-            -in "$RUNNER_TEMP/simworx-led-live/live-htdocs.tar.gz.enc" \
-            -pass env:FTP_PASSWORD | cmp - "$RUNNER_TEMP/simworx-led-live/live-htdocs.tar.gz"
-          cd "$RUNNER_TEMP/simworx-led-live"
+            -in "$RUNNER_TEMP/simworx-led-cockpit-controls/live-htdocs.tar.gz.enc" \
+            -pass env:FTP_PASSWORD | cmp - "$RUNNER_TEMP/simworx-led-cockpit-controls/live-htdocs.tar.gz"
+          cd "$RUNNER_TEMP/simworx-led-cockpit-controls"
           sha256sum live-htdocs.tar.gz.enc > live-htdocs.tar.gz.enc.sha256
       - name: Retain encrypted full-site backup before any remote write
         uses: actions/upload-artifact@v4
         with:
-          name: encrypted-live-backup-before-led-public-launch-${{ github.sha }}
+          name: encrypted-live-backup-before-led-cockpit-controls-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/simworx-led-live/live-htdocs.tar.gz.enc
-            ${{ runner.temp }}/simworx-led-live/live-htdocs.tar.gz.enc.sha256
+            ${{ runner.temp }}/simworx-led-cockpit-controls/live-htdocs.tar.gz.enc
+            ${{ runner.temp }}/simworx-led-cockpit-controls/live-htdocs.tar.gz.enc.sha256
           if-no-files-found: error
           retention-days: 14
-      - name: Upload only the two new public LED files and verify over HTTPS
+      - name: Update only authorised LED configurator HTML and verify over HTTPS
         run: python3 .led-live/publish.py publish

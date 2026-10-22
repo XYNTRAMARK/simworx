@@ -1,9 +1,8 @@
-"""Publish only the two new public LED configurator files authorised by the user.
+"""Update only the existing public LED configurator page, as requested by its owner.
 
-The user requested public launch and deferred all navigation changes. This is
-not an admin deployment: the allowlist is exactly /htdocs/led-quote-submit.php
-and /htdocs/led-screen-configurator.html. Existing files are never overwritten.
-Full verified and retained encrypted backup is mandatory before remote writes.
+A complete byte-verified, encrypted and retained live backup is mandatory.
+The current page must match its verified SHA before a single atomic replacement.
+The quote API, assets, homepage and navigation are protected and never uploaded.
 """
 from __future__ import annotations
 
@@ -23,13 +22,16 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
-ROOT = "/htdocs"
-BASE_URL = "https://www.sim-worx.com"
-PUBLIC_URL = BASE_URL+"/led-screen-configurator.html"
-PAYLOAD = {'led-quote-submit.php': {'target': '/htdocs/led-quote-submit.php', 'source': '.led-live/led-quote-submit.php', 'sha256': '247f762d5e79322295920d3bc8a042bc51286f5e0dc72df61124f4b1eb7f49e0'}, 'led-screen-configurator.html': {'target': '/htdocs/led-screen-configurator.html', 'source': '.led-live/led-screen-configurator.html', 'sha256': 'e953f572b5021706a84dfa7105de3b4ab3686379ca9fc9e03c2b0cc9621d516f'}}
-PROTECTED_PUBLIC = {'/': 'f16e29fd6759eb3f3ce99cf38c8694ecbf2a0400b702d71513086f17e5729903', '/visual-systems.html': 'dfd5672e16a6baab6e1eef6866577a4e52e3cca230f4e29988fac47391e8324e', '/sitemap.xml': '0a55385d1dc8ae62153cdb6f584f8813d75c1a55389706badb10df9ac4c2e65c', '/robots.txt': '2dca06af68eefa426114379271f4619708c6cd5ad9d862233e9b3cf8d361b82b', '/admin/simworx-led-preview-v30.php': 'a0ca0c5bcdfcd5cca16998cdff0edff138aaf877cbe0e1984634151781ce793a'}
-EXPECTED_SHA = '73b8d6147a9326250e9ab52b3292672191f91777583819f09740015b781d1d2a'
-WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-live"
+ROOT="/htdocs"
+BASE_URL="https://www.sim-worx.com"
+PUBLIC_URL=BASE_URL+"/led-screen-configurator.html"
+TARGET=ROOT+"/led-screen-configurator.html"
+PAYLOAD={'led-screen-configurator.html': {'target': '/htdocs/led-screen-configurator.html', 'source': '.led-live/led-screen-configurator.html', 'sha256': '91c6aef7ce39216938899c4bafe29fc58f2604228f5530496d087a7f58321105'}}
+PROTECTED_PUBLIC={'/': 'f16e29fd6759eb3f3ce99cf38c8694ecbf2a0400b702d71513086f17e5729903', '/visual-systems.html': 'dfd5672e16a6baab6e1eef6866577a4e52e3cca230f4e29988fac47391e8324e', '/sitemap.xml': '0a55385d1dc8ae62153cdb6f584f8813d75c1a55389706badb10df9ac4c2e65c', '/robots.txt': '2dca06af68eefa426114379271f4619708c6cd5ad9d862233e9b3cf8d361b82b', '/admin/simworx-led-preview-v30.php': 'a0ca0c5bcdfcd5cca16998cdff0edff138aaf877cbe0e1984634151781ce793a', '/led-quote-submit.php?action=capabilities': 'd4ac4be3a275f210a404de89bed8ebb4e352d8c27f3a73a8ca6d228392bf5949'}
+EXPECTED_OLD='e953f572b5021706a84dfa7105de3b4ab3686379ca9fc9e03c2b0cc9621d516f'
+API_SHA='247f762d5e79322295920d3bc8a042bc51286f5e0dc72df61124f4b1eb7f49e0'
+EXPECTED_SHA='e8f76316a27bb2ea920cdb9f0b591134bee2323cb656569909274fb2ed3de12e'
+WORK=Path(os.environ.get("RUNNER_TEMP","/tmp"))/"simworx-led-cockpit-controls"
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
@@ -110,25 +112,20 @@ def public_bytes(url):
 
 
 def validate_payload():
-    allowed={"/htdocs/led-quote-submit.php","/htdocs/led-screen-configurator.html"}
-    if set(PAYLOAD)!={"led-quote-submit.php","led-screen-configurator.html"} or {v["target"] for v in PAYLOAD.values()}!=allowed:
-        raise RuntimeError("Only the two new public LED paths are authorised.")
-    if digest(json.dumps(PAYLOAD,sort_keys=True).encode())!=EXPECTED_SHA:
-        raise RuntimeError("Prepared publication manifest changed.")
-    content={}
-    for name,info in PAYLOAD.items():
-        if info["source"]!=".led-live/"+name or info["target"]!=ROOT+"/"+name:raise RuntimeError("Publication path differs from exact allowlist.")
-        body=Path(info["source"]).read_bytes()
-        if digest(body)!=info["sha256"]:raise RuntimeError("Prepared public file failed checksum verification.")
-        content[name]=body
-    html=content["led-screen-configurator.html"];api=content["led-quote-submit.php"]
-    for marker in [b'led-viewer-credit',b'Custom configurator by',b'www.xyntra-holdings.com',b'action="led-quote-submit.php"',b'https://www.sim-worx.com/led-screen-configurator.html',b'Pilot',b'Runway preview',b'Print Quote',b'Email me Quote',b'helicopter-h135-cad',b'led-adjust-eye']:
-        if marker not in html:raise RuntimeError("A required production feature is missing.")
-    for removed in [b'Interactive preview',b'Review version',b'led-preview-notice',b'noindex,nofollow',b'data-led-quote-preview="offline"',b'led-standards-view',b'led-pixel-detail']:
-        if removed in html:raise RuntimeError("A preview marker or removed UI remains in the public page.")
-    if not api.startswith(b'<?php') or b"$protectionPath=__DIR__.'/forms/anti-spam.php'" not in api or b'SimworxLedProfiles' not in api or b'simworxLedQuoteActionHandler' not in api:
-        raise RuntimeError("Public quotation handler or correct shared protection path is missing.")
-    return content
+    if set(PAYLOAD)!={"led-screen-configurator.html"} or TARGET!="/htdocs/led-screen-configurator.html":raise RuntimeError("Only the existing public configurator HTML is authorised.")
+    info=PAYLOAD["led-screen-configurator.html"]
+    if info["target"]!=TARGET or info["source"]!=".led-live/led-screen-configurator.html":raise RuntimeError("Publication path differs from the one-page allowlist.")
+    if digest(json.dumps(PAYLOAD,sort_keys=True).encode())!=EXPECTED_SHA:raise RuntimeError("Prepared publication manifest changed.")
+    html=Path(info["source"]).read_bytes()
+    if digest(html)!=info["sha256"]:raise RuntimeError("Prepared public page failed checksum verification.")
+    for marker in [b'id="led-cockpit-size"',b'Change the size of your cockpit',b'id="led-reset-cockpit-size"',b'Reset cockpit size',b'id="led-simulatorY"',b'id="led-simulatorZ"',b'Custom configurator by',b'www.xyntra-holdings.com',b'action="led-quote-submit.php"',b'https://www.sim-worx.com/led-screen-configurator.html']:
+        if marker not in html:raise RuntimeError("A required public feature is missing.")
+    for removed in [b'Interactive preview',b'Review version',b'led-preview-notice',b'noindex,nofollow',b'data-led-quote-preview="offline"']:
+        if removed in html:raise RuntimeError("A preview marker remains in the public page.")
+    return {"led-screen-configurator.html":html}
+
+def remote_sha(ftp,path):
+    h=hashlib.sha256();ftp.retrbinary("RETR "+path,h.update);return h.hexdigest()
 
 def backup_once():
     validate_payload()
@@ -140,8 +137,7 @@ def backup_once():
     home_sha=protected["/"]
     with connect() as ftp:
         before = inventory(ftp)
-        if any(info["target"] in before for info in PAYLOAD.values()):
-            raise RuntimeError("A public destination already exists. Nothing will be overwritten.")
+        if TARGET not in before or remote_sha(ftp,TARGET)!=EXPECTED_OLD:raise RuntimeError("Current configurator differs from the verified baseline; no write attempted.")
         (WORK/"before-inventory.json").write_text(json.dumps(before,sort_keys=True))
         manifest = {}
         for remote, facts in sorted(before.items()):
@@ -162,6 +158,7 @@ def backup_once():
         raise RuntimeError("The complete live homepage backup could not be verified.")
     if not (site / "htdocs/forms/anti-spam.php").is_file():
         raise RuntimeError("The existing shared form protection is unavailable; no quote page published.")
+    if manifest.get("htdocs/led-screen-configurator.html")!=EXPECTED_OLD or manifest.get("htdocs/led-quote-submit.php")!=API_SHA:raise RuntimeError("Backed-up configurator or protected quote API differs from baseline.")
     (site / "backup-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     archive = WORK / "live-htdocs.tar.gz"
     with tarfile.open(archive, "w:gz") as target:
@@ -206,29 +203,24 @@ def publish():
     content=validate_payload();evidence=json.loads((WORK/"verified-backup.json").read_text())
     if evidence["payload_sha256"]!=EXPECTED_SHA or evidence["files"]<1:raise RuntimeError("Verified complete backup is missing.")
     if not (WORK/"live-htdocs.tar.gz.enc").is_file():raise RuntimeError("Retained encrypted backup is missing; no upload attempted.")
-    original=json.loads((WORK/"before-inventory.json").read_text())
+    original=json.loads((WORK/"before-inventory.json").read_text());info=PAYLOAD["led-screen-configurator.html"];temporary=ROOT+"/.led-cockpit-controls-"+info["sha256"][:16]+".html"
     with connect() as ftp:
         if inventory(ftp)!=original:raise RuntimeError("Live files changed after the backup; stopped before any remote write.")
-        # API first; the public page is the final publication step.
-        for name in ["led-quote-submit.php","led-screen-configurator.html"]:
-            info=PAYLOAD[name];target=info["target"];temporary=ROOT+"/.led-launch-"+info["sha256"][:16]+"-"+name
-            current={posixpath.join(ROOT,n) for n,_ in entries(ftp,ROOT)}
-            if target in current or temporary in current:raise RuntimeError("A destination or temporary upload already exists; no existing file overwritten.")
-            ftp.storbinary("STOR "+temporary,io.BytesIO(content[name]))
-            received=io.BytesIO();ftp.retrbinary("RETR "+temporary,received.write)
-            if digest(received.getvalue())!=info["sha256"]:raise RuntimeError("Uploaded public file failed checksum verification.")
-            current={posixpath.join(ROOT,n) for n,_ in entries(ftp,ROOT)}
-            if target in current:raise RuntimeError("Destination appeared during upload; existing file protected.")
-            ftp.rename(temporary,target)
+        if remote_sha(ftp,TARGET)!=EXPECTED_OLD:raise RuntimeError("Current configurator no longer matches its backup.")
+        current={posixpath.join(ROOT,n) for n,_ in entries(ftp,ROOT)}
+        if temporary in current:raise RuntimeError("Temporary upload already exists; stopped without overwriting.")
+        ftp.storbinary("STOR "+temporary,io.BytesIO(content["led-screen-configurator.html"]))
+        if remote_sha(ftp,temporary)!=info["sha256"]:raise RuntimeError("Uploaded page failed checksum verification.")
+        if remote_sha(ftp,TARGET)!=EXPECTED_OLD:raise RuntimeError("Existing page changed during upload; replacement refused.")
+        # The owner requested this exact page update. One atomic rename replaces it.
+        ftp.rename(temporary,TARGET)
         after=inventory(ftp)
-        if any(after.get(path)!=facts for path,facts in original.items()):raise RuntimeError("An existing live file changed during publication.")
-        if set(after)-set(original)!={info["target"] for info in PAYLOAD.values()}:raise RuntimeError("Remote change set differs from the two new public files.")
-    if digest(public_bytes(PUBLIC_URL))!=PAYLOAD["led-screen-configurator.html"]["sha256"]:raise RuntimeError("Hosted public HTML differs from the tested build.")
-    capabilities=json.loads(public_bytes(BASE_URL+"/led-quote-submit.php?action=capabilities"))
-    if not capabilities.get("ok") or not capabilities.get("protected") or capabilities.get("quoteActions")!=["print","email","contact"]:raise RuntimeError("Public quote/profile protection or PHP mail capability is unavailable.")
+        if set(after)!=set(original) or any(after.get(path)!=facts for path,facts in original.items() if path!=TARGET):raise RuntimeError("Remote change set differs from the one authorised page.")
+        if remote_sha(ftp,TARGET)!=info["sha256"] or remote_sha(ftp,ROOT+"/led-quote-submit.php")!=API_SHA:raise RuntimeError("Published page or protected quote API failed verification.")
+    if digest(public_bytes(PUBLIC_URL))!=info["sha256"]:raise RuntimeError("Hosted public HTML differs from the tested build.")
     protected={path:digest(public_bytes(BASE_URL+path)) for path in PROTECTED_PUBLIC}
-    if protected!=evidence["protected_pages"]:raise RuntimeError("An existing protected page changed during publication.")
-    print("Published exactly two new public LED files; verified configurator, quote API and unchanged existing pages: "+PUBLIC_URL)
+    if protected!=evidence["protected_pages"]:raise RuntimeError("A protected endpoint changed during publication.")
+    print("Updated only the public LED configurator HTML; quote API, existing pages and navigation unchanged: "+PUBLIC_URL)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2 or sys.argv[1] not in {"backup", "publish"}:
@@ -242,5 +234,5 @@ if __name__ == "__main__":
             if value:
                 description = description.replace(value, "[redacted]")
         description = description[:700].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-        print("::error::Public LED publication stopped (" + type(error).__name__ + "): " + description, file=sys.stderr)
+        print("::error::LED cockpit controls publication stopped (" + type(error).__name__ + "): " + description, file=sys.stderr)
         raise SystemExit(1)

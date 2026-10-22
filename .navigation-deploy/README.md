@@ -1,35 +1,72 @@
 # Shared navigation release
 
-This release implements the user's authorised Visual Systems dropdown. Its only
-live destinations are `/htdocs/assets/css/global-header.css` and
-`/htdocs/assets/js/global-header.js`. No public HTML, LED configurator, admin or
-private configuration is deployed from this directory.
+This release implements the authorised Visual Systems dropdown, connects the LED
+configurator to the shared header, and versions the header asset references so
+returning visitors receive the current CSS and JavaScript.
 
-The workflow verifies the prepared asset hashes, makes a complete current
-`/htdocs` backup, verifies every archived file, encrypts it with the existing
-hosting password and retains the encrypted archive as a GitHub Actions artifact
-before any remote write. Backups are retained for 14 days.
+## Exact deployment scope
 
-The publisher checks the current live asset hashes against `manifest.json`,
-uploads checked temporary files in their existing asset directories, then uses
-atomic rename to replace CSS followed by JavaScript. Existing HTML and unrelated
-file inventory must remain unchanged. Failure after a write attempts a conditional
-rollback from the verified backup; concurrent third-party changes are preserved.
+The fixed allowlist contains 25 paths: the two shared header assets, the 22 public
+HTML pages named in `header_references.py`, and `led-screen-configurator.html`.
+`header-pages.json` records the observed source references for those pages; its
+keys must match the fixed list. Seven observed legacy/redirect pages without the
+shared header are excluded. No other HTML, admin or private configuration is
+uploaded.
 
-## Future navigation edits
+For each ordinary page, the publisher replaces only the quoted URL value of its
+single shared-header CSS `href` and JavaScript `src`. Whitespace, quotes, other
+attributes and every other page byte are preserved. The references receive
+`?v=nav-20261022-1`. The current live page must match its reviewed before checksum,
+and the result must match its reviewed after checksum in `manifest.json`.
+
+The configurator currently embeds its header. `configurator_header.py` accepts the
+reviewed whole-page checksum and replaces exactly one pinned legacy header style
+block and one pinned legacy header script block with versioned shared references.
+Its output has a fixed reviewed whole-page checksum. Every other byte, including
+pricing, 3D functionality and quotation logic, remains identical. All pages are
+derived from verified current public files; stale repository HTML is never used.
+
+The source LED preview branch still embeds the old header. Any future configurator
+build should preserve the versioned shared references now used by the public page,
+or deliberately apply the same header integration before publication.
+
+## Backup and publication
+
+The workflow validates the manifest and transformation tests, creates a complete
+current `/htdocs` backup, verifies every archived file, encrypts the archive with
+the existing hosting password and retains it as an artifact before any remote
+write. Backups are retained for 14 days.
+
+The publisher checks every allowed live file against its original checksum,
+uploads and verifies temporary files, then atomically replaces CSS, JavaScript and
+the catalogued HTML. It checks public HTTPS checksums, sitemap/robots contents and
+all unrelated file inventory. Failure after a write attempts conditional rollback
+from the verified backup; concurrent third-party edits are preserved. It never
+synchronises the repository root or cleans a live directory.
+
+This follow-up expects the first shared-header release to have succeeded: both
+asset entries have that release's new checksums as their before and after values.
+
+## Future menu changes
 
 When the dedicated Projection enclosures page exists, add its real link to the
-Visual Systems items in `assets/js/global-header.js`. Retain LED screens as the
-direct link to `/led-screen-configurator.html`. Do not add a placeholder route.
+Visual Systems entries in `assets/js/global-header.js`. Keep LED screens linked
+directly to `/led-screen-configurator.html`.
 
-For a subsequent authorised release, update both entries in `manifest.json`:
-`before_sha256` must match the then-current live files, and `after_sha256` must
-match the reviewed source files. One asset may keep the same checksum, so a future
-menu-only edit can update JavaScript and the manifest without changing CSS or the
-publisher. The same two-file allowlist still applies. Run
-`python3 .navigation-deploy/publish.py validate` from the repository
-root before committing. The workflow only runs for changes to these assets or
-this deployment configuration on `main`.
+For a subsequent authorised release, bump `NAV_VERSION` in `header_references.py`
+and update the reviewed source references in `header-pages.json`. The now-external
+configurator should use kind `references` with its actual CSS/JS URLs. Refresh the
+manifest from the then-current public snapshots: every before checksum must match
+the live file and every after checksum the reviewed header-only output. Unchanged
+assets may keep equal checksums, but at least one file must intentionally change.
+This gives all pages, including the configurator, the current menu without changing
+other content. Changes to the page allowlist require an explicit reviewed edit to
+the fixed list as well as the catalog and manifest.
+
+Run `python3 .navigation-deploy/test_publish.py` and
+`python3 .navigation-deploy/publish.py validate` from the repository root. The
+workflow only runs for changes to the two assets or this deployment configuration
+on `main`.
 
 The encrypted archive can be decrypted with `openssl enc -d -aes-256-cbc -pbkdf2
 -iter 200000` and the existing hosting password through a secure environment

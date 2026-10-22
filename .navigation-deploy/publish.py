@@ -1,11 +1,13 @@
-"""Publish only the two shared-header assets authorised for the Visual Systems menu.
+"""Publish shared navigation and exact header URL edits on reviewed public pages.
 
 A complete verified and retained encrypted /htdocs backup is required before
-any write. Existing public pages and private configuration are never deployed.
+any write. Only the two header assets, two URL attributes on each catalogued
+page and two pinned header blocks in the configurator are authorised.
 """
 from __future__ import annotations
 
 import ftplib
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import io
 import json
@@ -22,17 +24,22 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
+from configurator_header import externalise_configurator_header, validate_shared_header
+from header_references import REFERENCE_PAGES, patch_header_references, versioned_url
+
 ROOT = "/htdocs"
 BASE_URL = "https://www.sim-worx.com"
-# The order is deliberate: styling is ready before the JavaScript enables it.
-ALLOWED = ("assets/css/global-header.css", "assets/js/global-header.js")
+# The order is deliberate: shared styling and script precede the page using them.
+CONFIGURATOR = "led-screen-configurator.html"
+PAGE_PATHS = REFERENCE_PAGES + (CONFIGURATOR,)
+ALLOWED = ("assets/css/global-header.css", "assets/js/global-header.js") + PAGE_PATHS
 PROTECTED_PUBLIC = {
-    "/": "f16e29fd6759eb3f3ce99cf38c8694ecbf2a0400b702d71513086f17e5729903",
-    "/visual-systems.html": "dfd5672e16a6baab6e1eef6866577a4e52e3cca230f4e29988fac47391e8324e",
-    "/led-screen-configurator.html": "e953f572b5021706a84dfa7105de3b4ab3686379ca9fc9e03c2b0cc9621d516f",
+    "/sitemap.xml": "0a55385d1dc8ae62153cdb6f584f8813d75c1a55389706badb10df9ac4c2e65c",
+    "/robots.txt": "2dca06af68eefa426114379271f4619708c6cd5ad9d862233e9b3cf8d361b82b",
 }
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-navigation-live"
 MANIFEST = Path(".navigation-deploy/manifest.json")
+PAGE_CATALOG = Path(".navigation-deploy/header-pages.json")
 
 
 def digest(data):
@@ -129,10 +136,36 @@ def public_bytes(path, version=None):
         return response.read()
 
 
-def validate_payload():
+def validate_page_catalog():
+    catalog = json.loads(PAGE_CATALOG.read_text())
+    if set(catalog) != set(PAGE_PATHS):
+        raise RuntimeError("Header page catalog differs from the fixed reviewed public-page list.")
+    for path, plan in catalog.items():
+        if plan.get("kind") == "inline_legacy":
+            if path != CONFIGURATOR or set(plan) != {"kind"}:
+                raise RuntimeError("Only the configurator's pinned legacy blocks may be replaced.")
+        elif plan.get("kind") == "references":
+            if set(plan) != {"kind", "css_url", "js_url"}:
+                raise RuntimeError("Header page catalog contains unexpected fields.")
+            versioned_url(plan["css_url"], "css")
+            versioned_url(plan["js_url"], "js")
+        else:
+            raise RuntimeError("Unknown header-only page transformation.")
+    return catalog
+
+
+def validate_payload(page_sources=None):
     manifest = json.loads(MANIFEST.read_text())
     if set(manifest) != set(ALLOWED):
-        raise RuntimeError("Publication manifest differs from the exact two-asset allowlist.")
+        raise RuntimeError("Publication manifest differs from the exact navigation allowlist.")
+    catalog = validate_page_catalog()
+    if page_sources is None:
+        # Bounded parallel HTTP reads avoid serial delays. FTPS backup stays unchanged.
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            bodies = list(pool.map(lambda path: public_bytes("/" + path), PAGE_PATHS))
+        page_sources = dict(zip(PAGE_PATHS, bodies))
+    elif set(page_sources) != set(PAGE_PATHS):
+        raise RuntimeError("Prepared page sources must match the fixed reviewed page list.")
     payload = {}
     for path in ALLOWED:
         entry = manifest[path]
@@ -140,9 +173,21 @@ def validate_payload():
             raise RuntimeError("Publication manifest has unexpected fields.")
         if any(not isinstance(sha, str) or not re.fullmatch(r"[a-f0-9]{64}", sha) for sha in entry.values()):
             raise RuntimeError("Publication manifest requires complete SHA-256 checksums.")
-        payload[path] = Path(path).read_bytes()
+        if path in catalog:
+            source = page_sources[path]
+            if digest(source) != entry["before_sha256"]:
+                raise RuntimeError("A public page changed since the reviewed baseline: " + path)
+            plan = catalog[path]
+            if plan["kind"] == "inline_legacy":
+                payload[path] = externalise_configurator_header(source)
+            else:
+                payload[path] = patch_header_references(source, plan["css_url"], plan["js_url"])
+                if path == CONFIGURATOR:
+                    validate_shared_header(payload[path])
+        else:
+            payload[path] = Path(path).read_bytes()
         if digest(payload[path]) != entry["after_sha256"]:
-            raise RuntimeError("Prepared asset differs from its reviewed checksum: " + path)
+            raise RuntimeError("Prepared navigation file differs from its reviewed checksum: " + path)
     if all(entry["before_sha256"] == entry["after_sha256"] for entry in manifest.values()):
         raise RuntimeError("Publication manifest must describe at least one intentional asset change.")
     manifest_sha = digest(json.dumps(manifest, sort_keys=True).encode())
@@ -297,7 +342,7 @@ def rollback(ftp, manifest, originals, token, transaction):
             failures.append("Temporary cleanup: " + type(error).__name__)
     if failures:
         raise RuntimeError("Rollback needs review; the encrypted full backup is retained. " + "; ".join(failures))
-    print("Restored both original header assets from the verified backup.", flush=True)
+    print("Restored original navigation files from the verified backup.", flush=True)
 
 
 def verify_change_scope(before, after):
@@ -349,7 +394,7 @@ def publish():
             with connect() as ftp:
                 rollback(ftp, manifest, originals, token, transaction)
         raise
-    print("Published exactly the two shared-header assets. Verified HTTPS checksums, unchanged public pages and unrelated inventory.", flush=True)
+    print("Published only reviewed navigation edits: two shared assets, versioned header URLs on 22 public pages and the configurator's two header blocks. Verified HTTPS checksums, protected public files and unrelated inventory.", flush=True)
 
 
 if __name__ == "__main__":

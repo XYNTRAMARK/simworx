@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Back up live site, then publish only the shared header CSS and JS
+    name: Back up live site, then publish reviewed navigation changes
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -27,7 +27,7 @@ jobs:
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - name: Validate the exact two-asset publication manifest
+      - name: Validate the exact navigation publication manifest
         run: python3 .navigation-deploy/publish.py validate
       - name: Check conditional publication and rollback behavior
         run: python3 .navigation-deploy/test_publish.py
@@ -57,7 +57,7 @@ jobs:
             ${{ runner.temp }}/simworx-navigation-live/live-htdocs.tar.gz.enc.sha256
           if-no-files-found: error
           retention-days: 14
-      - name: Publish only the two header assets and verify the live site
+      - name: Publish only authorised navigation files and verify the live site
         env:
           RETAINED_BACKUP_ARTIFACT_ID: ${{ steps.retained_backup.outputs.artifact-id }}
         run: python3 .navigation-deploy/publish.py publish

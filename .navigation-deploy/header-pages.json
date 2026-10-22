@@ -1,0 +1,115 @@
+{
+  "a320-full-cockpit.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "a320-single-seat.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "a320-supershort.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "about.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "certification-pro.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "contact.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "cookie-notice.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "custom-simulator.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "f16-frames.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "frames.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "index.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "legal-notice.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "mission-scenarios.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "mission-systems.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "privacy-policy.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "projects.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "simstarter-pro-software.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "simstarter.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "simulators.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "software.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "terms-and-conditions.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "visual-systems.html": {
+    "kind": "references",
+    "css_url": "assets/css/global-header.css",
+    "js_url": "assets/js/global-header.js"
+  },
+  "led-screen-configurator.html": {
+    "kind": "inline_legacy"
+  }
+}

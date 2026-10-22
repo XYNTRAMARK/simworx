@@ -2,6 +2,10 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import patch
+
+import configurator_header
+import header_references
 
 spec = importlib.util.spec_from_file_location("navigation_publish", Path(__file__).with_name("publish.py"))
 publisher = importlib.util.module_from_spec(spec)
@@ -52,17 +56,17 @@ class PublishSafetyTests(unittest.TestCase):
             for path in publisher.ALLOWED
         }
         self.start = {publisher.ROOT + "/" + path: content for path, content in self.originals.items()}
-        self.start["/htdocs/index.html"] = b"protected homepage"
+        self.start["/htdocs/robots.txt"] = b"protected robots"
         self.ftp = FakeFTP(self.start)
         self.transaction = {"started": False, "owned_temps": set()}
 
     def update(self):
         publisher.stage_and_replace(self.ftp, self.manifest, self.payload, "test", self.transaction)
 
-    def test_success_replaces_only_two_authorised_assets_css_first(self):
+    def test_success_replaces_only_authorised_navigation_files_in_order(self):
         self.update()
         self.assertEqual(set(self.ftp.files), set(self.start))
-        self.assertEqual(self.ftp.files["/htdocs/index.html"], b"protected homepage")
+        self.assertEqual(self.ftp.files["/htdocs/robots.txt"], b"protected robots")
         renames = [entry[2] for entry in self.ftp.writes if entry[0] == "rename"]
         self.assertEqual(renames, [publisher.ROOT + "/" + path for path in publisher.ALLOWED])
         self.assertFalse(self.transaction["owned_temps"])
@@ -90,7 +94,19 @@ class PublishSafetyTests(unittest.TestCase):
         publisher.rollback(self.ftp, self.manifest, self.originals, "test", self.transaction)
         self.assertEqual(self.ftp.files, self.start)
         deleted = [entry[1] for entry in self.ftp.writes if entry[0] == "delete"]
-        self.assertEqual(deleted, [publisher.temporary_path(publisher.ALLOWED[1], "test")])
+        self.assertEqual(set(deleted), {publisher.temporary_path(path, "test") for path in publisher.ALLOWED[1:]})
+
+    def test_configurator_rename_failure_restores_prior_assets_and_preserves_page(self):
+        self.ftp.fail_rename_target = publisher.ROOT + "/" + publisher.CONFIGURATOR
+        with self.assertRaises(ConnectionError):
+            self.update()
+        publisher.rollback(self.ftp, self.manifest, self.originals, "test", self.transaction)
+        self.assertEqual(self.ftp.files, self.start)
+
+    def test_post_publication_failure_can_restore_configurator_and_both_assets(self):
+        self.update()
+        publisher.rollback(self.ftp, self.manifest, self.originals, "test", self.transaction)
+        self.assertEqual(self.ftp.files, self.start)
 
     def test_rollback_preserves_concurrent_third_party_edit(self):
         self.update()
@@ -100,7 +116,7 @@ class PublishSafetyTests(unittest.TestCase):
             publisher.rollback(self.ftp, self.manifest, self.originals, "test", self.transaction)
         self.assertEqual(self.ftp.files[edited], b"concurrent edit after deployment")
         self.assertEqual(self.ftp.files[publisher.ROOT + "/" + publisher.ALLOWED[0]], self.originals[publisher.ALLOWED[0]])
-        self.assertEqual(self.ftp.files["/htdocs/index.html"], b"protected homepage")
+        self.assertEqual(self.ftp.files["/htdocs/robots.txt"], b"protected robots")
 
     def test_scope_check_rejects_unrelated_change_but_allows_staging_directory_mtime(self):
         before = {path: {"type": "file", "size": str(len(body)), "modify": "old"} for path, body in self.start.items()}
@@ -109,9 +125,84 @@ class PublishSafetyTests(unittest.TestCase):
         after["/htdocs/assets/css"]["modify"] = "new"
         after["/htdocs/assets/css/global-header.css"]["modify"] = "new"
         publisher.verify_change_scope(before, after)
-        after["/htdocs/index.html"]["modify"] = "new"
+        after["/htdocs/robots.txt"]["modify"] = "new"
         with self.assertRaisesRegex(RuntimeError, "unrelated live file changed"):
             publisher.verify_change_scope(before, after)
+
+
+class ConfiguratorHeaderTests(unittest.TestCase):
+    def setUp(self):
+        # Small local fixtures exercise the byte-preserving algorithm. Production
+        # input and output have independent fixed whole-page SHA-256 checksums.
+        self.css = b"<style>legacy header styling only</style>"
+        self.js = b"<script>legacy header toggle only</script>"
+        self.source = b"<!doctype html><head>" + self.css + b"</head><body>UNTOUCHED CONFIGURATOR\x00\xff" + self.js + b"OTHER SCRIPT AND CONTENT</body>"
+        self.expected = self.source.replace(self.css, configurator_header.CSS_LINK).replace(self.js, configurator_header.JS_LINK)
+        self.specs = (
+            (b"style", publisher.digest(self.css), configurator_header.CSS_LINK),
+            (b"script", publisher.digest(self.js), configurator_header.JS_LINK),
+        )
+        self.constants = patch.multiple(configurator_header,
+            LEGACY_PAGE_SHA256=publisher.digest(self.source),
+            SHARED_PAGE_SHA256=publisher.digest(self.expected),
+            HEADER_REPLACEMENTS=self.specs)
+        self.constants.start()
+        self.addCleanup(self.constants.stop)
+
+    def test_only_two_header_blocks_change_and_all_other_bytes_survive(self):
+        result = configurator_header.externalise_configurator_header(self.source)
+        self.assertEqual(result, self.expected)
+        restored = result.replace(configurator_header.CSS_LINK, self.css).replace(configurator_header.JS_LINK, self.js)
+        self.assertEqual(restored, self.source)
+
+    def test_changed_source_is_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, "changed since"):
+            configurator_header.externalise_configurator_header(self.source + b"changed")
+
+    def test_duplicate_pinned_header_block_is_rejected(self):
+        ambiguous = self.source + self.css
+        with patch.object(configurator_header, "LEGACY_PAGE_SHA256", publisher.digest(ambiguous)):
+            with self.assertRaisesRegex(RuntimeError, "Exactly one pinned style"):
+                configurator_header.externalise_configurator_header(ambiguous)
+
+    def test_missing_pinned_header_block_is_rejected(self):
+        missing = self.source.replace(self.js, b"<script>different navigation</script>")
+        with patch.object(configurator_header, "LEGACY_PAGE_SHA256", publisher.digest(missing)):
+            with self.assertRaisesRegex(RuntimeError, "Exactly one pinned script"):
+                configurator_header.externalise_configurator_header(missing)
+
+    def test_unreviewed_output_checksum_is_rejected(self):
+        with patch.object(configurator_header, "SHARED_PAGE_SHA256", "0" * 64):
+            with self.assertRaisesRegex(RuntimeError, "output checksum"):
+                configurator_header.externalise_configurator_header(self.source)
+
+
+class HeaderReferenceTests(unittest.TestCase):
+    css = "assets/css/global-header.css"
+    js = "assets/js/global-header.js"
+
+    def test_only_quoted_url_values_change(self):
+        source = b'''<!doctype html><head><link href = 'assets/css/global-header.css' rel="stylesheet"></head><body>UNCHANGED\x00\xff<script defer src="assets/js/global-header.js"></script><p>assets/js/global-header.js</p></body>'''
+        result = header_references.patch_header_references(source, self.css, self.js)
+        expected = source.replace(b"href = '" + self.css.encode() + b"'", b"href = '" + header_references.versioned_url(self.css, "css").encode() + b"'").replace(b'src="' + self.js.encode() + b'"', b'src="' + header_references.versioned_url(self.js, "js").encode() + b'"')
+        self.assertEqual(result, expected)
+        self.assertIn(b'<p>assets/js/global-header.js</p>', result)
+
+    def test_duplicate_or_missing_matching_reference_is_rejected(self):
+        source = b'<link href="assets/css/global-header.css"><script src="assets/js/global-header.js"></script>'
+        with self.assertRaisesRegex(RuntimeError, "Exactly one reviewed css"):
+            header_references.patch_header_references(source + b'<link href="assets/css/global-header.css">', self.css, self.js)
+        with self.assertRaisesRegex(RuntimeError, "Exactly one reviewed js"):
+            header_references.patch_header_references(source.replace(b' src=', b' data-src='), self.css, self.js)
+
+    def test_new_version_replaces_old_version_without_changing_other_parameters(self):
+        value = "assets/js/global-header.js?other=keep&v=old#anchor"
+        self.assertEqual(header_references.versioned_url(value, "js"), "assets/js/global-header.js?other=keep&v=" + header_references.NAV_VERSION + "#anchor")
+
+    def test_unrelated_or_external_asset_url_is_rejected(self):
+        for value in ("assets/js/other.js", "https://example.com/assets/js/global-header.js"):
+            with self.assertRaises(RuntimeError):
+                header_references.versioned_url(value, "js")
 
 
 if __name__ == "__main__":

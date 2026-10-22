@@ -201,6 +201,59 @@ def verify_public(expected):
     return actual
 
 
+def copy_stable_site(ftp, site, initial, manifest, max_passes=4):
+    """Copy every file, then re-read changed files until the inventory is stable.
+
+    This is read-only on the server. An incomplete read is never accepted, and
+    a changing authorised page still has to match its reviewed checksum.
+    """
+    snapshot = initial
+    copied = {}
+    files = {}
+    for pass_number in range(1, max_passes + 1):
+        for remote, facts in sorted(snapshot.items()):
+            relative = remote.removeprefix(ROOT + "/")
+            local = site / "htdocs" / relative
+            if facts["type"].lower() == "dir":
+                local.mkdir(parents=True, exist_ok=True)
+                continue
+            if copied.get(remote) == facts:
+                continue
+            local.parent.mkdir(parents=True, exist_ok=True)
+            with local.open("wb") as handle:
+                ftp.retrbinary("RETR " + remote, handle.write)
+            size = local.stat().st_size
+            if "size" in facts and size != int(facts["size"]):
+                copied.pop(remote, None)
+                files.pop("htdocs/" + relative, None)
+                print("Rechecking backup file " + relative + ": inventory size "
+                      + facts["size"] + ", copied size " + str(size) + ".", flush=True)
+                continue
+            sha = digest(local.read_bytes())
+            if relative in manifest and sha != manifest[relative]["before_sha256"]:
+                raise RuntimeError("An authorised file changed during backup: " + relative)
+            copied[remote] = dict(facts)
+            files["htdocs/" + relative] = sha
+            if pass_number == 1 and len(files) % 25 == 0:
+                print("Backed up " + str(len(files)) + " live files.", flush=True)
+        current = inventory(ftp)
+        if set(current) != set(initial) or any(
+            current[path].get("type") != initial[path].get("type") for path in initial
+        ):
+            raise RuntimeError("Live paths changed during backup; no upload attempted.")
+        expected_files = {path for path, facts in current.items() if facts["type"].lower() == "file"}
+        if current == snapshot and set(copied) == expected_files and all(
+            copied[path] == current[path] for path in expected_files
+        ):
+            return current, files
+        changed = [path.removeprefix(ROOT + "/") for path in sorted(expected_files)
+                   if copied.get(path) != current[path]]
+        print("Backup verification pass " + str(pass_number) + ": re-read required for "
+              + str(len(changed)) + " files: " + ", ".join(changed[:10]) + ".", flush=True)
+        snapshot = current
+    raise RuntimeError("Live backup did not stabilise after bounded verification passes; no upload attempted.")
+
+
 def backup_once():
     manifest, _, manifest_sha = validate_payload()
     WORK.mkdir(parents=True, exist_ok=True)
@@ -215,24 +268,8 @@ def backup_once():
                 raise RuntimeError("An authorised existing header asset is unavailable.")
             if digest(remote_bytes(ftp, remote)) != manifest[path]["before_sha256"]:
                 raise RuntimeError("A live header asset changed; review it before publishing.")
+        before, files = copy_stable_site(ftp, site, before, manifest)
         (WORK / "before-inventory.json").write_text(json.dumps(before, sort_keys=True))
-        files = {}
-        for remote, facts in sorted(before.items()):
-            relative = remote.removeprefix(ROOT + "/")
-            local = site / "htdocs" / relative
-            if facts["type"].lower() == "dir":
-                local.mkdir(parents=True, exist_ok=True)
-                continue
-            local.parent.mkdir(parents=True, exist_ok=True)
-            with local.open("wb") as handle:
-                ftp.retrbinary("RETR " + remote, handle.write)
-            if "size" in facts and local.stat().st_size != int(facts["size"]):
-                raise RuntimeError("A backup file size differs from the live inventory.")
-            files["htdocs/" + relative] = digest(local.read_bytes())
-            if len(files) % 25 == 0:
-                print("Backed up " + str(len(files)) + " live files.", flush=True)
-        if inventory(ftp) != before:
-            raise RuntimeError("Live files changed during the backup; no upload attempted.")
     for path in ALLOWED:
         if files.get("htdocs/" + path) != manifest[path]["before_sha256"]:
             raise RuntimeError("The backed-up header asset does not match the approved baseline.")

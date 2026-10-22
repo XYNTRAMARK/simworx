@@ -1,6 +1,7 @@
 """Exercise deployment failures without a network connection or production writes."""
 import importlib.util
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
@@ -128,6 +129,145 @@ class PublishSafetyTests(unittest.TestCase):
         after["/htdocs/robots.txt"]["modify"] = "new"
         with self.assertRaisesRegex(RuntimeError, "unrelated live file changed"):
             publisher.verify_change_scope(before, after)
+
+
+class SnapshotFTP(FakeFTP):
+    """Read-only backup fixture with explicit directories and changing file facts."""
+
+    def __init__(self, files, directories=()):
+        super().__init__(files)
+        self.directories = set(directories)
+        for path in self.files:
+            parent = str(Path(path).parent)
+            while parent != publisher.ROOT:
+                self.directories.add(parent)
+                parent = str(Path(parent).parent)
+        self.modified = {path: "20261022000000" for path in self.files}
+        self.read_counts = {}
+        self.short_reads = {}
+        self.after_read = None
+
+    def mlsd(self, folder):
+        result = []
+        for path in self.directories:
+            parent, name = path.rsplit("/", 1)
+            if parent == folder:
+                result.append((name, {"type": "dir", "modify": "20261022000000"}))
+        for path, content in self.files.items():
+            parent, name = path.rsplit("/", 1)
+            if parent == folder:
+                result.append((name, {"type": "file", "size": str(len(content)),
+                                      "modify": self.modified.get(path, "20261022000000")}))
+        yield from sorted(result)
+
+    def retrbinary(self, command, callback):
+        path = command.removeprefix("RETR ")
+        self.read_counts[path] = self.read_counts.get(path, 0) + 1
+        remaining = self.short_reads.get(path, 0)
+        body = self.files[path]
+        if remaining:
+            body = body[:-1]
+            if remaining > 0:
+                self.short_reads[path] -= 1
+        callback(body)
+        if self.after_read:
+            self.after_read(path)
+
+
+class BackupSnapshotTests(unittest.TestCase):
+    page = "/htdocs/index.html"
+    runtime = "/htdocs/runtime/state.json"
+
+    def setUp(self):
+        self.ftp = SnapshotFTP({self.page: b"ORIGINAL page", self.runtime: b"count=1"},
+                               directories={"/htdocs/empty"})
+        self.manifest = {"index.html": {"before_sha256": publisher.digest(self.ftp.files[self.page])}}
+        self.initial = publisher.inventory(self.ftp)
+        self.temporary = TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.site = Path(self.temporary.name)
+
+    def copy(self, max_passes=4):
+        return publisher.copy_stable_site(self.ftp, self.site, self.initial, self.manifest,
+                                          max_passes=max_passes)
+
+    def assert_complete_read_only_snapshot(self, inventory, files):
+        expected = {path.removeprefix("/"): publisher.digest(body)
+                    for path, body in self.ftp.files.items()}
+        self.assertEqual(files, expected)
+        self.assertEqual(inventory, publisher.inventory(self.ftp))
+        for name, sha in files.items():
+            self.assertEqual(publisher.digest((self.site / name).read_bytes()), sha)
+        self.assertTrue((self.site / "htdocs/empty").is_dir())
+        self.assertEqual(self.ftp.writes, [])
+
+    def test_stable_snapshot_copies_every_file_and_empty_directory_once(self):
+        inventory, files = self.copy()
+        self.assertEqual(inventory, self.initial)
+        self.assertEqual(self.ftp.read_counts, {self.page: 1, self.runtime: 1})
+        self.assert_complete_read_only_snapshot(inventory, files)
+
+    def test_one_incomplete_read_is_retried_without_recopying_stable_files(self):
+        self.ftp.short_reads[self.runtime] = 1
+        inventory, files = self.copy()
+        self.assertEqual(self.ftp.read_counts, {self.page: 1, self.runtime: 2})
+        self.assert_complete_read_only_snapshot(inventory, files)
+
+    def test_same_size_runtime_change_is_recopied_against_fresh_facts(self):
+        def change_once(path):
+            if path == self.runtime and self.ftp.read_counts[path] == 1:
+                self.ftp.files[path] = b"count=2"
+                self.ftp.modified[path] = "20261022000001"
+        self.ftp.after_read = change_once
+        inventory, files = self.copy()
+        self.assertNotEqual(inventory, self.initial)
+        self.assertEqual(self.ftp.read_counts, {self.page: 1, self.runtime: 2})
+        self.assert_complete_read_only_snapshot(inventory, files)
+
+    def test_perpetually_incomplete_read_fails_within_the_pass_limit(self):
+        self.ftp.short_reads[self.runtime] = -1
+        with self.assertRaisesRegex(RuntimeError, "did not stabilise after bounded"):
+            self.copy(max_passes=3)
+        self.assertEqual(self.ftp.read_counts, {self.page: 1, self.runtime: 3})
+        self.assertEqual(self.ftp.writes, [])
+
+    def test_authorised_content_change_is_rejected_on_catch_up(self):
+        def change_once(path):
+            if path == self.page and self.ftp.read_counts[path] == 1:
+                self.ftp.files[path] = b"MODIFIED page"
+                self.ftp.modified[path] = "20261022000001"
+        self.ftp.after_read = change_once
+        with self.assertRaisesRegex(RuntimeError, "authorised file changed during backup: index.html"):
+            self.copy()
+        self.assertEqual(self.ftp.read_counts[self.page], 2)
+        self.assertEqual(self.ftp.writes, [])
+
+    def test_added_or_removed_inventory_path_is_rejected(self):
+        for change in ("added", "removed"):
+            with self.subTest(change=change):
+                ftp = SnapshotFTP({self.page: b"ORIGINAL page", self.runtime: b"count=1"})
+                initial = publisher.inventory(ftp)
+                def change_paths(path):
+                    if path == self.runtime:
+                        if change == "added":
+                            ftp.files["/htdocs/new-file.txt"] = b"new"
+                        else:
+                            del ftp.files[self.page]
+                ftp.after_read = change_paths
+                with TemporaryDirectory() as folder:
+                    with self.assertRaisesRegex(RuntimeError, "Live paths changed during backup"):
+                        publisher.copy_stable_site(ftp, Path(folder), initial, self.manifest)
+                self.assertEqual(ftp.writes, [])
+
+    def test_inventory_file_to_directory_change_is_rejected(self):
+        def change_type(path):
+            if path == self.runtime:
+                del self.ftp.files[path]
+                self.ftp.directories.add(path)
+        self.ftp.after_read = change_type
+        with self.assertRaisesRegex(RuntimeError, "Live paths changed during backup"):
+            self.copy()
+        self.assertEqual(self.ftp.writes, [])
 
 
 class ConfiguratorHeaderTests(unittest.TestCase):

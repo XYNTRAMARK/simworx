@@ -37,6 +37,13 @@ current `/htdocs` backup, verifies every archived file, encrypts the archive wit
 the existing hosting password and retains it as an artifact before any remote
 write. Backups are retained for 14 days.
 
+If a file changes or a transfer is incomplete during the initial copy, the backup
+performs up to three bounded catch-up passes. It re-reads affected files against a
+fresh inventory and accepts only a complete, stable snapshot with matching sizes
+and checksums. Added, removed or type-changed paths stop the release. Authorised
+navigation files must always match their reviewed before checksums. Diagnostics
+report paths and byte counts without file contents or hosting credentials.
+
 The publisher checks every allowed live file against its original checksum,
 uploads and verifies temporary files, then atomically replaces CSS, JavaScript and
 the catalogued HTML. It checks public HTTPS checksums, sitemap/robots contents and

@@ -3,8 +3,8 @@ import hashlib
 
 from header_references import NAV_VERSION
 
-LEGACY_PAGE_SHA256 = "e953f572b5021706a84dfa7105de3b4ab3686379ca9fc9e03c2b0cc9621d516f"
-SHARED_PAGE_SHA256 = "dec652f01b4c5d87393024df14b3e95d6cdd67c292d806697f0fcbd5fde67a19"
+LEGACY_PAGE_SHA256 = "6239ccf3300c86f9593603ff482f022120d16f53990b37d9235ac9baf3b6d861"
+SHARED_PAGE_SHA256 = "c4b1fc1a82ba91d83993153a068100011d50a1c0b9438f91e725f69ce1d9e2e6"
 CSS_LINK = ('<link rel="stylesheet" href="/assets/css/global-header.css?v=' + NAV_VERSION + '">').encode()
 JS_LINK = ('<script src="/assets/js/global-header.js?v=' + NAV_VERSION + '"></script>').encode()
 HEADER_REPLACEMENTS = (

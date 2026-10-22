@@ -60,7 +60,9 @@ internal sealed class MainForm : Form
 
         Shown += (_, _) =>
         {
-            _attitudeRenderer.Load(Path.Combine(AppContext.BaseDirectory, "assets"));
+            var assetDirectory = Path.Combine(AppContext.BaseDirectory, "assets");
+            _attitudeRenderer.Load(assetDirectory);
+            _lowerDisplayRenderer.Load(assetDirectory);
             _animationTimer.Start();
             Invalidate();
         };
@@ -70,6 +72,7 @@ internal sealed class MainForm : Form
             _animationTimer.Stop();
             _animationTimer.Dispose();
             _attitudeRenderer.Dispose();
+            _lowerDisplayRenderer.Dispose();
         };
     }
 

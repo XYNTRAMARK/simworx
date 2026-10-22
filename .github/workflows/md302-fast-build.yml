@@ -7,6 +7,10 @@ on:
     paths:
       - "tools/md302-standalone/**"
       - ".github/workflows/md302-fast-build.yml"
+  pull_request:
+    paths:
+      - "tools/md302-standalone/**"
+      - ".github/workflows/md302-fast-build.yml"
 
 jobs:
   build:

@@ -22,14 +22,11 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 ROOT = "/htdocs"
-TARGET = "/htdocs/admin/simworx-led-preview-v27.php"
-PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v27.php"
-PREVIEW = Path(".led-preview/simworx-led-preview-v27.php")
-EXPECTED_SHA = "4d3777ede1af2cec5a217bd13433c92c30a5887f67caaf65dab6f613089b2687"
-RENDERED_SHA = "a6a4762bfb20cf6623a0a0d40d7907c7cc2fe9c792b00a779fa4491a06b7d45a"
-# User explicitly requested "remove the racing model and then give me v27".
-# Replacement is restricted to the exact known v27 after a fresh verified backup.
-PREVIOUS_SHA = "3df7a8880907f3d93e711c957c4f1af0ddd70799e6eb7af4dc2d5ba79edfa78c"
+TARGET = "/htdocs/admin/simworx-led-preview-v28.php"
+PUBLIC_URL = "https://www.sim-worx.com/admin/simworx-led-preview-v28.php"
+PREVIEW = Path(".led-preview/simworx-led-preview-v28.php")
+EXPECTED_SHA = "1633a9550e02f2f247ef385f293d7906e63ff093a726fd72004e97400c77a28d"
+RENDERED_SHA = "299e870ba8f84216b0de8c49989f320bccafe33270e8d4b12f2cd55077e2ff84"
 WORK = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "simworx-led-preview"
 
 
@@ -115,7 +112,7 @@ def validate_preview():
     content = PREVIEW.read_bytes()
     if digest(content) != EXPECTED_SHA:
         raise RuntimeError("Preview bytes differ from the already prepared and tested file.")
-    if TARGET != "/htdocs/admin/simworx-led-preview-v27.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v27.php":
+    if TARGET != "/htdocs/admin/simworx-led-preview-v28.php" or PUBLIC_URL != "https://www.sim-worx.com/admin/simworx-led-preview-v28.php":
         raise RuntimeError("Only the one new admin review path is authorized.")
     for marker in [b"<?php",b"SimworxLedProfiles",b"captureViews",b"led-dimension-unit",b"led-save-profile",b"Add 5-year extended warranty",b"quote-total-amount",b"recordQuote",b"Include Simworx system controller",b"Print Quote",b"Email me Quote",b"noindex",b"helicopter-h135-cad",b"excludedDashboardSolids",b"led-simulatorY",b"led-pitch-badge",b"Highest image clarity",b"LED screen only",b"createWarpControls",b"warpSupport",b"Pilot viewing distance",b"distanceOverride",b"SimworxLedViewingDistance",b"installationRates"]:
         if marker not in content:
@@ -135,11 +132,8 @@ def backup_once():
     home_sha = digest(public_bytes("https://www.sim-worx.com/?led-review-before=" + EXPECTED_SHA[:12]))
     with connect() as ftp:
         before = inventory(ftp)
-        if TARGET not in before:
-            raise RuntimeError("The known version 27 was not found; stopped before any upload.")
-        previous = io.BytesIO(); ftp.retrbinary("RETR " + TARGET, previous.write)
-        if digest(previous.getvalue()) != PREVIOUS_SHA:
-            raise RuntimeError("Existing version 27 differs from the specifically authorized revision.")
+        if TARGET in before:
+            raise RuntimeError("The preview path already exists. Nothing has been overwritten.")
         if before.get("/htdocs/admin", {}).get("type", "").lower() != "dir":
             raise RuntimeError("The existing /htdocs/admin directory was not found; no directories will be created.")
         manifest = {}
@@ -174,7 +168,7 @@ def backup_once():
             handle = check.extractfile(name)
             if handle is None or digest(handle.read()) != sha:
                 raise RuntimeError("The backup archive failed byte-for-byte verification.")
-    (WORK / "verified-backup.json").write_text(json.dumps({"files": len(manifest), "homepage_sha256": home_sha, "preview_sha256": EXPECTED_SHA, "previous_preview_sha256": PREVIOUS_SHA}) + "\n")
+    (WORK / "verified-backup.json").write_text(json.dumps({"files": len(manifest), "homepage_sha256": home_sha, "preview_sha256": EXPECTED_SHA}) + "\n")
     print("Verified a complete live /htdocs backup: " + str(len(manifest)) + " files. No remote files changed.")
 
 
@@ -204,7 +198,7 @@ def backup():
 def publish():
     content = validate_preview()
     evidence = json.loads((WORK / "verified-backup.json").read_text())
-    if evidence["preview_sha256"] != EXPECTED_SHA or evidence.get("previous_preview_sha256") != PREVIOUS_SHA or evidence["files"] < 1:
+    if evidence["preview_sha256"] != EXPECTED_SHA or evidence["files"] < 1:
         raise RuntimeError("The required verified full backup is missing.")
     # The workflow retains the encrypted, verified backup before calling this.
     if not (WORK / "live-htdocs.tar.gz.enc").is_file():
@@ -212,24 +206,16 @@ def publish():
     temporary = "/htdocs/admin/.led-review-" + EXPECTED_SHA[:16] + ".upload.php"
     with connect() as ftp:
         current = {posixpath.join("/htdocs/admin", name) for name, _ in entries(ftp, "/htdocs/admin")}
-        if TARGET not in current or temporary in current:
-            raise RuntimeError("The known version 27 is missing or a temporary upload exists; stopped.")
-        previous = io.BytesIO(); ftp.retrbinary("RETR " + TARGET, previous.write)
-        if digest(previous.getvalue()) != PREVIOUS_SHA:
-            raise RuntimeError("Existing version 27 differs from the specifically authorized revision.")
+        if TARGET in current or temporary in current:
+            raise RuntimeError("A preview or temporary upload already exists; no files overwritten.")
         ftp.storbinary("STOR " + temporary, io.BytesIO(content))
         received = io.BytesIO()
         ftp.retrbinary("RETR " + temporary, received.write)
         if digest(received.getvalue()) != EXPECTED_SHA:
             raise RuntimeError("The new preview upload failed checksum verification.")
         current = {posixpath.join("/htdocs/admin", name) for name, _ in entries(ftp, "/htdocs/admin")}
-        if TARGET not in current:
-            raise RuntimeError("The authorized destination disappeared during upload; stopped.")
-        previous = io.BytesIO(); ftp.retrbinary("RETR " + TARGET, previous.write)
-        if digest(previous.getvalue()) != PREVIOUS_SHA:
-            raise RuntimeError("Version 27 changed during upload; existing file protected.")
-        # One atomic rename replaces only the explicitly requested, backed-up revision.
-        # No delete or root sync is used; a server refusal leaves the old route intact.
+        if TARGET in current:
+            raise RuntimeError("The destination appeared during upload; existing file protected.")
         ftp.rename(temporary, TARGET)
     online = public_bytes(PUBLIC_URL + "?v=" + EXPECTED_SHA[:12])
     if digest(online) != RENDERED_SHA:

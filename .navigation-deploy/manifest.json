@@ -1,0 +1,10 @@
+{
+  "assets/css/global-header.css": {
+    "before_sha256": "de3583b9eaac45624fd2b9ba85396d8f2aa23597a8fe19bf75d7291833c87ef0",
+    "after_sha256": "1c28829061a65c7a7e20e1c26bae1eb8a82a9c2bccfbb14526734c68528bc40b"
+  },
+  "assets/js/global-header.js": {
+    "before_sha256": "de9cbe1c006195119e9d33f48b6179631703c315c0a09bba22c56a53d1f07a41",
+    "after_sha256": "7d9535c5db36b18a1a556bdad9c3eaf86cb4c2394101dbfa48406c379dcadd99"
+  }
+}

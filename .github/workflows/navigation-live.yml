@@ -1,0 +1,63 @@
+name: Publish shared navigation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/css/global-header.css'
+      - 'assets/js/global-header.js'
+      - '.navigation-deploy/**'
+      - '.github/workflows/navigation-live.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: simworx-navigation-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Back up live site, then publish only the shared header CSS and JS
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the exact two-asset publication manifest
+        run: python3 .navigation-deploy/publish.py validate
+      - name: Check conditional publication and rollback behavior
+        run: python3 .navigation-deploy/test_publish.py
+      - name: Back up and verify every live htdocs file before any remote write
+        run: python3 .navigation-deploy/publish.py backup
+      - name: Encrypt and verify the full-site backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/simworx-navigation-live/verified-backup.json"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in "$RUNNER_TEMP/simworx-navigation-live/live-htdocs.tar.gz" \
+            -out "$RUNNER_TEMP/simworx-navigation-live/live-htdocs.tar.gz.enc" \
+            -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in "$RUNNER_TEMP/simworx-navigation-live/live-htdocs.tar.gz.enc" \
+            -pass env:FTP_PASSWORD | cmp - "$RUNNER_TEMP/simworx-navigation-live/live-htdocs.tar.gz"
+          cd "$RUNNER_TEMP/simworx-navigation-live"
+          sha256sum live-htdocs.tar.gz.enc > live-htdocs.tar.gz.enc.sha256
+      - name: Retain encrypted backup before publishing
+        id: retained_backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-live-backup-before-navigation-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/simworx-navigation-live/live-htdocs.tar.gz.enc
+            ${{ runner.temp }}/simworx-navigation-live/live-htdocs.tar.gz.enc.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish only the two header assets and verify the live site
+        env:
+          RETAINED_BACKUP_ARTIFACT_ID: ${{ steps.retained_backup.outputs.artifact-id }}
+        run: python3 .navigation-deploy/publish.py publish

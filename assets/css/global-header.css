@@ -49,3 +49,38 @@ html,body{overflow-x:hidden}
 @media(max-width:520px){
   .global-nav-shell{grid-template-columns:minmax(0,155px) 1fr}.global-brand{width:155px}.global-brand img,.global-brand-image{width:155px;max-height:44px}
 }
+
+/* Click/tap disclosure for Visual Systems; existing dropdowns keep their styling. */
+.global-visuals-trigger{gap:7px;font-family:inherit}
+.global-visuals-chevron{
+  width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+  transform:translateY(-2px) rotate(45deg);flex-shrink:0;
+}
+.global-visuals.is-open>.global-visuals-trigger{color:#f5b400;border-bottom-color:#f5b400}
+.global-visuals.is-open .global-visuals-chevron{transform:translateY(1px) rotate(225deg)}
+.global-visuals-menu{
+  width:300px;min-width:0;max-width:calc(100vw - 28px);padding:8px;border-top:2px solid #f5b400;
+  border-radius:0 0 5px 5px;
+}
+.global-visuals-menu[hidden]{display:none!important}
+.global-visuals-menu:not([hidden]){display:block}
+.global-visuals-menu a{
+  position:relative;padding:16px 35px 16px 14px;white-space:normal;line-height:1.4;border-radius:3px;
+}
+.global-visuals-menu a+a{margin-top:3px;border-top:1px solid #24272a}
+.global-visuals-title{display:block;font-size:14px;font-weight:750;letter-spacing:0}
+.global-visuals-description{display:block;margin-top:4px;color:#b9bec4;font-size:11px;font-weight:450;letter-spacing:0}
+.global-visuals-arrow{position:absolute;right:13px;top:17px;color:#f5b400;font-size:17px;line-height:1}
+.global-visuals-trigger:focus-visible,.global-visuals-menu a:focus-visible,.global-toggle:focus-visible{
+  outline:2px solid #f5b400;outline-offset:-3px;
+}
+@media(max-width:980px){
+  .global-visuals-trigger{justify-content:space-between}
+  .global-visuals-menu{
+    width:100%;max-width:none;margin:0 0 8px;padding:5px 5px 5px 9px;
+    border-top:0;border-left:2px solid #f5b400;border-radius:0;
+  }
+  .global-visuals-menu a{min-height:64px;padding:12px 32px 12px 10px;box-sizing:border-box}
+  .global-visuals-title{font-size:13px}
+  .global-visuals-arrow{top:14px}
+}

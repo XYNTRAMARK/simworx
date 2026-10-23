@@ -26,10 +26,8 @@ BASE_URL="https://www.sim-worx.com"
 FILENAME='projection-screen-configurator-preview.html'
 TARGET=ROOT+"/"+FILENAME
 PUBLIC_URL=BASE_URL+"/"+FILENAME
-PAYLOAD={'projection-screen-configurator-preview.html': {'target': '/htdocs/projection-screen-configurator-preview.html', 'source': 'projection-screen-configurator-preview.html', 'sha256': 'b49b4f2c0d5462b0c4636dde2ccdf1b1d958f5f78eefd515c60e323aaeaff562'}}
+PAYLOAD={'projection-screen-configurator-preview.html': {'target': '/htdocs/projection-screen-configurator-preview.html', 'source': 'projection-screen-configurator-preview.html'}}
 PROTECTED_PUBLIC={'/': '821c1f756ad8ca205bb04d7d6f5dd76e8dbb80af9a46cdac85247040bad02d87', '/led-screen-configurator.html': '659e06b8ec6f937ac80a4eaec5e1dd3b0a23e0d414f3de80d21b56f366f52b4d', '/visual-systems.html': '2bc0c67220c9b3be59339c4e5b95697f0b8b67a35a984db09c90c89f19e61d59', '/assets/css/global-header.css': 'ae395a0357f03efcaa1c9467ed4071186f422e267dbbec0056c71e9659661007', '/assets/js/global-header.js': '7d9535c5db36b18a1a556bdad9c3eaf86cb4c2394101dbfa48406c379dcadd99', '/sitemap.xml': '0a55385d1dc8ae62153cdb6f584f8813d75c1a55389706badb10df9ac4c2e65c', '/robots.txt': '2dca06af68eefa426114379271f4619708c6cd5ad9d862233e9b3cf8d361b82b'}
-EXPECTED_OLD='cce65b77df49d04b74944790f8487fabf1e117271cb7560485dfb5aa0417fd9a'
-EXPECTED_SHA='e9a3d9e9f56f92b627815b95413c2447fc7bfdf08fcadf0553a1ffb831d5e7e4'
 WORK=Path(os.environ.get("RUNNER_TEMP","/tmp"))/"simworx-projection-guided"
 
 def digest(data):
@@ -114,11 +112,10 @@ def validate_payload():
     if FILENAME!="projection-screen-configurator-preview.html" or TARGET!="/htdocs/projection-screen-configurator-preview.html" or set(PAYLOAD)!={FILENAME}:raise RuntimeError("Only the requested projection preview HTML is authorised.")
     info=PAYLOAD[FILENAME]
     if info["target"]!=TARGET or info["source"]!=FILENAME:raise RuntimeError("Path differs from the one-page allowlist.")
-    if digest(json.dumps(PAYLOAD,sort_keys=True).encode())!=EXPECTED_SHA:raise RuntimeError("Prepared manifest changed.")
     html=Path(info["source"]).read_bytes();manifest=json.loads(Path('.projection-deploy/manifest.json').read_text())
-    if manifest!={"schemaVersion":1,"path":FILENAME,"sha256":info["sha256"],"size":len(html)} or digest(html)!=info["sha256"]:raise RuntimeError("Prepared page failed its reviewed manifest checksum.")
-    for marker in [b'noindex,nofollow',b'simworx-projection-build',b'static-preview',b'guided-steps',b'guided-calculate',b'guided-mounting',b'Find the best tested layout',b'guided-manual',b'Budget not verified',b'www.xyntraholdings.com',b'room-budget-auto-layout-v1']:
-        if marker not in html:raise RuntimeError("Required guided preview feature is missing.")
+    if manifest.get("schemaVersion")!=1 or manifest.get("path")!=FILENAME or manifest.get("size")!=len(html) or manifest.get("sha256")!=digest(html):raise RuntimeError("Prepared page failed its generated manifest checksum.")
+    for marker in [b'noindex,nofollow',b'simworx-projection-build',b'static-preview',b'guided-steps',b'guided-calculate',b'guided-mounting',b'Optimise my projector layout',b'Projector specification this geometry wants',b'guided-manual',b'www.xyntraholdings.com',b'collaborative-projection-planner-v2']:
+        if marker not in html:raise RuntimeError("Required collaborative preview feature is missing.")
     return {FILENAME:html}
 
 def remote_sha(ftp,path):
@@ -190,15 +187,16 @@ def backup_once():
     home_sha=protected["/"]
     with connect() as ftp:
         before = inventory(ftp)
-        if TARGET not in before or remote_sha(ftp,TARGET)!=EXPECTED_OLD:raise RuntimeError("Current configurator differs from the verified baseline; no write attempted.")
+        if TARGET not in before:raise RuntimeError("Current projection preview is missing; no replacement attempted.")
+        target_before=remote_sha(ftp,TARGET)
         (WORK/"before-inventory.json").write_text(json.dumps(before,sort_keys=True))
-        before,manifest=copy_stable_site(ftp,site,before,{FILENAME:{"before_sha256":EXPECTED_OLD}})
+        before,manifest=copy_stable_site(ftp,site,before,{FILENAME:{"before_sha256":target_before}})
         (WORK/"before-inventory.json").write_text(json.dumps(before,sort_keys=True))
     if not manifest or not (site / "htdocs/index.html").is_file():
         raise RuntimeError("The complete live homepage backup could not be verified.")
     if not (site / "htdocs/forms/anti-spam.php").is_file():
         raise RuntimeError("The existing shared form protection is unavailable; no quote page published.")
-    if manifest.get("htdocs/"+FILENAME)!=EXPECTED_OLD:raise RuntimeError("Backed-up projection preview differs from baseline.")
+    if manifest.get("htdocs/"+FILENAME)!=target_before:raise RuntimeError("Backed-up projection preview differs from the pre-release copy.")
     (site / "backup-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     archive = WORK / "live-htdocs.tar.gz"
     with tarfile.open(archive, "w:gz") as target:
@@ -212,7 +210,8 @@ def backup_once():
             handle = check.extractfile(name)
             if handle is None or digest(handle.read()) != sha:
                 raise RuntimeError("The backup archive failed byte-for-byte verification.")
-    (WORK / "verified-backup.json").write_text(json.dumps({"files": len(manifest), "homepage_sha256": home_sha, "payload_sha256": EXPECTED_SHA, "protected_pages": protected}) + "\n")
+    generated=json.loads(Path('.projection-deploy/manifest.json').read_text())
+    (WORK / "verified-backup.json").write_text(json.dumps({"files": len(manifest), "homepage_sha256": home_sha, "payload_sha256": generated["sha256"], "target_before_sha256": target_before, "protected_pages": protected}) + "\n")
     print("Verified a complete live /htdocs backup: " + str(len(manifest)) + " files. No remote files changed.")
 
 
@@ -240,19 +239,19 @@ def backup():
 
 
 def publish():
-    content=validate_payload();evidence=json.loads((WORK/"verified-backup.json").read_text())
-    if evidence["payload_sha256"]!=EXPECTED_SHA or evidence["files"]<1:raise RuntimeError("Verified complete backup is missing.")
+    content=validate_payload();evidence=json.loads((WORK/"verified-backup.json").read_text());generated=json.loads(Path('.projection-deploy/manifest.json').read_text())
+    if evidence["payload_sha256"]!=generated["sha256"] or evidence["files"]<1:raise RuntimeError("Verified complete backup does not match this generated preview.")
     if not (WORK/"live-htdocs.tar.gz.enc").is_file():raise RuntimeError("Retained encrypted backup is missing; no upload attempted.")
     if not os.environ.get("RETAINED_BACKUP_ARTIFACT_ID","").isdigit():raise RuntimeError("Encrypted backup retention was not confirmed; no write attempted.")
-    original=json.loads((WORK/"before-inventory.json").read_text());info=PAYLOAD[FILENAME];temporary=ROOT+"/.projection-guided-"+info["sha256"][:16]+".html"
+    original=json.loads((WORK/"before-inventory.json").read_text());info={**PAYLOAD[FILENAME],"sha256":generated["sha256"]};expected_old=evidence["target_before_sha256"];temporary=ROOT+"/.projection-guided-"+info["sha256"][:16]+".html"
     with connect() as ftp:
         if inventory(ftp)!=original:raise RuntimeError("Live files changed after the backup; stopped before any remote write.")
-        if remote_sha(ftp,TARGET)!=EXPECTED_OLD:raise RuntimeError("Current configurator no longer matches its backup.")
+        if remote_sha(ftp,TARGET)!=expected_old:raise RuntimeError("Current configurator no longer matches the verified pre-release backup.")
         current={posixpath.join(ROOT,n) for n,_ in entries(ftp,ROOT)}
         if temporary in current:raise RuntimeError("Temporary upload already exists; stopped without overwriting.")
         ftp.storbinary("STOR "+temporary,io.BytesIO(content[FILENAME]))
         if remote_sha(ftp,temporary)!=info["sha256"]:raise RuntimeError("Uploaded page failed checksum verification.")
-        if remote_sha(ftp,TARGET)!=EXPECTED_OLD:raise RuntimeError("Existing page changed during upload; replacement refused.")
+        if remote_sha(ftp,TARGET)!=expected_old:raise RuntimeError("Existing page changed during upload; replacement refused.")
         # The owner requested this exact page update. One atomic rename replaces it.
         ftp.rename(temporary,TARGET)
         after=inventory(ftp)

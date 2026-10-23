@@ -184,13 +184,17 @@ export function createProjectionLayer({ viewer, getState, getProfile, onMove = (
     const top = state.screenBottom + state.viewableHeight;
     if (state.enclosure !== 'screen-only') {
       const railHeight = top + 0.31;
-      const back = radius * 0.45;
-      const side = radius * 0.78;
+      // Keep the schematic projector-support frame outside the active curved screen.
+      // Its legs are derived from the actual arc endpoints rather than a fixed
+      // percentage of radius, which could put them behind/through wide screens.
+      const halfArc = Math.min(Math.PI * 0.985, Math.max(0.05, state.horizontalFov * Math.PI / 360));
+      const clearance = 0.12;
+      const supportRadius = radius + clearance;
+      const side = Math.abs(Math.sin(halfArc) * supportRadius);
+      const back = -Math.cos(halfArc) * supportRadius;
       addBox(structureGroup, [0.045, railHeight, 0.045], [-side, railHeight / 2, back], railMaterial, 'schematic-left-support');
       addBox(structureGroup, [0.045, railHeight, 0.045], [side, railHeight / 2, back], railMaterial, 'schematic-right-support');
       addBox(structureGroup, [side * 2, 0.045, 0.045], [0, railHeight, back], railMaterial, 'schematic-rear-cross-rail');
-      addBox(structureGroup, [side * 2, 0.045, 0.045], [0, railHeight, -radius * 0.18], railMaterial, 'schematic-front-cross-rail');
-      for (const x of [-side, side]) addBox(structureGroup, [0.045, 0.045, back + radius * 0.18], [x, railHeight, (back - radius * 0.18) / 2], railMaterial, 'schematic-longitudinal-support');
       if (state.enclosure === 'fully-enclosed') {
         const depth = radius * 1.45;
         addBox(structureGroup, [radius * 2.03, 0.025, depth], [0, top + 0.42, -radius + depth / 2], panelMaterial, 'schematic-blackout-roof');

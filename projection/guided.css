@@ -24,3 +24,11 @@ html{scroll-behavior:smooth;scroll-padding-top:130px}body{margin:0;color:#242a31
 .guided-advice-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
 .guided-advice-actions .led-button{flex:1 1 180px}
 @media(max-width:640px){#guided-required-spec{grid-template-columns:1fr}.guided-advice-actions .led-button{flex-basis:100%}}
+
+/* Pilot-eye modal viewer sizing: the live Three.js canvas is reparented into this slot. */
+#led-eye-canvas-slot{width:100%;min-height:420px}
+.led-eye-dialog #led-canvas{width:100%!important;height:420px!important;min-height:420px!important}
+@media(max-width:780px){
+  #led-eye-canvas-slot{min-height:230px}
+  .led-eye-dialog #led-canvas{height:230px!important;min-height:230px!important}
+}

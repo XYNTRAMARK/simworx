@@ -4,7 +4,7 @@ const screenOf=s=>({radius:s.diameter/2,height:s.viewableHeight,bottom:s.screenB
 const blocked=value=>value===true||value?.blocked===true||value?.assessed===false;
 export function normalisePreferences(input={},defaultModel=''){
  const p=input&&typeof input==='object'?input:{};
- return {budget:finite(p.budget)&&p.budget>0&&p.budget<=10000000?p.budget:null,mode:p.mode==='fixed'?'fixed':'recommend',modelId:typeof p.modelId==='string'&&p.modelId.length<=200?p.modelId:defaultModel,count:['2','3',2,3].includes(p.count)?String(p.count):'auto',band:['500-1000','1000-3000','3000-plus'].includes(p.band)?p.band:'any',mountDrop:finite(p.mountDrop)&&p.mountDrop>=.2&&p.mountDrop<=1.5?p.mountDrop:.35,allowScreenResize:p.allowScreenResize===true,objective:['room','projector','budget'].includes(p.objective)?p.objective:'current'};
+ return {budget:finite(p.budget)&&p.budget>0&&p.budget<=10000000?p.budget:null,totalBudget:finite(p.totalBudget)&&p.totalBudget>0&&p.totalBudget<=10000000?p.totalBudget:null,mode:p.mode==='fixed'?'fixed':'recommend',modelId:typeof p.modelId==='string'&&p.modelId.length<=200?p.modelId:defaultModel,count:['2','3',2,3].includes(p.count)?String(p.count):'auto',band:['500-1000','1000-3000','3000-plus'].includes(p.band)?p.band:'any',mountDrop:finite(p.mountDrop)&&p.mountDrop>=.2&&p.mountDrop<=1.5?p.mountDrop:.35,allowScreenResize:p.allowScreenResize===true,objective:['room','projector','budget'].includes(p.objective)?p.objective:'current'};
 }
 function pilotSees(eye,point,state,obstruction){
  const delta=point.map((v,k)=>v-eye[k]),distance=Math.hypot(...delta),hit=firstScreenIntersection(eye,delta,screenOf(state),{maxDistance:distance+1e-5});
@@ -19,6 +19,14 @@ export function roomIssues(state){
  if(state.showSimulator){const r=state.simulatorYaw*RAD,w=Math.abs(Math.cos(r))*state.simulatorWidth+Math.abs(Math.sin(r))*state.simulatorDepth,d=Math.abs(Math.sin(r))*state.simulatorWidth+Math.abs(Math.cos(r))*state.simulatorDepth;
  if(Math.abs(state.simulatorX)+w/2>room.width/2-.05||Math.abs(state.simulatorZ)+d/2>room.depth/2-.05||state.simulatorY+state.simulatorHeight>room.height-.05)issues.push('The cockpit extends outside the room. Review its position or room dimensions.');}
  return issues;
+}
+function screenSellingPrice(state,catalogue){
+ const area=(state.diameter/2)*(state.horizontalFov*RAD)*state.viewableHeight;
+ const base=area*Number(catalogue.commercial.fabrication?.screenSystemPerM2Eur||0);
+ const enclosure=Number(catalogue.commercial.enclosures?.[state.enclosure]?.fixedEur||0);
+ const kitIncluded=(catalogue.commercial.mountingKit?.includedIn||[]).includes(state.enclosure);
+ const kit=state.mountingKit&&!kitIncluded?Number(catalogue.commercial.mountingKit?.priceEur||0):0;
+ return base+enclosure+kit;
 }
 export function budgetAssessment({model,count,catalogue,budget,band='any',servicePlan='self',mountingKit=true,supply='simworx'}){
  const unit=catalogue.commercial.projectorPricesEur[model.id],known=finite(unit)&&unit>0,projectorCost=supply==='customer'?0:known?count*unit:null;
@@ -109,7 +117,10 @@ export async function findLayout({state,models,catalogue,preferences,contextFor,
   for(const model of models){
    if(model.plannerReady===false||!finite(model.throwRatio?.min)||!finite(model.throwRatio?.max)||!finite(model.opticalOffset?.normalizedCenterOffsetImageHeights)||!model.installation?.orientations?.includes('ceiling-inverted'))continue;
    for(const count of prefs.count==='auto'?[2,3]:[Number(prefs.count)]){
-    const budget=budgetAssessment({model,count,catalogue,budget:prefs.objective==='room'?null:prefs.budget,band:prefs.objective==='room'?'any':prefs.band,servicePlan:state.servicePlan,mountingKit:state.mountingKit,supply:prefs.supply});
+    const screenCost=screenSellingPrice(candidateState,catalogue);
+    const availableProjectorBudget=prefs.objective==='budget'&&finite(prefs.totalBudget)?Math.max(0,prefs.totalBudget-screenCost):(prefs.objective==='room'?null:prefs.budget);
+    const budget=budgetAssessment({model,count,catalogue,budget:availableProjectorBudget,band:prefs.objective==='room'?'any':prefs.band,servicePlan:state.servicePlan,mountingKit:state.mountingKit,supply:prefs.supply});
+    budget.screenCost=screenCost;budget.totalBudget=prefs.totalBudget;budget.availableProjectorBudget=availableProjectorBudget;
     if(!budget.permitted){priceExcluded++;continue;}if(budget.withinKnownBudget===false)priceExcluded++;eligible++;
     const budgetPenalty=budget.withinKnownBudget===false?(prefs.objective==='budget'?4:2):0;
     const zoom=[...new Set([model.throwRatio.min,(model.throwRatio.min+model.throwRatio.max)/2,model.throwRatio.max])];

@@ -31,7 +31,13 @@ jobs:
         run: |
           for file in projection/src/*.js; do node --check "$file"; done
       - name: Run projection planner tests
-        run: node tests/projection/layout-planner.mjs
+        run: |
+          rm -rf .projection-test
+          mkdir -p .projection-test/src
+          cp projection/src/optics.js .projection-test/src/optics.js
+          sed 's#projection:/src/optics.js#./optics.js#g' projection/src/layout-planner.js > .projection-test/src/layout-planner.js
+          sed 's#../../projection/src/layout-planner.js#./src/layout-planner.js#g' tests/projection/layout-planner.mjs > .projection-test/layout-planner.mjs
+          node .projection-test/layout-planner.mjs
       - name: Validate exact reviewed projection preview
         run: python3 .projection-deploy/publish.py validate
       - name: Test one-page scope and backup requirements

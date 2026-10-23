@@ -93,18 +93,19 @@ export async function findLayout({state,models,catalogue,preferences,contextFor,
    if(model.plannerReady===false||!finite(model.throwRatio?.min)||!finite(model.throwRatio?.max)||!finite(model.opticalOffset?.normalizedCenterOffsetImageHeights)||!model.installation?.orientations?.includes('ceiling-inverted'))continue;
    for(const count of prefs.count==='auto'?[2,3]:[Number(prefs.count)]){
     const budget=budgetAssessment({model,count,catalogue,budget:prefs.budget,band:prefs.band,servicePlan:state.servicePlan,mountingKit:state.mountingKit,supply:prefs.supply});
-    if(!budget.permitted||budget.withinKnownBudget===false){priceExcluded++;continue;}eligible++;
+    if(!budget.permitted){priceExcluded++;continue;}if(budget.withinKnownBudget===false)priceExcluded++;eligible++;
+    const budgetPenalty=budget.withinKnownBudget===false?2:0;
     const zoom=[...new Set([model.throwRatio.min,(model.throwRatio.min+model.throwRatio.max)/2,model.throwRatio.max])];
     for(const height of [state.room.height-prefs.mountDrop,state.room.height-prefs.mountDrop-.25,state.room.height-prefs.mountDrop-.5])for(const scale of [.85,1.05,1.3,1.6])for(const z of [0,.45,.9])for(const ratio of zoom)for(const fan of [1,1.12])for(const v of [.4,.55]){
      examined++;if(examined%80===0){onProgress({examined,stage:'Searching room-fitting layouts'});await yieldControl();}
      const list=channelLayout(candidateState,model,count,height,scale,z,ratio,fan,v);if(!list)continue;const placement=placementPenalty(candidateState,list,model,context);if(placement.hard)continue;geometric++;
-     const metrics=assess(candidateState,list,context,coarse,false),choice={state:candidateState,projectors:list,model,budget,metrics,placement,layoutParams:{height,scale,z,ratio,fan,v},score:metrics.score-count*.002-placement.penalty};
+     const metrics=assess(candidateState,list,context,coarse,false),choice={state:candidateState,projectors:list,model,budget,metrics,placement,layoutParams:{height,scale,z,ratio,fan,v},score:metrics.score-count*.002-placement.penalty-budgetPenalty};
      const key=model.id+':'+count,listOfChoices=shortlists.get(key)||[];listOfChoices.push(choice);listOfChoices.sort((a,b)=>b.score-a.score);if(listOfChoices.length>5)listOfChoices.length=5;shortlists.set(key,listOfChoices);
     }
    }
   }
   const fine=points(candidateState,40,20,context,eyes);
-  for(const choice of [...shortlists.values()].flat()){choice.metrics=assess(candidateState,choice.projectors,context,fine,true);choice.score=choice.metrics.score-choice.projectors.length*.002-(choice.placement?.penalty||0)+Math.log2(Math.max(1,(choice.model.resolution.width||1)*(choice.model.resolution.height||1))/1e6)*.015+Math.log2(Math.max(1,choice.model.brightness?.lumens||1)/1000)*.005;
+  for(const choice of [...shortlists.values()].flat()){choice.metrics=assess(candidateState,choice.projectors,context,fine,true);choice.score=choice.metrics.score-choice.projectors.length*.002-(choice.placement?.penalty||0)-(choice.budget?.withinKnownBudget===false?2:0)+Math.log2(Math.max(1,(choice.model.resolution.width||1)*(choice.model.resolution.height||1))/1e6)*.015+Math.log2(Math.max(1,choice.model.brightness?.lumens||1)/1000)*.005;
    if(!best||choice.score>best.score+1e-8||Math.abs(choice.score-best.score)<1e-8&&(choice.budget.knownSubtotal??Infinity)<(best.budget.knownSubtotal??Infinity))best=choice;
    onProgress({examined,stage:'Checking pilot-visible shadows'});await yieldControl();
   }

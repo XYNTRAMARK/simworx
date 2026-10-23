@@ -1,10 +1,10 @@
 {
   "commercial": {
     "schemaVersion": 1,
-    "catalogueVersion": "development-unpriced-v1",
+    "catalogueVersion": "projection-priced-v1",
     "baseCurrency": "EUR",
-    "approved": false,
-    "notice": "Development catalogue. Manufacturing templates, STEP assemblies and all new selling prices await Simworx input. Null means unknown, never free.",
+    "approved": true,
+    "notice": "Projection screen pricing active. Screen selling price is calculated from exact curved active area; enclosure and mounting uplifts are fixed. Projector prices remain model-specific.",
     "fabrication": {
       "setupEur": null,
       "framePerArcMetreEur": null,
@@ -12,7 +12,8 @@
       "uprightPerMetreEur": null,
       "uprightCount": null,
       "labourPerM2Eur": null,
-      "packagingEur": null
+      "packagingEur": null,
+      "screenSystemPerM2Eur": 750
     },
     "limits": {
       "diameterMin": null,
@@ -25,7 +26,7 @@
     "materials": {
       "matte-white": {
         "label": "Matte white",
-        "ratePerM2Eur": null,
+        "ratePerM2Eur": 0,
         "rollWidthM": null,
         "edgeAllowanceM": null,
         "wastePercent": null,
@@ -36,7 +37,7 @@
       },
       "backed-white": {
         "label": "Opaque-backed white",
-        "ratePerM2Eur": null,
+        "ratePerM2Eur": 0,
         "rollWidthM": null,
         "edgeAllowanceM": null,
         "wastePercent": null,
@@ -47,7 +48,7 @@
       },
       "simulation-grey": {
         "label": "Simulation grey",
-        "ratePerM2Eur": null,
+        "ratePerM2Eur": 0,
         "rollWidthM": null,
         "edgeAllowanceM": null,
         "wastePercent": null,
@@ -65,13 +66,13 @@
       },
       "semi-enclosed": {
         "label": "Semi enclosed screen",
-        "fixedEur": null,
-        "perM2Eur": null
+        "fixedEur": 1000,
+        "perM2Eur": 0
       },
       "fully-enclosed": {
         "label": "Fully enclosed screen",
-        "fixedEur": null,
-        "perM2Eur": null
+        "fixedEur": 4000,
+        "perM2Eur": 0
       }
     },
     "projectorPricesEur": {
@@ -80,8 +81,11 @@
       "benq-lu960st2": null
     },
     "mountingKit": {
-      "priceEur": null,
-      "includedIn": []
+      "priceEur": 1000,
+      "includedIn": [
+        "semi-enclosed",
+        "fully-enclosed"
+      ]
     },
     "taxRate": null,
     "deliveryEur": null,

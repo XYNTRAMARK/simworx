@@ -192,9 +192,9 @@ export function createProjectionLayer({ viewer, getState, getProfile, onMove = (
       const supportRadius = radius + clearance;
       const side = Math.abs(Math.sin(halfArc) * supportRadius);
       const back = -Math.cos(halfArc) * supportRadius;
-      addBox(structureGroup, [0.045, railHeight, 0.045], [-side, railHeight / 2, back], railMaterial, 'schematic-left-support');
-      addBox(structureGroup, [0.045, railHeight, 0.045], [side, railHeight / 2, back], railMaterial, 'schematic-right-support');
-      addBox(structureGroup, [side * 2, 0.045, 0.045], [0, railHeight, back], railMaterial, 'schematic-rear-cross-rail');
+      // Do not draw temporary vertical support legs in the customer preview.
+      // The real support geometry will come from the supplied STEP assemblies.
+      addBox(structureGroup, [side * 2, 0.035, 0.035], [0, railHeight, back], railMaterial, 'schematic-rear-cross-rail');
       if (state.enclosure === 'fully-enclosed') {
         const depth = radius * 1.45;
         addBox(structureGroup, [radius * 2.03, 0.025, depth], [0, top + 0.42, -radius + depth / 2], panelMaterial, 'schematic-blackout-roof');

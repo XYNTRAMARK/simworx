@@ -85,9 +85,9 @@ export async function findLayout({state,models,catalogue,preferences,contextFor,
   const extra=state.enclosure==='fully-enclosed'?.42:state.enclosure==='semi-enclosed'?.34:0;
   const maxDiameter=Math.max(2,Math.min(state.room.width-.3,state.room.depth-.3,12));
   const maxHeight=Math.max(1,Math.min(state.room.height-state.screenBottom-extra-.15,5));
-  const diameters=[state.diameter,state.diameter-.3,state.diameter+.3,state.diameter-.6,state.diameter+.6].map(v=>clamp(v,2,maxDiameter));
+  const diameters=[state.diameter,state.diameter-.4,state.diameter+.4].map(v=>clamp(v,2,maxDiameter));
   const heights=[state.viewableHeight,state.viewableHeight-.2,state.viewableHeight+.2].map(v=>clamp(v,1,maxHeight));
-  const cockpitMoves=state.showSimulator?[0,.2,.4,-.2]:[0];
+  const cockpitMoves=state.showSimulator?[0,.25,-.25]:[0];
   for(const diameter of diameters)for(const viewableHeight of heights)for(const move of cockpitMoves){
    const candidate={...state,diameter,viewableHeight,simulatorZ:clamp((state.simulatorZ||0)+move,-4,4)};
    if(!variants.some(v=>Math.abs(v.diameter-candidate.diameter)<1e-6&&Math.abs(v.viewableHeight-candidate.viewableHeight)<1e-6&&Math.abs((v.simulatorZ||0)-candidate.simulatorZ)<1e-6))variants.push(candidate);
@@ -113,7 +113,7 @@ export async function findLayout({state,models,catalogue,preferences,contextFor,
     if(!budget.permitted){priceExcluded++;continue;}if(budget.withinKnownBudget===false)priceExcluded++;eligible++;
     const budgetPenalty=budget.withinKnownBudget===false?(prefs.objective==='budget'?4:2):0;
     const zoom=[...new Set([model.throwRatio.min,(model.throwRatio.min+model.throwRatio.max)/2,model.throwRatio.max])];
-    for(const height of [state.room.height-prefs.mountDrop,state.room.height-prefs.mountDrop-.2,state.room.height-prefs.mountDrop-.45,state.room.height-prefs.mountDrop-.7])for(const scale of [.55,.7,.85,1.0,1.2,1.45])for(const z of [-.25,0,.25])for(const ratio of zoom)for(const fan of [.94,1,1.08])for(const v of [.25,.4,.55,.7]){
+    for(const height of [state.room.height-prefs.mountDrop,state.room.height-prefs.mountDrop-.3,state.room.height-prefs.mountDrop-.6])for(const scale of [.55,.7,.85,1.05,1.25])for(const z of [-.2,0,.2])for(const ratio of zoom)for(const fan of [.96,1.04])for(const v of [.3,.5,.7]){
      examined++;if(examined%100===0){onProgress({examined,stage:'Searching screen-footprint layouts and tilt angles'});await yieldControl();}
      const list=channelLayout(candidateState,model,count,height,scale,z,ratio,fan,v);if(!list)continue;const placement=placementPenalty(candidateState,list,model,context);if(placement.hard)continue;geometric++;
      const metrics=assess(candidateState,list,context,coarse,false),changePenalty=(prefs.objective==='projector'?0:(Math.abs(candidateState.diameter-state.diameter)*.04+Math.abs(candidateState.viewableHeight-state.viewableHeight)*.04+Math.abs((candidateState.simulatorZ||0)-(state.simulatorZ||0))*.08)),choice={state:candidateState,projectors:list,model,budget,metrics,placement,layoutParams:{height,scale,z,ratio,fan,v},score:metrics.score-count*.002-placement.penalty-budgetPenalty-changePenalty};

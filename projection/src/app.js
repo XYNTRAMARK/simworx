@@ -194,25 +194,25 @@ function onOpticalResult(next){
 }
 function queueQuote(){clearTimeout(quoteTimer);const serial=++quoteSerial;$('led-running-title').textContent='Updating configuration estimate';quoteTimer=setTimeout(()=>refreshQuote(serial),120);}
 function localQuote(){
-  const d=dimensions(state),commercial=catalogue.commercial,lines=[],missing=[];
+  const d=dimensions(state),commercial=catalogue.commercial,lines=[],missing=[],eur=v=>convertCurrency(v,'EUR',state.currency,catalogue.ledTariff);
   const screenRate=Number(commercial.fabrication?.screenSystemPerM2Eur||0);
-  const screenPrice=d.area*screenRate;
-  lines.push({id:'screen-system',label:'Curved projection screen & frame',amount:screenPrice,status:'priced'});
+  const screenPriceEur=d.area*screenRate;
+  lines.push({id:'screen-system',label:'Curved projection screen & frame',amount:eur(screenPriceEur),status:'priced'});
   const enclosure=commercial.enclosures?.[state.enclosure];
   const enclosureAmount=Number(enclosure?.fixedEur||0);
-  if(enclosureAmount>0)lines.push({id:'enclosure',label:enclosure.label,amount:enclosureAmount,status:'priced'});
+  if(enclosureAmount>0)lines.push({id:'enclosure',label:enclosure.label,amount:eur(enclosureAmount),status:'priced'});
   const kitIncluded=(commercial.mountingKit?.includedIn||[]).includes(state.enclosure);
   if(state.mountingKit){
-    lines.push({id:'mounting-kit',label:'Projector mounting kit',amount:kitIncluded?0:Number(commercial.mountingKit?.priceEur??0),status:kitIncluded?'included':'priced'});
+    lines.push({id:'mounting-kit',label:'Projector mounting kit',amount:kitIncluded?0:eur(Number(commercial.mountingKit?.priceEur??0)),status:kitIncluded?'included':'priced'});
   }
   for(const channel of state.projectors){
     if(channel.supplyStatus!=='simworx'){lines.push({id:'projector-'+channel.id,label:channel.id+' · '+(profile(channel.modelId)?.displayName||profile(channel.modelId)?.model||channel.modelId),amount:0,status:'customer-supplied'});continue;}
     const value=commercial.projectorPricesEur?.[channel.modelId];
-    if(finite(value)&&value>0)lines.push({id:'projector-'+channel.id,label:channel.id+' · '+(profile(channel.modelId)?.displayName||profile(channel.modelId)?.model||channel.modelId),amount:value,status:'priced'});
+    if(finite(value)&&value>0)lines.push({id:'projector-'+channel.id,label:channel.id+' · '+(profile(channel.modelId)?.displayName||profile(channel.modelId)?.model||channel.modelId),amount:eur(value),status:'priced'});
     else{lines.push({id:'projector-'+channel.id,label:channel.id+' · '+(profile(channel.modelId)?.displayName||profile(channel.modelId)?.model||channel.modelId),amount:null,status:'pending'});missing.push((profile(channel.modelId)?.displayName||channel.modelId)+' selling price');}
   }
   const plan=catalogue.ledTariff.servicePlans.find(p=>p.id===state.servicePlan);
-  if(plan)lines.push({id:'warping',label:plan.quoteLabel||plan.label,amount:convertCurrency(plan.rate.amount,plan.rate.currency,'EUR',catalogue.ledTariff),status:'priced'});
+  if(plan)lines.push({id:'warping',label:plan.quoteLabel||plan.label,amount:convertCurrency(plan.rate.amount,plan.rate.currency,state.currency,catalogue.ledTariff),status:'priced'});
   const knownSubtotal=lines.reduce((sum,l)=>sum+(finite(l.amount)?l.amount:0),0);
   const complete=!missing.length;
   return {reference:'SWX-PROJ-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),date:new Date().toISOString(),catalogueVersion:commercial.catalogueVersion,status:complete?'complete':'partial',lineItems:lines,knownSubtotal,total:complete?knownSubtotal:null,tax:null,delivery:null,missing,errors:[]};
@@ -248,6 +248,17 @@ function validateLoaded(data){
 function savePayload(){return {format:'simworx-projection-configuration',version:1,savedAt:new Date().toISOString(),configuration:clone(state),customProfiles:clone(customProfiles),catalogueVersion:catalogue.commercial.catalogueVersion,sourceVersion:reference.source.sha256,quoteSnapshot:quote};}
 function download(name,content,type='application/json'){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function save(){const data=savePayload(),text=JSON.stringify(data,null,2);try{localStorage.setItem(savedKey,text);}catch{}download('Simworx_Projection_Configuration.json',text);$('projection-profile-status').textContent='Saved locally and downloaded with projector and pilot positions.';}
+function specificationDocument(){
+  const rows=specificationRows(),lines=quote?.lineItems||[];
+  return '<!doctype html><html><head><meta charset="utf-8"><title>Simworx Projection Specification</title><style>body{font:14px Arial;max-width:900px;margin:40px auto;color:#20262c}h1{font-size:28px}table{border-collapse:collapse;width:100%;margin:20px 0}th,td{padding:10px;border-bottom:1px solid #ddd;text-align:left}th{width:40%}.price{text-align:right}small{color:#667}</style></head><body><h1>Simworx Projection System Specification</h1><p>'+esc(quote?.reference||'Planning configuration')+'</p><table>'+rows.map(([a,b])=>'<tr><th>'+esc(a)+'</th><td>'+esc(b)+'</td></tr>').join('')+'</table><h2>Commercial estimate</h2><table>'+lines.map(l=>'<tr><td>'+esc(l.label)+'</td><td class="price">'+esc(l.amount===null?'To confirm':money(l.amount))+'</td></tr>').join('')+'<tr><th>Known subtotal</th><td class="price">'+esc(money(quote?.knownSubtotal||0))+'</td></tr></table><p><small>Planning specification. Final projector suitability, delivery, VAT and installation details are confirmed before order.</small></p></body></html>';
+}
+function downloadSpecification(){if(!quote)quote=localQuote();download('Simworx_Projection_Specification_'+(quote.reference||'planning')+'.html',specificationDocument(),'text/html');}
+function proposalEmailText(){
+ const rows=specificationRows().map(([a,b])=>a+': '+b).join('\n');
+ const prices=(quote?.lineItems||[]).map(l=>l.label+': '+(l.amount===null?'To confirm':money(l.amount))).join('\n');
+ return 'Simworx Projection System Proposal\n\n'+(quote?.reference||'')+'\n\nSPECIFICATION\n'+rows+'\n\nPRICING\n'+prices+'\n\nKnown subtotal: '+money(quote?.knownSubtotal||0)+'\n\nFinal projector suitability, delivery and VAT are confirmed before order.';
+}
+
 function loadPayload(data){const loaded=validateLoaded(data);customProfiles=loaded.customProfiles;state={...state,...loaded.configuration,projectorCount:loaded.configuration.projectors.length};state.selectedProjector=state.projectors[0].id;state.room={enabled:true,width:7,depth:6,height:4,...state.room};state.guidedStep=4;state.layoutReady=state.layoutReady===true;state.layoutDirty=true;guided?.restore();setPilot(false);renderCatalogue();update();$('projection-profile-status').textContent='Configuration restored. Prices recalculated with the current development catalogue.';}
 async function printQuote(){
   clearTimeout(quoteTimer);await refreshQuote();if(!quote){toast('A current quote response is needed before printing.');return;}
@@ -299,11 +310,11 @@ function wire(){
   $('projection-load').addEventListener('click',()=>$('projection-file').click());
   $('projection-file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>2e6)throw new Error('Choose a configuration smaller than 2 MB.');loadPayload(JSON.parse(await file.text()));}catch(error){toast(error.message);}e.target.value='';});
   $('projection-restore').addEventListener('click',()=>{try{const text=localStorage.getItem(savedKey);if(!text)throw new Error('No saved projection configuration exists in this browser yet.');loadPayload(JSON.parse(text));}catch(error){toast(error.message);}});
-  $('projection-print').addEventListener('click',printQuote);
+  $('projection-print').addEventListener('click',printQuote);$('projection-spec-download')?.addEventListener('click',downloadSpecification);
   $('projection-guide').addEventListener('click',()=>$('projection-guide-dialog').showModal());
   all('[data-close-dialog]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
   $('projection-enquiry').addEventListener('click',()=>{lastEnquiryKey=crypto.randomUUID();$('projection-enquiry-dialog').showModal();});
-  $('projection-enquiry-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.target.querySelector('button[type=submit]');b.disabled=true;try{const contact=Object.fromEntries(new FormData(e.target));const data=await request('/api/enquiry',{configuration:clone(state),contact,idempotencyKey:lastEnquiryKey||crypto.randomUUID()});$('projection-enquiry-status').textContent='Development enquiry '+data.reference+' saved locally. No email has been sent.';download('Simworx_Projection_Enquiry_'+data.reference+'.json',JSON.stringify(data,null,2));}catch(error){$('projection-enquiry-status').textContent=error.message;}finally{b.disabled=false;}});
+  $('projection-enquiry-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.target.querySelector('button[type=submit]');b.disabled=true;try{if(!quote)quote=localQuote();const contact=Object.fromEntries(new FormData(e.target));const email=e.target.querySelector('input[type=email]')?.value?.trim()||contact.Email||contact.email||'';downloadSpecification();const subject='Simworx projection proposal '+(quote.reference||'');const body=proposalEmailText();$('projection-enquiry-status').textContent='Your proposal specification has been prepared. Your email application will open with the proposal summary; the downloaded specification can be attached if required.';if(email)location.href='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);else location.href='mailto:?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);}catch(error){$('projection-enquiry-status').textContent=error.message;}finally{b.disabled=false;}});
   const importer=createImportUI({onAddProfile:async p=>{customProfiles=customProfiles.filter(x=>x.id!==p.id);customProfiles.push(p);const s=selected();s.modelId=p.id;s.throwRatio=p.throwRatio?.min??null;s.shiftX=0;s.shiftY=0;s.supplyStatus='customer';syncSupply();renderCatalogue();update();toast('Your projector profile has been added to '+s.id+'. Review its optical values and coverage.');}});
   $('projection-import').addEventListener('click',()=>importer.open());
   const admin=createAdminUI({onCatalogueChanged:async fresh=>{catalogue=fresh;renderCatalogue();update();toast('Development catalogue updated. Your estimate has been recalculated.');}});

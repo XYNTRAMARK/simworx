@@ -32,7 +32,7 @@ function syncSupply(){const choices=new Set(state.projectors.map(p=>p.supplyStat
 function selected(){return state.projectors.find(p=>p.id===state.selectedProjector)||state.projectors[0];}
 function screen(){return {radius:state.diameter/2,height:state.viewableHeight,bottom:state.screenBottom,arcDegrees:state.horizontalFov};}
 function initialProjector(i,modelId='benq-lh600st'){const p=profile(modelId);return {id:'P'+(i+1),modelId,supplyStatus:'simworx',position:[(i-1)*1.3,3.15,1.15],yaw:0,pitch:0,roll:180,throwRatio:p?.throwRatio?.min??null,shiftX:0,shiftY:0,locked:false};}
-function setSelected(id){state.selectedProjector=id;layer?.select(id,false);renderProjectorControls();}
+function setSelected(id){state.selectedProjector=id;layer?.select(id,false);const label=$('projection-manual-selected');if(label)label.textContent=id;renderProjectorControls();}
 function setPilot(value){pilotMode=value===true&&state.showSimulator;$('led-pilot-view').checked=pilotMode;viewer?.setPilotView(pilotMode,pilotSeat);eyeControls?.refresh();layer?.update();}
 
 function syncInputs(){
@@ -75,7 +75,12 @@ function syncInputs(){
   for(const [id,key] of [['coverage','showCoverage'],['shadows','showShadows'],['frusta','showFrusta'],['structure','showStructure']])$('projection-'+id).checked=state[key];
   $('projection-placement-mode').value=state.placementMode;
   $('projection-room-enabled').checked=state.room.enabled;
-  all('[data-room]').forEach(n=>{if(!n.dataset.metresMin){n.dataset.metresMin=n.min;n.dataset.metresMax=n.max;}n.min=Number(n.dataset.metresMin)*factor;n.max=Number(n.dataset.metresMax)*factor;n.step='any';if(document.activeElement!==n)n.value=Number((state.room[n.dataset.room]*factor).toFixed(3));});
+  if(!finite(state.room.screenFromLeft))state.room.screenFromLeft=state.room.width/2;
+  if(!finite(state.room.screenFromFront))state.room.screenFromFront=state.room.depth/2;
+  all('[data-room]').forEach(n=>{if(!n.dataset.metresMin){n.dataset.metresMin=n.min;n.dataset.metresMax=n.max;}n.min=Number(n.dataset.metresMin)*factor;const key=n.dataset.room,maxMetres=key==='screenFromLeft'?state.room.width:key==='screenFromFront'?state.room.depth:Number(n.dataset.metresMax);n.max=maxMetres*factor;n.step='any';if(document.activeElement!==n)n.value=Number((state.room[key]*factor).toFixed(3));});
+  const manualViewer=$('projection-manual-viewer');if(manualViewer)manualViewer.checked=state.manualPlacement===true;
+  const manualTools=$('projection-manual-viewer-tools');if(manualTools)manualTools.hidden=state.manualPlacement!==true;
+  const manualSelected=$('projection-manual-selected');if(manualSelected)manualSelected.textContent=state.selectedProjector||'P1';
   $('projection-notes').value=state.notes||'';
   $('projection-enclosure-note').textContent=state.enclosure==='screen-only'?'Screen and frame only. Add a Mounting kit for projector hardware.':state.enclosure==='semi-enclosed'?'The semi enclosed screen carries its projector support structure. The Mounting kit adds projector hardware once.':'Screen, support structure and surrounding enclosure. Panels are schematic until your STEP assembly is supplied.';
   const material=catalogue.commercial.materials[state.material];
@@ -259,7 +264,7 @@ function proposalEmailText(){
  return 'Simworx Projection System Proposal\n\n'+(quote?.reference||'')+'\n\nSPECIFICATION\n'+rows+'\n\nPRICING\n'+prices+'\n\nKnown subtotal: '+money(quote?.knownSubtotal||0)+'\n\nFinal projector suitability, delivery and VAT are confirmed before order.';
 }
 
-function loadPayload(data){const loaded=validateLoaded(data);customProfiles=loaded.customProfiles;state={...state,...loaded.configuration,projectorCount:loaded.configuration.projectors.length};state.selectedProjector=state.projectors[0].id;state.room={enabled:true,width:7,depth:6,height:4,...state.room};state.guidedStep=4;state.layoutReady=state.layoutReady===true;state.layoutDirty=true;guided?.restore();setPilot(false);renderCatalogue();update();$('projection-profile-status').textContent='Configuration restored. Prices recalculated with the current development catalogue.';}
+function loadPayload(data){const loaded=validateLoaded(data);customProfiles=loaded.customProfiles;state={...state,...loaded.configuration,projectorCount:loaded.configuration.projectors.length};state.selectedProjector=state.projectors[0].id;state.room={enabled:true,width:7,depth:6,height:4,screenFromLeft:3.5,screenFromFront:3,...state.room};state.guidedStep=4;state.layoutReady=state.layoutReady===true;state.layoutDirty=true;guided?.restore();setPilot(false);renderCatalogue();update();$('projection-profile-status').textContent='Configuration restored. Prices recalculated with the current development catalogue.';}
 async function printQuote(){
   clearTimeout(quoteTimer);await refreshQuote();if(!quote){toast('A current quote response is needed before printing.');return;}
   layer?.select(null,false);
@@ -287,6 +292,11 @@ function wire(){
   $('led-runway-view').addEventListener('change',async e=>{if(e.target.checked){state.showCoverage=false;$('projection-coverage').checked=false;}await viewer?.setRunwayVisible(e.target.checked);layer?.update();});
   $('projection-ghost').addEventListener('change',e=>{state.ghostCockpit=e.target.checked;update({price:false});});
   for(const [id,key] of [['coverage','showCoverage'],['shadows','showShadows'],['frusta','showFrusta'],['structure','showStructure']])$('projection-'+id).addEventListener('change',e=>{state[key]=e.target.checked;if(key==='showCoverage'&&e.target.checked){$('led-runway-view').checked=false;viewer?.setRunwayVisible(false);}update({price:false});});
+  $('projection-manual-viewer')?.addEventListener('change',e=>{state.manualPlacement=e.target.checked;if(state.manualPlacement){layer?.setManualConstraint('slide');layer?.select(state.selectedProjector,false);}else layer?.select(null,false);syncInputs();});
+  $('projection-manual-slide')?.addEventListener('click',()=>{state.manualPlacement=true;layer?.setManualConstraint('slide');layer?.select(state.selectedProjector,false);syncInputs();});
+  $('projection-manual-tilt')?.addEventListener('click',()=>{state.manualPlacement=true;layer?.setManualConstraint('tilt');layer?.select(state.selectedProjector,false);syncInputs();});
+  $('projection-manual-undo')?.addEventListener('click',()=>{if(layer?.undo()){guided?.changed();syncInputs();}});
+
   all('[data-viewer]').forEach(b=>b.addEventListener('click',()=>viewer?.[b.dataset.viewer]?.()));
   all('[data-view]').forEach(b=>b.addEventListener('click',()=>{setPilot(false);viewer?.setView(b.dataset.view);all('[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}));
   all('[data-position]').forEach(input=>input.addEventListener('change',()=>{const p=selected(),value=Number(input.value)/lengthFactor(unit);if(!finite(value)||Math.abs(value)>100)return;p.position[Number(input.dataset.position)]=value;update({fine:true});}));
@@ -304,7 +314,7 @@ function wire(){
   $('projection-mounting-kit').addEventListener('change',e=>{state.mountingKit=e.target.checked;update({geometry:false});});
   $('projection-currency').addEventListener('change',e=>{state.currency=e.target.value;renderCatalogue();update({geometry:false});});
   $('projection-room-enabled').addEventListener('change',e=>{state.room.enabled=e.target.checked;update({price:false});});
-  all('[data-room]').forEach(input=>input.addEventListener('change',()=>{const n=Number(input.value)/lengthFactor(unit);if(n>0&&n<=100){state.room[input.dataset.room]=n;update({price:false});}}));
+  all('[data-room]').forEach(input=>input.addEventListener('change',()=>{const n=Number(input.value)/lengthFactor(unit),key=input.dataset.room,allowZero=key==='screenFromLeft'||key==='screenFromFront';if(finite(n)&&(allowZero?n>=0:n>0)&&n<=100){state.room[key]=n;update({price:false});}}));
   $('projection-notes').addEventListener('input',e=>{state.notes=e.target.value;renderSpecification();queueQuote();});
   $('projection-save').addEventListener('click',save);
   $('projection-load').addEventListener('click',()=>$('projection-file').click());
@@ -337,11 +347,11 @@ function wire(){
 async function boot(){
   try{
     [catalogue,reference]=await Promise.all([request('/api/catalogue'),fetch('/data/led-reference.json').then(r=>{if(!r.ok)throw new Error('Original cockpit reference could not be loaded.');return r.json();})]);
-    state={...clone(reference.defaults),geometry:'curved',diameter:4.5,horizontalFov:180,viewableHeight:2.4,screenBottom:.6,overallHeight:3,enclosure:'semi-enclosed',material:'matte-white',projectorCount:3,projectors:[],supplyStatus:'simworx',mountingKit:true,servicePlan:'self',currency:'EUR',showCoverage:true,showShadows:true,showFrusta:true,showStructure:true,ghostCockpit:false,placementMode:'free',selectedProjector:'P1',room:{enabled:false,width:7,depth:6,height:4},notes:'',materialGain:null};
+    state={...clone(reference.defaults),geometry:'curved',diameter:4.5,horizontalFov:180,viewableHeight:2.4,screenBottom:.6,overallHeight:3,enclosure:'semi-enclosed',material:'matte-white',projectorCount:3,projectors:[],supplyStatus:'simworx',mountingKit:true,servicePlan:'self',currency:'EUR',showCoverage:true,showShadows:true,showFrusta:true,showStructure:true,ghostCockpit:false,placementMode:'free',manualPlacement:false,selectedProjector:'P1',room:{enabled:false,width:7,depth:6,height:4,screenFromLeft:3.5,screenFromFront:3},notes:'',materialGain:null};
     state.projectors=[0,1,2].map(i=>initialProjector(i));
     $('led-simulatorType').replaceChildren(...reference.simulatorReferences.map(s=>new Option(s.label,s.id)));
     renderCatalogue();
-    try{viewer=createViewer($('led-canvas'),state,reference);layer=createProjectionLayer({viewer,getState:()=>state,getProfile:profile,onMove:(id,patch,finished)=>{const p=state.projectors.find(p=>p.id===id);if(p)Object.assign(p,patch);if(!initialising){syncInputs();queueQuote();}},onSelect:setSelected,onResult:onOpticalResult});}
+    try{viewer=createViewer($('led-canvas'),state,reference);layer=createProjectionLayer({viewer,getState:()=>state,getProfile:profile,onMove:(id,patch,finished)=>{const p=state.projectors.find(p=>p.id===id);if(p)Object.assign(p,patch);if(!initialising){guided?.changed();syncInputs();queueQuote();}},onSelect:setSelected,onResult:onOpticalResult});}
     catch(error){geometryError=true;$('led-viewer-status').textContent='3D preview unavailable in this browser. Configuration and pricing controls remain available.';console.error(error);}
     wire();
     guided=createGuidedPlanner({getState:()=>state,getCatalogue:()=>catalogue,getProfiles:profiles,getLayer:()=>layer,getViewer:()=>viewer,eyesFor:s=>pilotStations(s,reference).map(seat=>seat.eye),update,formatLength,getUnit:()=>unit});

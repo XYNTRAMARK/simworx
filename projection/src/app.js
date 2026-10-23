@@ -70,7 +70,7 @@ function syncInputs(){
   $('projection-count').value=state.projectorCount;
   $('projection-supply').value=state.supplyStatus;
   $('projection-currency').value=state.currency;
-  $('projection-mounting-kit').checked=state.mountingKit;
+  const kitIncluded=(catalogue?.commercial?.mountingKit?.includedIn||[]).includes(state.enclosure);if(kitIncluded)state.mountingKit=true;$('projection-mounting-kit').checked=state.mountingKit;$('projection-mounting-kit').disabled=kitIncluded;
   all('[name=projection-warp]').forEach(n=>n.checked=n.value===state.servicePlan);
   for(const [id,key] of [['coverage','showCoverage'],['shadows','showShadows'],['frusta','showFrusta'],['structure','showStructure']])$('projection-'+id).checked=state[key];
   $('projection-placement-mode').value=state.placementMode;
@@ -129,7 +129,7 @@ function renderCatalogue(){
     const button=document.createElement('button');button.type='button';button.className='led-button '+(state.projectors.every(x=>x.modelId===p.id)?'led-primary':'led-outline');button.textContent=state.projectors.every(x=>x.modelId===p.id)?'Selected for all projectors':'Use for all projectors';button.addEventListener('click',()=>{for(const channel of state.projectors){channel.modelId=p.id;channel.throwRatio=p.throwRatio?.min??null;channel.shiftX=0;channel.shiftY=0;}renderCatalogue();update();toast('Model changed. Your projector positions have been preserved; check coverage or suggest a new starting arrangement.');});card.append(button);return card;
   }));
   $('projection-warp-options').replaceChildren(...catalogue.ledTariff.servicePlans.map(plan=>{const label=document.createElement('label');label.className='projection-warp-option';const input=document.createElement('input');input.type='radio';input.name='projection-warp';input.value=plan.id;input.checked=state.servicePlan===plan.id;input.addEventListener('change',()=>{state.servicePlan=plan.id;update({geometry:false});});const text=document.createElement('span');const strong=document.createElement('strong');strong.textContent=plan.label||plan.name||plan.quoteLabel;const small=document.createElement('small');small.textContent=plan.description||plan.note||'';text.append(strong,small);const price=document.createElement('b');price.textContent=money(convertCurrency(plan.rate.amount,plan.rate.currency,state.currency,catalogue.ledTariff));label.append(input,text,price);return label;}));
-  $('projection-kit-price').textContent=money(convertCurrency(catalogue.commercial.mountingKit.priceEur,'EUR',state.currency,catalogue.ledTariff));
+  $('projection-kit-price').textContent=(catalogue.commercial.mountingKit.includedIn||[]).includes(state.enclosure)?'Included':money(convertCurrency(catalogue.commercial.mountingKit.priceEur,'EUR',state.currency,catalogue.ledTariff));
 }
 function specificationRows(){
   const d=dimensions(state),model=reference.simulatorReferences.find(m=>m.id===state.simulatorType);
@@ -267,7 +267,7 @@ function wire(){
     if(value<min||value>max){input.setCustomValidity('Enter a value within the displayed preview range.');return;}input.setCustomValidity('');state[key]=value;update();
   }));
   $('led-dimension-unit').addEventListener('change',e=>{unit=e.target.value;syncInputs();if(result)onOpticalResult(result);});
-  all('[name=projection-enclosure]').forEach(n=>n.addEventListener('change',()=>{state.enclosure=n.value;update();}));
+  all('[name=projection-enclosure]').forEach(n=>n.addEventListener('change',()=>{state.enclosure=n.value;if((catalogue.commercial.mountingKit.includedIn||[]).includes(state.enclosure))state.mountingKit=true;update();}));
   $('led-showSimulator').addEventListener('change',e=>{state.showSimulator=e.target.checked;if(!state.showSimulator)setPilot(false);update();});
   $('led-simulatorType').addEventListener('change',e=>{state.simulatorType=e.target.value;$('led-cockpit-size').open=false;Object.assign(state,reference.simulatorReferences.find(r=>r.id===e.target.value).exampleDimensions);pilotSeat='primary';update();});
   $('led-reset-cockpit-size').addEventListener('click',()=>{const original=reference.simulatorReferences.find(r=>r.id===state.simulatorType).exampleDimensions;for(const key of ['simulatorWidth','simulatorHeight','simulatorDepth'])state[key]=original[key];$('led-cockpit-reset-status').textContent='Original cockpit dimensions restored.';update();});

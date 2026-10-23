@@ -4,7 +4,7 @@ const screenOf=s=>({radius:s.diameter/2,height:s.viewableHeight,bottom:s.screenB
 const blocked=value=>value===true||value?.blocked===true||value?.assessed===false;
 export function normalisePreferences(input={},defaultModel=''){
  const p=input&&typeof input==='object'?input:{};
- return {budget:finite(p.budget)&&p.budget>0&&p.budget<=10000000?p.budget:null,mode:p.mode==='fixed'?'fixed':'recommend',modelId:typeof p.modelId==='string'&&p.modelId.length<=200?p.modelId:defaultModel,count:['2','3',2,3].includes(p.count)?String(p.count):'auto',band:['500-1000','1000-3000','3000-plus'].includes(p.band)?p.band:'any',mountDrop:finite(p.mountDrop)&&p.mountDrop>=.2&&p.mountDrop<=1.5?p.mountDrop:.35,allowScreenResize:p.allowScreenResize===true};
+ return {budget:finite(p.budget)&&p.budget>0&&p.budget<=10000000?p.budget:null,mode:p.mode==='fixed'?'fixed':'recommend',modelId:typeof p.modelId==='string'&&p.modelId.length<=200?p.modelId:defaultModel,count:['2','3',2,3].includes(p.count)?String(p.count):'auto',band:['500-1000','1000-3000','3000-plus'].includes(p.band)?p.band:'any',mountDrop:finite(p.mountDrop)&&p.mountDrop>=.2&&p.mountDrop<=1.5?p.mountDrop:.35,allowScreenResize:p.allowScreenResize===true,objective:['room','projector','budget'].includes(p.objective)?p.objective:'current'};
 }
 function pilotSees(eye,point,state,obstruction){
  const delta=point.map((v,k)=>v-eye[k]),distance=Math.hypot(...delta),hit=firstScreenIntersection(eye,delta,screenOf(state),{maxDistance:distance+1e-5});
@@ -76,7 +76,20 @@ function placementPenalty(state,list,model,context){
 function fits(state,list,model,context){const result=placementPenalty(state,list,model,context);return !result.hard&&result.penalty===0;}
 export async function findLayout({state,models,catalogue,preferences,contextFor,eyesFor,yieldControl=()=>new Promise(r=>setTimeout(r,0)),onProgress=()=>{}}){
  const prefs={...normalisePreferences(preferences),supply:preferences?.supply},variants=[{...state}];
- if(prefs.allowScreenResize){
+ const roomOptimisation=prefs.objective==='room'||prefs.objective==='budget';
+ if(roomOptimisation){
+  const extra=state.enclosure==='fully-enclosed'?.42:state.enclosure==='semi-enclosed'?.34:0;
+  const maxDiameter=Math.max(2,Math.min(state.room.width-.3,state.room.depth-.3,12));
+  const maxHeight=Math.max(1,Math.min(state.room.height-state.screenBottom-extra-.15,5));
+  const diameters=[state.diameter,state.diameter-.3,state.diameter+.3,state.diameter-.6,state.diameter+.6].map(v=>clamp(v,2,maxDiameter));
+  const heights=[state.viewableHeight,state.viewableHeight-.2,state.viewableHeight+.2].map(v=>clamp(v,1,maxHeight));
+  const cockpitMoves=state.showSimulator?[0,.2,.4,-.2]:[0];
+  for(const diameter of diameters)for(const viewableHeight of heights)for(const move of cockpitMoves){
+   const candidate={...state,diameter,viewableHeight,simulatorZ:clamp((state.simulatorZ||0)+move,-4,4)};
+   if(!variants.some(v=>Math.abs(v.diameter-candidate.diameter)<1e-6&&Math.abs(v.viewableHeight-candidate.viewableHeight)<1e-6&&Math.abs((v.simulatorZ||0)-candidate.simulatorZ)<1e-6))variants.push(candidate);
+  }
+ }
+ if(prefs.allowScreenResize&&prefs.objective!=='projector'){
   const extra=state.enclosure==='fully-enclosed'?.42:state.enclosure==='semi-enclosed'?.34:0;
   const diameter=Math.min(state.diameter,state.room.width-.3,state.room.depth-.3),height=Math.min(state.viewableHeight,state.room.height-state.screenBottom-extra-.15);
   if(diameter>=2&&height>=1)variants.push({...state,diameter,viewableHeight:height});
@@ -92,20 +105,20 @@ export async function findLayout({state,models,catalogue,preferences,contextFor,
   for(const model of models){
    if(model.plannerReady===false||!finite(model.throwRatio?.min)||!finite(model.throwRatio?.max)||!finite(model.opticalOffset?.normalizedCenterOffsetImageHeights)||!model.installation?.orientations?.includes('ceiling-inverted'))continue;
    for(const count of prefs.count==='auto'?[2,3]:[Number(prefs.count)]){
-    const budget=budgetAssessment({model,count,catalogue,budget:prefs.budget,band:prefs.band,servicePlan:state.servicePlan,mountingKit:state.mountingKit,supply:prefs.supply});
+    const budget=budgetAssessment({model,count,catalogue,budget:prefs.objective==='room'?null:prefs.budget,band:prefs.objective==='room'?'any':prefs.band,servicePlan:state.servicePlan,mountingKit:state.mountingKit,supply:prefs.supply});
     if(!budget.permitted){priceExcluded++;continue;}if(budget.withinKnownBudget===false)priceExcluded++;eligible++;
-    const budgetPenalty=budget.withinKnownBudget===false?2:0;
+    const budgetPenalty=budget.withinKnownBudget===false?(prefs.objective==='budget'?4:2):0;
     const zoom=[...new Set([model.throwRatio.min,(model.throwRatio.min+model.throwRatio.max)/2,model.throwRatio.max])];
     for(const height of [state.room.height-prefs.mountDrop,state.room.height-prefs.mountDrop-.25,state.room.height-prefs.mountDrop-.5])for(const scale of [.85,1.05,1.3,1.6])for(const z of [0,.45,.9])for(const ratio of zoom)for(const fan of [1,1.12])for(const v of [.4,.55]){
      examined++;if(examined%80===0){onProgress({examined,stage:'Searching room-fitting layouts'});await yieldControl();}
      const list=channelLayout(candidateState,model,count,height,scale,z,ratio,fan,v);if(!list)continue;const placement=placementPenalty(candidateState,list,model,context);if(placement.hard)continue;geometric++;
-     const metrics=assess(candidateState,list,context,coarse,false),choice={state:candidateState,projectors:list,model,budget,metrics,placement,layoutParams:{height,scale,z,ratio,fan,v},score:metrics.score-count*.002-placement.penalty-budgetPenalty};
+     const metrics=assess(candidateState,list,context,coarse,false),changePenalty=(prefs.objective==='projector'?0:(Math.abs(candidateState.diameter-state.diameter)*.04+Math.abs(candidateState.viewableHeight-state.viewableHeight)*.04+Math.abs((candidateState.simulatorZ||0)-(state.simulatorZ||0))*.08)),choice={state:candidateState,projectors:list,model,budget,metrics,placement,layoutParams:{height,scale,z,ratio,fan,v},score:metrics.score-count*.002-placement.penalty-budgetPenalty-changePenalty};
      const key=model.id+':'+count,listOfChoices=shortlists.get(key)||[];listOfChoices.push(choice);listOfChoices.sort((a,b)=>b.score-a.score);if(listOfChoices.length>5)listOfChoices.length=5;shortlists.set(key,listOfChoices);
     }
    }
   }
   const fine=points(candidateState,40,20,context,eyes);
-  for(const choice of [...shortlists.values()].flat()){choice.metrics=assess(candidateState,choice.projectors,context,fine,true);choice.score=choice.metrics.score-choice.projectors.length*.002-(choice.placement?.penalty||0)-(choice.budget?.withinKnownBudget===false?2:0)+Math.log2(Math.max(1,(choice.model.resolution.width||1)*(choice.model.resolution.height||1))/1e6)*.015+Math.log2(Math.max(1,choice.model.brightness?.lumens||1)/1000)*.005;
+  for(const choice of [...shortlists.values()].flat()){choice.metrics=assess(candidateState,choice.projectors,context,fine,true);const changePenalty=(prefs.objective==='projector'?0:(Math.abs(choice.state.diameter-state.diameter)*.04+Math.abs(choice.state.viewableHeight-state.viewableHeight)*.04+Math.abs((choice.state.simulatorZ||0)-(state.simulatorZ||0))*.08));choice.score=choice.metrics.score-choice.projectors.length*.002-(choice.placement?.penalty||0)-(choice.budget?.withinKnownBudget===false?(prefs.objective==='budget'?4:2):0)-changePenalty+Math.log2(Math.max(1,(choice.model.resolution.width||1)*(choice.model.resolution.height||1))/1e6)*.015+Math.log2(Math.max(1,choice.model.brightness?.lumens||1)/1000)*.005;
    if(!best||choice.score>best.score+1e-8||Math.abs(choice.score-best.score)<1e-8&&(choice.budget.knownSubtotal??Infinity)<(best.budget.knownSubtotal??Infinity))best=choice;
    onProgress({examined,stage:'Checking pilot-visible shadows'});await yieldControl();
   }
@@ -124,7 +137,7 @@ export async function findLayout({state,models,catalogue,preferences,contextFor,
    }
   }
  }
- return {best,examined,geometric,priceExcluded,eligible,requiredThrowRatio,fallbackUsed:Boolean(best?.placement?.penalty),issues:[...new Set([...(failures||[]),...(best?.placement?.reasons||[])])],method:'Matched ceiling-mounted layouts; bounded sampled search; one lens height per layout; imperfect arrangements retained and scored',completeSearch:false};
+ return {best,examined,geometric,priceExcluded,eligible,requiredThrowRatio,fallbackUsed:Boolean(best?.placement?.penalty),objective:prefs.objective,issues:[...new Set([...(failures||[]),...(best?.placement?.reasons||[])])],method:'Matched ceiling-mounted layouts; bounded sampled search; one lens height per layout; optional room/projector/budget objectives; imperfect arrangements retained and scored',completeSearch:false};
 }
 export function evaluatePilotCoverage(state,result,eyes,obstruction){
  const cells=result?.cells||[],stride=Math.max(1,Math.floor(cells.length/800));let visible=0,covered=0,shadow=0;

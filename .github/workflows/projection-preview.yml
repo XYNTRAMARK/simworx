@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
     paths:
+      - 'projection/**'
+      - 'tools/build-projection-guided.py'
       - 'projection-screen-configurator-preview.html'
       - '.projection-deploy/**'
       - '.github/workflows/projection-preview.yml'
@@ -23,6 +25,11 @@ jobs:
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+      - name: Rebuild collaborative standalone preview
+        run: python3 tools/build-projection-guided.py
+      - name: Check projection JavaScript syntax
+        run: |
+          for file in projection/src/*.js; do node --check "$file"; done
       - name: Validate exact reviewed projection preview
         run: python3 .projection-deploy/publish.py validate
       - name: Test one-page scope and backup requirements

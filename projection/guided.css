@@ -13,3 +13,14 @@ html{scroll-behavior:smooth;scroll-padding-top:130px}body{margin:0;color:#242a31
 @media(max-width:780px){.guided-steps{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.guided-steps button{flex-direction:column;font-size:10px;padding:6px 2px}.guided-steps b{flex-basis:auto}.led-workbench>.led-controls,.led-workbench>.led-preview-panel{grid-row:auto;grid-column:1}.guided-room .projection-form-grid{grid-template-columns:1fr}.guided-result-metrics{grid-template-columns:1fr 1fr}.guided-navigation{position:sticky;bottom:0;background:white;padding:10px 0;z-index:10}.guided-table-scroll{max-width:calc(100vw - 100px)}}
 @media print{.guided-steps,.guided-navigation{display:none!important}}
 .guided-steps{scroll-margin-top:calc(var(--sw-header-h) + 155px)}#guided-room-fit:not(:empty){padding:10px;border:1px solid #ddc477;background:#fff9e8;border-radius:4px;color:#6e5300}
+
+/* Collaborative projector-planning additions */
+.guided-required-spec{margin:18px 0;padding:16px;border:1px solid #dbe1e7;border-radius:8px;background:#f8fafb}
+.guided-required-spec h4,.guided-advice-title{margin:0 0 12px;font-size:15px}
+#guided-required-spec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#guided-required-spec>div{padding:10px 12px;background:#fff;border:1px solid #e2e6ea;border-radius:6px}
+#guided-required-spec strong{display:block;font-size:18px;color:#182633}
+#guided-required-spec span{display:block;margin-top:2px;font-size:12px;color:#65717d}
+.guided-advice-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.guided-advice-actions .led-button{flex:1 1 180px}
+@media(max-width:640px){#guided-required-spec{grid-template-columns:1fr}.guided-advice-actions .led-button{flex-basis:100%}}

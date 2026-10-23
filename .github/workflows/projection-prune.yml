@@ -13,35 +13,43 @@ jobs:
   prune:
     runs-on: ubuntu-latest
     steps:
-      - name: Cancel superseded queued projection preview runs
+      - name: Cancel superseded projection preview runs before any write
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
           python3 - <<'PY'
-          import json, os, subprocess, urllib.request
-          repo=os.environ['REPO']
-          token=os.environ['GH_TOKEN']
-          req=urllib.request.Request(
-              f'https://api.github.com/repos/{repo}/actions/workflows/projection-preview.yml/runs?branch=main&per_page=100',
-              headers={'Authorization':f'Bearer {token}','Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}
-          )
-          with urllib.request.urlopen(req) as r:
-              runs=json.load(r)['workflow_runs']
-          candidates=[x for x in runs if x['status'] in ('queued','pending')]
-          if not candidates:
-              print('No queued projection releases to prune.')
-              raise SystemExit
-          newest=max(candidates,key=lambda x:x['run_number'])
-          print('Keeping newest queued run',newest['run_number'],newest['id'])
-          for run in candidates:
-              if run['id']==newest['id']:
-                  continue
-              url=f"https://api.github.com/repos/{repo}/actions/runs/{run['id']}/cancel"
-              request=urllib.request.Request(url,method='POST',headers={'Authorization':f'Bearer {token}','Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'})
+          import json, os, urllib.request, urllib.error
+          repo=os.environ['REPO']; token=os.environ['GH_TOKEN']
+          headers={'Authorization':f'Bearer {token}','Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}
+          def get(url):
+              with urllib.request.urlopen(urllib.request.Request(url,headers=headers)) as r:return json.load(r)
+          def cancel(run):
+              req=urllib.request.Request(f"https://api.github.com/repos/{repo}/actions/runs/{run['id']}/cancel",method='POST',headers=headers)
               try:
-                  with urllib.request.urlopen(request) as response:
-                      print('Cancelled superseded queued run',run['run_number'],run['id'],response.status)
-              except Exception as e:
-                  print('Could not cancel run',run['run_number'],run['id'],e)
+                  with urllib.request.urlopen(req) as response:
+                      print('Cancelled superseded run',run['run_number'],run['id'],response.status)
+              except urllib.error.HTTPError as e:
+                  print('Could not cancel run',run['run_number'],run['id'],e.code)
+          runs=get(f'https://api.github.com/repos/{repo}/actions/workflows/projection-preview.yml/runs?branch=main&per_page=100')['workflow_runs']
+          active=[x for x in runs if x['status'] in ('queued','pending','in_progress')]
+          if not active:
+              print('No active projection releases to prune.'); raise SystemExit
+          newest=max(active,key=lambda x:x['run_number'])
+          print('Keeping newest active run',newest['run_number'],newest['id'])
+          for run in active:
+              if run['id']==newest['id']: continue
+              if run['status'] in ('queued','pending'):
+                  cancel(run); continue
+              jobs=get(f"https://api.github.com/repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100")['jobs']
+              write_started=False
+              for job in jobs:
+                  for step in job.get('steps',[]):
+                      if step.get('name')=='Update only projection preview and verify all protected pages' and step.get('status') in ('in_progress','completed'):
+                          write_started=True
+              if write_started:
+                  print('Leaving superseded in-progress run',run['run_number'],'because its write/verify step has started.')
+              else:
+                  print('Superseded run',run['run_number'],'is still in read-only validation/backup; safe to cancel.')
+                  cancel(run)
           PY

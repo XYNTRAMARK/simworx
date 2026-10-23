@@ -6,7 +6,7 @@ s=p.read_text();pattern=r'(<script type="application/json" id="projection-standa
 m=re.search(pattern,s,re.S);data=json.loads(m[2])
 for path in (root/'projection/src').glob('*.js'):data['modules']['/src/'+path.name]=path.read_text()
 data['catalogue']=json.loads((root/'projection/catalogue.json').read_text())
-data['guidedBuild']='room-budget-auto-layout-v1'
+data['guidedBuild']='collaborative-projection-planner-v2'
 data['provenance']['guidedInputs']=[{'file':str(path.relative_to(root)),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()} for path in sorted((root/'projection').rglob('*')) if path.is_file()]
 encoded=json.dumps(data,ensure_ascii=False,separators=(',',':')).replace('<','\\u003c')
 s=s[:m.start(2)]+encoded+s[m.end(2):]

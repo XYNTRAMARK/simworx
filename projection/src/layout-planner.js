@@ -2,6 +2,10 @@ import {screenPoint,screenPointCoverage,firstScreenIntersection} from 'projectio
 const RAD=Math.PI/180,DEG=180/Math.PI,finite=n=>typeof n==='number'&&Number.isFinite(n),clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const screenOf=s=>({radius:s.diameter/2,height:s.viewableHeight,bottom:s.screenBottom,arcDegrees:s.horizontalFov});
 const blocked=value=>value===true||value?.blocked===true||value?.assessed===false;
+function roomBounds(state){
+ const room=state.room||{},left=finite(room.screenFromLeft)?room.screenFromLeft:room.width/2,front=finite(room.screenFromFront)?room.screenFromFront:room.depth/2;
+ return {minX:-left,maxX:room.width-left,minZ:-front,maxZ:room.depth-front};
+}
 export function normalisePreferences(input={},defaultModel=''){
  const p=input&&typeof input==='object'?input:{};
  return {budget:finite(p.budget)&&p.budget>0&&p.budget<=10000000?p.budget:null,totalBudget:finite(p.totalBudget)&&p.totalBudget>0&&p.totalBudget<=10000000?p.totalBudget:null,mode:p.mode==='fixed'?'fixed':'recommend',modelId:typeof p.modelId==='string'&&p.modelId.length<=200?p.modelId:defaultModel,count:['2','3',2,3].includes(p.count)?String(p.count):'auto',band:['500-1000','1000-3000','3000-plus'].includes(p.band)?p.band:'any',mountDrop:finite(p.mountDrop)&&p.mountDrop>=.2&&p.mountDrop<=1.5?p.mountDrop:.35,allowScreenResize:p.allowScreenResize===true,objective:['room','projector','budget'].includes(p.objective)?p.objective:'current'};
@@ -13,11 +17,14 @@ function pilotSees(eye,point,state,obstruction){
 export function roomIssues(state){
  const room=state.room,issues=[];
  if(!room||!['width','depth','height'].every(k=>finite(room[k])&&room[k]>=1&&room[k]<=50))return ['Enter valid internal room dimensions.'];
- const screen=screenOf(state),extra=state.enclosure==='fully-enclosed'?.42:state.enclosure==='semi-enclosed'?.34:0;
- for(let i=0;i<=64;i++){const p=screenPoint(screen,i/64,1);if(Math.abs(p[0])>room.width/2-.06||Math.abs(p[2])>room.depth/2-.06){issues.push('The screen extends outside the room. Reduce its diameter or use a larger room.');break;}}
+ if(!finite(room.screenFromLeft))room.screenFromLeft=room.width/2;
+ if(!finite(room.screenFromFront))room.screenFromFront=room.depth/2;
+ if(room.screenFromLeft<0||room.screenFromLeft>room.width||room.screenFromFront<0||room.screenFromFront>room.depth)return ['Place the screen centre inside the room using the wall-distance fields.'];
+ const bounds=roomBounds(state),screen=screenOf(state),extra=state.enclosure==='fully-enclosed'?.42:state.enclosure==='semi-enclosed'?.34:0;
+ for(let i=0;i<=64;i++){const p=screenPoint(screen,i/64,1);if(p[0]<bounds.minX+.06||p[0]>bounds.maxX-.06||p[2]<bounds.minZ+.06||p[2]>bounds.maxZ-.06){issues.push('Part of the screen lies outside the measured room. Move the screen position in the room, reduce its size, or revise the room dimensions.');break;}}
  if(state.screenBottom+state.viewableHeight+extra>room.height-.05)issues.push('The screen or enclosure is taller than the clear room height. Lower its top edge or reduce its height.');
  if(state.showSimulator){const r=state.simulatorYaw*RAD,w=Math.abs(Math.cos(r))*state.simulatorWidth+Math.abs(Math.sin(r))*state.simulatorDepth,d=Math.abs(Math.sin(r))*state.simulatorWidth+Math.abs(Math.cos(r))*state.simulatorDepth;
- if(Math.abs(state.simulatorX)+w/2>room.width/2-.05||Math.abs(state.simulatorZ)+d/2>room.depth/2-.05||state.simulatorY+state.simulatorHeight>room.height-.05)issues.push('The cockpit extends outside the room. Review its position or room dimensions.');}
+ if(state.simulatorX-w/2<bounds.minX+.05||state.simulatorX+w/2>bounds.maxX-.05||state.simulatorZ-d/2<bounds.minZ+.05||state.simulatorZ+d/2>bounds.maxZ-.05||state.simulatorY+state.simulatorHeight>room.height-.05)issues.push('The cockpit extends outside the measured room. Review its position or the screen position inside the room.');}
  return issues;
 }
 function screenSellingPrice(state,catalogue){
@@ -75,7 +82,8 @@ function channelLayout(state,model,count,height,scale,zShift,throwRatio,fan,vert
 }
 function placementPenalty(state,list,model,context){
  const b=model.body||{},margin=Math.max(.12,Math.hypot(b.widthMm||300,b.heightMm||150,b.depthMm||300)/2000),wall=margin+(model.installation?.wallClearanceMm||0)/1000,box=context.cockpitBounds;
- if(list.some(p=>Math.abs(p.position[0])+wall>=state.room.width/2||Math.abs(p.position[2])+wall>=state.room.depth/2||p.position[1]+margin>=state.room.height||p.position[1]-margin<=0))return {hard:true,penalty:99,reasons:['Projector body would lie outside the room boundary.']};
+ const bounds=roomBounds(state);
+ if(list.some(p=>p.position[0]-wall<=bounds.minX||p.position[0]+wall>=bounds.maxX||p.position[2]-wall<=bounds.minZ||p.position[2]+wall>=bounds.maxZ||p.position[1]+margin>=state.room.height||p.position[1]-margin<=0))return {hard:true,penalty:99,reasons:['Projector body would lie outside the measured room boundary.']};
  // Projector lens centres belong inside the plan footprint of the curved screen.
  // The room is a secondary boundary, not an invitation to push projectors beyond the screen.
  const footprintRadius=Math.max(.25,state.diameter/2-.08);

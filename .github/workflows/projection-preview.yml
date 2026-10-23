@@ -30,6 +30,8 @@ jobs:
       - name: Check projection JavaScript syntax
         run: |
           for file in projection/src/*.js; do node --check "$file"; done
+      - name: Run projection planner tests
+        run: node tests/projection/layout-planner.mjs
       - name: Validate exact reviewed projection preview
         run: python3 .projection-deploy/publish.py validate
       - name: Test one-page scope and backup requirements

@@ -357,10 +357,10 @@ export function createProjectionLayer({ viewer, getState, getProfile, onMove = (
       const y = (result.rows - cell.row - 1) * tile;
       const planned = cell.projectors.filter(p => p.inFootprint);
       let colour = planned.length > 1 ? '#2cbac0' : planned.length ? PALETTE[planned[0].index % PALETTE.length] : '#a6afb9';
-      if (state.showShadows !== false && classification === 'shadow') colour = '#db423d';
-      if (state.showShadows !== false && classification === 'partial-shadow') colour = '#e5a433';
+      if (state.showShadows !== false && classification === 'shadow') colour = '#000000';
+      if (state.showShadows !== false && classification === 'partial-shadow') colour = '#4b4f54';
       if (classification === 'unassessed') colour = '#a6afb9';
-      mapContext.globalAlpha = shadows && state.showShadows !== false ? 0.95 : 0.62;
+      mapContext.globalAlpha = state.showShadows !== false && classification === 'shadow' ? 1 : shadows && state.showShadows !== false ? 0.88 : 0.62;
       mapContext.fillStyle = colour; mapContext.fillRect(x, y, tile, tile);
       if (shadows && state.showShadows !== false || !planned.length) {
         mapContext.strokeStyle = shadows ? '#553c3c' : '#66707c';
@@ -412,7 +412,7 @@ export function createProjectionLayer({ viewer, getState, getProfile, onMove = (
     if (!dragging && !applyingHistory && stateKey(nowFrame) !== stateKey(lastPositions)) remember(lastPositions);
     lastPositions = nowFrame;
     syncing = true;
-    const activeProjectors = state.layoutReady === true && state.guidedStep >= 4 ? state.projectors : [];
+    const activeProjectors = state.layoutReady === true && state.guidedStep >= 3 ? state.projectors : [];
     const ids = new Set(activeProjectors.map(p => p.id));
     for (const [id, object] of objects) if (!ids.has(id)) {
       if (transform.object === object) transform.detach();
@@ -451,9 +451,9 @@ export function createProjectionLayer({ viewer, getState, getProfile, onMove = (
     result.fullEngineeringVerified = false;
     lastResult = result;
     drawCoverage(result, state);
-    if(overlay)overlay.visible = state.layoutReady === true && state.guidedStep >= 4 && (state.showCoverage === true || state.showShadows === true);
-    frustumGroup.visible = state.layoutReady === true && state.guidedStep >= 4 && state.showFrusta === true;
-    projectorGroup.visible = state.layoutReady === true && state.guidedStep >= 4;
+    if(overlay)overlay.visible = state.layoutReady === true && state.guidedStep >= 3 && (state.showCoverage === true || state.showShadows === true);
+    frustumGroup.visible = state.layoutReady === true && state.guidedStep >= 3 && state.showFrusta === true;
+    projectorGroup.visible = state.layoutReady === true && state.guidedStep >= 3;
     drawFrusta(records, state, result);
     select(state.selectedProjector, false);
     current.invalidate();

@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id),finite=n=>typeof n==='number'&&Number.is
 const esc=n=>String(n??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function createGuidedPlanner({getState,getCatalogue,getProfiles,getLayer,getViewer,eyesFor,update,formatLength,getUnit}){
  let busy=false,liveMetrics=null;
- const names=['Room & budget','Screen','Cockpit','Find projectors','Review'];
+ const names=['Room & budget','Screen & cockpit','Projectors','Review'];
  const prefs=()=>getState().layoutPreferences;
  function fingerprint(){const s=getState();return JSON.stringify([s.room,s.diameter,s.viewableHeight,s.screenBottom,s.horizontalFov,s.enclosure,s.material,s.showSimulator,s.simulatorType,s.simulatorWidth,s.simulatorHeight,s.simulatorDepth,s.simulatorX,s.simulatorY,s.simulatorZ,s.simulatorYaw,s.pilotEyes,s.layoutPreferences,s.servicePlan,s.mountingKit,s.supplyStatus,s.projectors]);}
  function baseFingerprint(){const s=getState();return JSON.stringify([s.room,s.diameter,s.viewableHeight,s.screenBottom,s.horizontalFov,s.enclosure,s.material,s.showSimulator,s.simulatorType,s.simulatorWidth,s.simulatorHeight,s.simulatorDepth,s.simulatorX,s.simulatorY,s.simulatorZ,s.simulatorYaw,s.pilotEyes,s.layoutPreferences,s.servicePlan,s.mountingKit,s.supplyStatus]);}
@@ -13,22 +13,22 @@ export function createGuidedPlanner({getState,getCatalogue,getProfiles,getLayer,
  function go(n){
   const s=getState();if(busy)return;
   if(n>1&&!Array.from(document.querySelectorAll('[data-room]')).every(e=>e.reportValidity()))return;
-  if(n===5&&(!s.layoutReady||s.layoutDirty)){n=4;$('guided-progress').textContent='Calculate a current projector layout before reviewing the proposal.';}
-  s.guidedStep=Math.max(1,Math.min(5,n));
-  if(n===3&&!s.showSimulator){s.showSimulator=true;if(!s.cockpitPositioned){centre();s.cockpitPositioned=true;}}
+  if(n===4&&(!s.layoutReady||s.layoutDirty)){n=3;$('guided-progress').textContent='Optimise a current projector layout before reviewing the proposal.';}
+  s.guidedStep=Math.max(1,Math.min(4,n));
+  if(n===2&&!s.showSimulator){s.showSimulator=true;if(!s.cockpitPositioned){centre();s.cockpitPositioned=true;}}
   s.manualPlacement=false;$('guided-manual').open=false;render();update({price:false});requestAnimationFrame(()=>$('guided-steps').scrollIntoView({block:'start',behavior:'instant'}));
  }
  function render(){
   const s=getState(),p=prefs(),step=s.guidedStep;
   document.querySelectorAll('[data-guided-step]').forEach(e=>e.hidden=Number(e.dataset.guidedStep)!==step);
-  $('led-controls').hidden=step===5;
+  $('led-controls').hidden=step===4;
   document.querySelectorAll('[data-guided-go]').forEach(e=>{if(Number(e.dataset.guidedGo)===step)e.setAttribute('aria-current','step');else e.removeAttribute('aria-current');});
-  $('guided-step-status').textContent='Step '+step+' of 5 · '+names[step-1];
-  $('guided-back').disabled=step===1||busy;$('guided-next').hidden=step===5;$('guided-next').disabled=busy||step===4&&(!s.layoutReady||s.layoutDirty);$('guided-next').textContent=step<5?'Continue to '+names[step].toLowerCase():'';
-  document.querySelector('.led-viewer-simulator').hidden=step<3;document.querySelector('.led-view-options').hidden=step<3;
-  for(const id of ['projection-coverage','projection-shadows','projection-frusta'])$(id).disabled=busy||!s.layoutReady||step<4;
-  document.querySelectorAll('.projection-metrics,.projection-legend,.projection-analysis,.projection-overlay-controls').forEach(e=>{if(e.closest('#led-preview'))e.hidden=!(s.layoutReady&&step>=4);});
-  $('projection-calculation-status').hidden=!(s.layoutReady&&step>=4);
+  $('guided-step-status').textContent='Step '+step+' of 4 · '+names[step-1];
+  $('guided-back').disabled=step===1||busy;$('guided-next').hidden=step===4;$('guided-next').disabled=busy||step===3&&(!s.layoutReady||s.layoutDirty);$('guided-next').textContent=step<4?'Continue to '+names[step].toLowerCase():'';
+  document.querySelector('.led-viewer-simulator').hidden=step<2;document.querySelector('.led-view-options').hidden=step<2;
+  for(const id of ['projection-coverage','projection-shadows','projection-frusta'])$(id).disabled=busy||!s.layoutReady||step<3;
+  document.querySelectorAll('.projection-metrics,.projection-legend,.projection-analysis,.projection-overlay-controls').forEach(e=>{if(e.closest('#led-preview'))e.hidden=!(s.layoutReady&&step>=3);});
+  $('projection-calculation-status').hidden=!(s.layoutReady&&step>=3);
   const fitIssues=roomIssues(s);$('guided-room-fit').textContent=fitIssues.join(' ');
   $('guided-model-field').hidden=p.mode!=='fixed';
   const select=$('guided-model'),models=getProfiles();if(select.options.length!==models.length)select.replaceChildren(...models.map(m=>new Option(m.displayName||m.model,m.id)));
@@ -36,29 +36,43 @@ export function createGuidedPlanner({getState,getCatalogue,getProfiles,getLayer,
   for(const [id,key] of [['guided-budget','budget'],['guided-mode','mode'],['guided-count','count'],['guided-band','band'],['guided-mount-drop','mountDrop']])if(document.activeElement!==$(id))$(id).value=p[key]??'';
   $('guided-resize').checked=p.allowScreenResize===true;
   const status=$('guided-viewer-status');status.dataset.dirty=String(s.layoutDirty===true);
-  status.textContent=!busy&&step<4&&fitIssues.length?fitIssues[0]:busy?'Searching matched layouts and checking cockpit shadows…':step<4?'Screen & cockpit setup · projectors are hidden.':!s.layoutReady?'Calculate a layout to show the projectors.':s.layoutDirty?'Layout needs recalculation after your changes.':'Matched layout · '+s.projectors.length+' projectors on one lens height. Open Advanced only if you need individual adjustments.';
+  status.textContent=!busy&&step<3&&fitIssues.length?fitIssues[0]:busy?'Searching layouts and checking cockpit shadows…':step<3?'Screen & cockpit setup · projectors are hidden.':!s.layoutReady?'Optimise a layout to show the projectors.':s.layoutDirty?'Layout needs recalculation after your changes.':'Best achievable layout · '+s.projectors.length+' projectors on one lens height. Open Advanced only if you need individual adjustments.';
   $('guided-manual').inert=busy;
   $('guided-calculate').disabled=busy||!getLayer();
   if(s.layoutSummary)renderResult();else $('guided-result').hidden=true;
  }
  function renderResult(){
   const s=getState(),summary=s.layoutSummary;if(!summary)return;
-  const best=summary.found,metrics=liveMetrics||summary.metrics||{};let level='red',title='No suitable layout found';
-  if(best){const good=metrics.pilotCoverage>=.98&&metrics.coverage>=.95&&metrics.boundaryGaps===0&&summary.metrics.overlapEveryRow&&s.showSimulator;level=good?'green':(metrics.pilotCoverage??0)<.9?'red':'amber';title=good?'Good geometric fit':level==='red'?'Significant gaps or shadows':'Coverage compromises remain';if(!metrics.visibleSamples){level='red';title='Pilot visibility needs review';}}
+  const best=summary.found,metrics=liveMetrics||summary.metrics||{};let level='red',title='Best achievable layout needs changes';
+  if(best){const good=metrics.pilotCoverage>=.98&&metrics.coverage>=.95&&metrics.boundaryGaps===0&&summary.metrics.overlapEveryRow&&s.showSimulator;level=good?'green':(metrics.pilotCoverage??0)<.9?'red':'amber';title=good?'Strong result':level==='red'?'Best achievable layout · significant compromises':'Best achievable layout · manageable compromises';if(!metrics.visibleSamples){level='red';title='Pilot visibility needs review';}}
   if(s.manualLayout){level='amber';title='Manual layout · review coverage';}
   if(s.layoutDirty){level='amber';title='Recalculate after your changes';}
   $('guided-result').hidden=false;$('guided-light').dataset.level=level;$('guided-result-title').textContent=title;
-  $('guided-result-summary').textContent=best?summary.count+' × '+summary.modelName+' · '+summary.examined.toLocaleString()+' layouts examined. '+(s.layoutDirty?'Previous positions are shown for reference.':'Best tested matched arrangement. Green describes sampled geometry, not optical or installation approval.'):(summary.issues?.[0]||'No tested matched layout met the room and lens restrictions.');
+  $('guided-result-summary').textContent=best?summary.count+' × '+summary.modelName+' · '+summary.examined.toLocaleString()+' arrangements examined. '+(s.layoutDirty?'Previous positions are shown for reference.':'This is the best arrangement found for the current room, screen, cockpit and projector class. Imperfections stay visible so you can decide which compromise to accept.'):(summary.issues?.[0]||'The physical room or screen inputs must be corrected before projector positions can be calculated.');
   if(s.manualLayout)$('guided-result-summary').textContent='Individually adjusted projector positions. The coverage below is recalculated from your current arrangement.';
   const budget=summary.budget;
-  $('guided-budget-result').textContent=best?(budget?.projectorCost===null?'Budget not verified: projector and complete-system selling prices need confirmation.':(finite(prefs().budget)?'Equipment budget €'+prefs().budget.toLocaleString()+'. ':'')+'Projector subtotal €'+budget.projectorCost.toLocaleString()+'. Complete-system budget still needs screen and mounting prices.'):'Budget and room constraints are checked before a layout is proposed.';
+  $('guided-budget-result').textContent=best?(budget?.projectorCost===null?(finite(prefs().budget)?'Projector budget €'+prefs().budget.toLocaleString()+'. This layout uses an indicative projector class because selling prices are not yet approved.':'Projector selling prices are not yet approved; this result is geometric rather than a confirmed price match.'):(finite(prefs().budget)?'Projector budget €'+prefs().budget.toLocaleString()+'. ':'')+'Projector subtotal €'+budget.projectorCost.toLocaleString()+'. Screen, mounting and warping are separate.'):'Room constraints must be valid before a projector arrangement can be shown.';
   if(s.manualLayout)$('guided-budget-result').textContent='Budget not verified after manual projector changes. Review the current models and supply costs.';
   $('guided-result-metrics').replaceChildren();
   for(const [label,value] of [['Pilot-visible image reached',pct(metrics.pilotCoverage)],['Pilot-visible image in full shadow',pct(metrics.shadowFraction)],['Whole screen reached',pct(metrics.coverage)],['Lens height',best?(new Set(s.projectors.map(p=>p.position[1])).size===1?formatLength(s.projectors[0].position[1],getUnit()):'Mixed heights'):'—']]){const box=document.createElement('div'),strong=document.createElement('strong'),caption=document.createElement('span');strong.textContent=value;caption.textContent=label;box.append(strong,caption);$('guided-result-metrics').append(box);}
   $('guided-screen-change').textContent=summary.screenChange||'Your screen dimensions and cockpit position are retained.';
+  const model=best?getProfiles().find(m=>m.id===s.projectors[0]?.modelId):null;
+  const throws=best?s.projectors.map(p=>p.throwRatio).filter(finite):[];
+  const currentThrow=throws.length?Math.min(...throws):null;
+  const targetThrow=finite(summary.requiredThrowRatio)?summary.requiredThrowRatio:(finite(currentThrow)&&((metrics.shadowFraction??0)>.005)?Math.max(.2,currentThrow*.85):currentThrow);
+  const brightness=model?.brightness?.lumens;
+  const spec=[];
+  if(best)spec.push('<div><strong>'+summary.count+'</strong><span>matched projectors</span></div>');
+  if(finite(targetThrow))spec.push('<div><strong>'+targetThrow.toFixed(2)+(finite(currentThrow)&&targetThrow<currentThrow-.01?' or lower':'')+'</strong><span>indicative target throw ratio</span></div>');
+  if(finite(brightness))spec.push('<div><strong>'+Math.round(brightness).toLocaleString()+' lm</strong><span>example class brightness</span></div>');
+  if(best)spec.push('<div><strong>'+formatLength(s.projectors[0].position[1],getUnit())+'</strong><span>calculated lens height</span></div>');
+  $('guided-required-spec').innerHTML=spec.join('')||'<p class="led-help">Correct the room or screen inputs to calculate the projector specification.</p>';
   const remedies=[];
   if(!best){remedies.push(...(summary.issues||[]));if(summary.priceExcluded)remedies.push('The known projector costs exceed your budget or selected price band. Increase that allowance or choose another model.');if(!summary.eligible)remedies.push('Select a projector with documented ceiling orientation, throw range, image aspect and optical offset.');if(!summary.issues?.length&&!summary.priceExcluded)remedies.push('No tested ceiling layout clears the room and cockpit with the current lens. Review the ceiling height, cockpit position or projector choice, then calculate again.');}
-  else if((metrics.pilotCoverage??0)<.98||!summary.metrics.overlapEveryRow)remedies.push('Image gaps or blending compromises remain. Try a different projector model, enable screen-size optimisation, or adjust the cockpit position and compare the recalculated result.');
+  else if((metrics.pilotCoverage??0)<.98||!summary.metrics.overlapEveryRow)remedies.push('The current result contains visible gaps, shadow or blend compromises. Try the calculated changes below and keep the version you prefer.');
+  if(best&&(metrics.shadowFraction??0)>.005)remedies.push('Move the cockpit farther from the screen or test a shorter-throw projector. A shorter throw lets the projector bank sit closer to the screen and can reduce cockpit shadow.');
+  if(best&&(metrics.coverage??0)<.98)remedies.push('Coverage is incomplete. A larger screen can sometimes improve projector clearance; a different throw range may also improve coverage without moving the cockpit.');
+  if(best&&finite(summary.requiredThrowRatio)&&finite(currentThrow)&&summary.requiredThrowRatio<currentThrow-.01)remedies.push('To target near-zero pilot-visible shadow, test a projector with a throw ratio around '+summary.requiredThrowRatio.toFixed(2)+' or shorter. Use Add your own projector to test a model you find online.');
   if(best&&metrics.visibleSamples===0)remedies.push('No sampled screen was visible from the configured eyepoints. Review the pilot eye positions before using coverage figures.');
   if(best&&prefs().band!=='any'&&budget.unitPrice===null)remedies.push('The per-projector price band cannot be confirmed because this model has no selling price.');
   if(best&&summary.provisional)remedies.push('This projector profile is provisional; its documented offset, focus and chassis mounting datums need confirmation.');
@@ -72,16 +86,16 @@ export function createGuidedPlanner({getState,getCatalogue,getProfiles,getLayer,
   const s=getState(),p=prefs();if(!$('guided-mount-drop').reportValidity())return;
   busy=true;s.manualLayout=false;liveMetrics=null;const initial={diameter:s.diameter,viewableHeight:s.viewableHeight};
   const controls=Array.from(document.querySelectorAll('#projection-app input,#projection-app select,#projection-app button')).map(e=>[e,e.disabled]);controls.forEach(([e])=>e.disabled=true);
-  const cover=document.createElement('div');cover.className='projection-planning-busy';cover.textContent='Finding the best tested layout…';$('led-canvas').append(cover);render();
+  const cover=document.createElement('div');cover.className='projection-planning-busy';cover.textContent='Finding the best achievable layout…';$('led-canvas').append(cover);render();
   try{
    const models=p.mode==='fixed'?getProfiles().filter(m=>m.id===p.modelId):getProfiles();
    const answer=await findLayout({state:{...s},models,catalogue:getCatalogue(),preferences:{...p,supply:s.supplyStatus},contextFor:state=>getLayer().planningContext(state),eyesFor,onProgress:info=>{$('guided-progress').textContent=info.stage+' · '+info.examined.toLocaleString()+' arrangements tested';}});
    const best=answer.best;
    if(best){s.diameter=best.state.diameter;s.viewableHeight=best.state.viewableHeight;s.projectors=best.projectors;s.projectorCount=best.projectors.length;s.selectedProjector='P1';s.projectors.forEach(c=>c.supplyStatus=s.supplyStatus==='customer'?'customer':'simworx');s.layoutReady=true;s.layoutDirty=false;s.manualLayout=false;
     const changedSize=initial.diameter!==s.diameter||initial.viewableHeight!==s.viewableHeight;
-    s.layoutSummary={found:true,modelName:best.model.displayName||best.model.model,count:s.projectors.length,metrics:best.metrics,budget:best.budget,examined:answer.examined,eligible:answer.eligible,provisional:best.model.fullVerificationAllowed!==true,screenChange:changedSize?'Screen adjusted from '+formatLength(initial.diameter,getUnit())+' diameter × '+formatLength(initial.viewableHeight,getUnit())+' high to '+formatLength(s.diameter,getUnit())+' × '+formatLength(s.viewableHeight,getUnit())+'. Cockpit position retained.':'',issues:[],priceExcluded:answer.priceExcluded};
+    s.layoutSummary={found:true,modelName:best.model.displayName||best.model.model,count:s.projectors.length,metrics:best.metrics,budget:best.budget,examined:answer.examined,eligible:answer.eligible,provisional:best.model.fullVerificationAllowed!==true,requiredThrowRatio:answer.requiredThrowRatio??null,fallbackUsed:answer.fallbackUsed===true,screenChange:changedSize?'Screen adjusted from '+formatLength(initial.diameter,getUnit())+' diameter × '+formatLength(initial.viewableHeight,getUnit())+' high to '+formatLength(s.diameter,getUnit())+' × '+formatLength(s.viewableHeight,getUnit())+'. Cockpit position retained.':'',issues:answer.issues||[],priceExcluded:answer.priceExcluded};
    }else{s.layoutReady=false;s.layoutDirty=false;s.layoutSummary={found:false,examined:answer.examined,eligible:answer.eligible,issues:answer.issues,priceExcluded:answer.priceExcluded};}
-   $('guided-progress').textContent=answer.examined.toLocaleString()+' arrangements tested. '+(best?'Review the proposed layout and mounting positions below.':'Change the highlighted restrictions and calculate again.');
+   $('guided-progress').textContent=answer.examined.toLocaleString()+' arrangements tested. '+(best?'The best achievable arrangement is shown. Adjust the cockpit, screen or projector and compare the result.':'Correct the physical room/screen inputs and calculate again.');
   }catch(error){s.layoutReady=false;s.layoutDirty=false;s.layoutSummary={found:false,issues:['The layout search could not complete: '+error.message],eligible:1};$('guided-progress').textContent='Review your inputs and try again.';}
   finally{cover.remove();controls.forEach(([e,disabled])=>e.disabled=disabled);busy=false;s.layoutFingerprint=fingerprint();s.layoutBaseFingerprint=baseFingerprint();render();update({fine:true});}
  }
@@ -93,5 +107,8 @@ export function createGuidedPlanner({getState,getCatalogue,getProfiles,getLayer,
  for(const id of ['guided-budget','guided-mode','guided-model','guided-count','guided-band','guided-mount-drop','guided-resize'])$(id).addEventListener('change',preferencesChanged);
  $('guided-optimise-screen').addEventListener('click',()=>{prefs().allowScreenResize=true;$('guided-resize').checked=true;calculate();});
  $('guided-manual').addEventListener('toggle',()=>{getState().manualPlacement=$('guided-manual').open;getLayer()?.select(getState().selectedProjector,false);});
- return {restore(){const s=getState();s.layoutPreferences=normalisePreferences(s.layoutPreferences,s.projectors[0]?.modelId);s.layoutSummary=null;s.layoutDirty=true;s.manualPlacement=false;s.guidedStep=4;render();},start(){const s=getState();s.guidedStep=1;s.room.enabled=true;s.layoutReady=false;s.manualPlacement=false;s.layoutPreferences=normalisePreferences(s.layoutPreferences,s.projectors[0]?.modelId);render();},render,changed,onResult,calculate,go,isBusy:()=>busy,printMounting};
+ $('guided-test-cockpit-back').addEventListener('click',()=>{const s=getState();s.simulatorZ=Math.min(4,(s.simulatorZ||0)+.25);s.layoutDirty=true;update();calculate();});
+ $('guided-test-screen-larger').addEventListener('click',()=>{const s=getState();s.diameter=Math.min(12,(s.diameter||4.5)+.3);s.layoutDirty=true;update();calculate();});
+ $('guided-pilot-view').addEventListener('click',()=>{const box=$('led-pilot-view');if(box&&!box.checked){box.click();}document.getElementById('led-preview')?.scrollIntoView({block:'start',behavior:'smooth'});});
+ return {restore(){const s=getState();s.layoutPreferences=normalisePreferences(s.layoutPreferences,s.projectors[0]?.modelId);s.layoutSummary=null;s.layoutDirty=true;s.manualPlacement=false;s.guidedStep=3;render();},start(){const s=getState();s.guidedStep=1;s.room.enabled=true;s.layoutReady=false;s.manualPlacement=false;s.layoutPreferences=normalisePreferences(s.layoutPreferences,s.projectors[0]?.modelId);render();},render,changed,onResult,calculate,go,isBusy:()=>busy,printMounting};
 }

@@ -32,3 +32,16 @@ html{scroll-behavior:smooth;scroll-padding-top:130px}body{margin:0;color:#242a31
   #led-eye-canvas-slot{min-height:230px}
   .led-eye-dialog #led-canvas{height:230px!important;min-height:230px!important}
 }
+
+/* Optional higher-level optimisation modes. Existing optimiser remains primary. */
+.guided-smart-modes{margin:18px 0;padding:16px;border:1px solid #dce2e7;border-radius:7px;background:#f8fafb}
+.guided-smart-head h3{margin:4px 0 6px;font-size:17px}
+.guided-smart-head p{margin:0 0 14px;color:#62707c;font-size:12px;line-height:1.55}
+.guided-smart-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.guided-smart-card{display:flex;flex-direction:column;gap:6px;text-align:left;min-height:112px;padding:14px;border:1px solid #cfd8df;border-radius:6px;background:#fff;color:#263744}
+.guided-smart-card:hover{border-color:#b28a16;background:#fffdf5}
+.guided-smart-card[aria-pressed=true]{border:2px solid #b28a16;padding:13px;background:#fff8df}
+.guided-smart-card strong{font-size:13px;line-height:1.35}
+.guided-smart-card span{font-size:11px;line-height:1.55;color:#687681}
+#guided-objective-note{margin:11px 0 0}
+@media(max-width:780px){.guided-smart-grid{grid-template-columns:1fr}.guided-smart-card{min-height:0}.guided-steps{grid-template-columns:repeat(4,minmax(0,1fr))}}

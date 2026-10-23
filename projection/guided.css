@@ -59,3 +59,13 @@ html{scroll-behavior:smooth;scroll-padding-top:130px}body{margin:0;color:#242a31
 .guided-viewer-status{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .guided-viewer-status .guided-recalculate{flex:0 0 auto;padding:7px 14px;min-height:34px;font-size:11px}
 @media(max-width:640px){.guided-viewer-status{align-items:stretch;flex-direction:column}.guided-viewer-status .guided-recalculate{width:100%}}
+
+/* Screen placement inside the room + direct manual projector tuning */
+.guided-room-subhead{margin:20px 0 8px;font-size:14px}
+.guided-screen-room-position{grid-template-columns:1fr 1fr!important}
+.projection-manual-toggle{font-weight:700;color:#293b4b}
+.projection-manual-viewer-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:8px 0 12px;padding:10px;border:1px solid #d8e0e6;border-radius:5px;background:#f8fafb}
+.projection-manual-viewer-tools>span{font-size:11px;margin-right:auto}
+.projection-manual-viewer-tools .led-button{padding:7px 10px;min-height:34px;font-size:10px}
+.projection-manual-viewer-tools small{flex:1 0 100%;color:#687682;font-size:10px;line-height:1.5}
+@media(max-width:640px){.guided-screen-room-position{grid-template-columns:1fr!important}.projection-manual-viewer-tools .led-button{flex:1 1 45%}.projection-manual-viewer-tools>span{flex-basis:100%}}

@@ -218,7 +218,9 @@ export function createProjectionLayer({ viewer, getState, getProfile, onMove = (
       roomGroup.visible = false;
       return;
     }
-    const key = JSON.stringify(dimensions);
+    const screenFromLeft=finite(room.screenFromLeft)?room.screenFromLeft:dimensions[0]/2;
+    const screenFromFront=finite(room.screenFromFront)?room.screenFromFront:dimensions[2]/2;
+    const key = JSON.stringify([...dimensions,screenFromLeft,screenFromFront]);
     if (key === roomKey) return;
     roomKey = key;
     disposeGroup(roomGroup);
@@ -226,7 +228,7 @@ export function createProjectionLayer({ viewer, getState, getProfile, onMove = (
     const edges = new THREE.EdgesGeometry(box);
     box.dispose();
     const outline = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x7d94ac, transparent: true, opacity: 0.65, depthWrite: false }));
-    outline.position.y = dimensions[1] / 2;
+    outline.position.set(dimensions[0]/2-screenFromLeft,dimensions[1]/2,dimensions[2]/2-screenFromFront);
     outline.name = 'room-boundary-guide-not-surveyed-wall-geometry';
     roomGroup.add(outline);
     // Room dimensions are a fit guide. Only the supplied physical meshes, not
@@ -618,7 +620,12 @@ export function createProjectionLayer({ viewer, getState, getProfile, onMove = (
   }
   return {
     update, select, planningContext, testObstruction:obstruction,
-    setTransformMode: mode => { transform.setMode(mode === 'rotate' ? 'rotate' : 'translate'); transform.setSpace(mode === 'rotate' ? 'local' : 'world'); invalidate(); },
+    setTransformMode: mode => { transform.setMode(mode === 'rotate' ? 'rotate' : 'translate'); transform.setSpace(mode === 'rotate' ? 'local' : 'world'); transform.showX=true;transform.showY=true;transform.showZ=true;invalidate(); },
+    setManualConstraint: mode => {
+      if(mode==='tilt'){transform.setMode('rotate');transform.setSpace('local');transform.showX=true;transform.showY=false;transform.showZ=false;}
+      else{transform.setMode('translate');transform.setSpace('world');transform.showX=true;transform.showY=false;transform.showZ=true;}
+      invalidate();
+    },
     suggestPositions, undo,
     captureMap: () => canvas.toDataURL('image/png'),
     getResult: () => lastResult,

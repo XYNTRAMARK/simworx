@@ -130,29 +130,24 @@ internal sealed class LowerDisplayRenderer : IDisposable
 
     private static void DrawText(Graphics g, ElementLayout element)
     {
-        var fontStyle = element.FontWeight?.Equals("bold", StringComparison.OrdinalIgnoreCase) == true
-            ? FontStyle.Bold
-            : FontStyle.Regular;
-        var fontSize = element.FontSize > 0f ? element.FontSize : Math.Max(10f, element.H * 0.62f);
-
-        using var font = new Font("Segoe UI", fontSize, fontStyle, GraphicsUnit.Pixel);
-        var color = ParseColor(element.Color, Color.White, element.Opacity);
-        var rectangle = Rectangle.Round(new RectangleF(element.X, element.Y, element.W, element.H));
-
-        var flags = TextFormatFlags.NoPadding |
-                    TextFormatFlags.NoPrefix |
-                    TextFormatFlags.SingleLine |
-                    TextFormatFlags.VerticalCenter |
-                    TextFormatFlags.PreserveGraphicsClipping;
-
-        flags |= element.Align?.ToLowerInvariant() switch
+        var style = element.FontWeight?.Equals("bold", StringComparison.OrdinalIgnoreCase) == true
+            ? FontStyle.Bold : FontStyle.Regular;
+        var size = element.FontSize > 0f ? element.FontSize : Math.Max(10f, element.H * 0.62f);
+        using var font = new Font("Segoe UI", size, style, GraphicsUnit.Pixel);
+        using var brush = new SolidBrush(ParseColor(element.Color, Color.White, element.Opacity));
+        using var format = new StringFormat(StringFormat.GenericTypographic)
         {
-            "right" => TextFormatFlags.Right,
-            "center" => TextFormatFlags.HorizontalCenter,
-            _ => TextFormatFlags.Left
+            FormatFlags = StringFormatFlags.NoWrap,
+            LineAlignment = StringAlignment.Center,
+            Alignment = element.Align?.ToLowerInvariant() switch
+            {
+                "right" => StringAlignment.Far,
+                "center" => StringAlignment.Center,
+                _ => StringAlignment.Near
+            }
         };
-
-        TextRenderer.DrawText(g, element.Text ?? string.Empty, font, rectangle, color, flags);
+        g.DrawString(element.Text ?? string.Empty, font, brush,
+            new RectangleF(element.X, element.Y, element.W, element.H), format);
     }
 
     private static void DrawAirspeedBand(Graphics g, ElementLayout element)

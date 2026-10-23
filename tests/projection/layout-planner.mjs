@@ -14,5 +14,13 @@ check(!budgetAssessment({model,count:2,catalogue,budget:5000,band:'3000-plus'}).
 const low=await findLayout({...options,state:{...state,room:{...state.room,height:2}}});check(!low.best&&low.issues.length,'Impossible room produces explicit failure');
 const resized=await findLayout({...options,state:{...state,viewableHeight:3.4},preferences:{budget:2500,allowScreenResize:true}});check(resized.best&&resized.best.state.viewableHeight<3.4,'Opt-in screen optimisation can return a fitting smaller screen');
 check(first.requiredThrowRatio!==null&&first.requiredThrowRatio<=first.best.projectors[0].throwRatio,'Planner reports an indicative target throw ratio');
+
+const projectorOnly=await findLayout({...options,state:{...state,showSimulator:true,simulatorZ:.3},preferences:{budget:2500,objective:'projector'}});
+check(projectorOnly.best&&projectorOnly.best.state.diameter===state.diameter&&projectorOnly.best.state.viewableHeight===state.viewableHeight&&projectorOnly.best.state.simulatorZ===.3,'Projector objective preserves the physical screen and cockpit setup');
+const roomMode=await findLayout({...options,state:{...state,showSimulator:true,simulatorZ:0},preferences:{budget:2500,objective:'room'}});
+check(roomMode.best&&roomMode.objective==='room','Room objective returns a scored room-fit proposal');
+const budgetMode=await findLayout({...options,state:{...state,showSimulator:true,simulatorZ:0},preferences:{budget:1500,objective:'budget'}});
+check(budgetMode.best&&budgetMode.objective==='budget','Budget objective still returns the best visible compromise when the known projector set exceeds budget');
+
 const noCeiling=await findLayout({...options,models:[{...model,installation:{orientations:['upright']}}]});check(!noCeiling.best&&!noCeiling.eligible,'Unsupported mounting orientation does not receive an automatic ceiling recommendation');
 console.log(checks+' independent geometry, room, budget and matching checks passed');

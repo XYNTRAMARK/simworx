@@ -45,3 +45,13 @@ html{scroll-behavior:smooth;scroll-padding-top:130px}body{margin:0;color:#242a31
 .guided-smart-card span{font-size:11px;line-height:1.55;color:#687681}
 #guided-objective-note{margin:11px 0 0}
 @media(max-width:780px){.guided-smart-grid{grid-template-columns:1fr}.guided-smart-card{min-height:0}.guided-steps{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* Budget optimiser and proposal actions */
+.guided-budget-dialog{width:min(620px,calc(100vw - 32px))}
+.guided-budget-breakdown{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.guided-budget-breakdown>div{border:1px solid #dfe4e8;border-radius:6px;background:#f8fafb;padding:13px}
+.guided-budget-breakdown span{display:block;font-size:11px;color:#667581}
+.guided-budget-breakdown strong{display:block;margin-top:5px;font-size:21px;color:#213444}
+.led-quote-actions{display:flex;flex-wrap:wrap;gap:8px}
+.led-quote-actions .led-button{flex:1 1 180px}
+@media(max-width:640px){.guided-budget-breakdown{grid-template-columns:1fr}.led-quote-actions .led-button{flex-basis:100%}}

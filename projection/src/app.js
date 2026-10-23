@@ -192,25 +192,46 @@ function onOpticalResult(next){
   $('projection-overlap-details').textContent=(next.overlaps||[]).map(pair=>'P'+(pair.indices[0]+1)+' / P'+(pair.indices[1]+1)+': '+(pair.fullHeight?'overlap spans every sampled row':'overlap does not span the full height')+', row fractions '+percent(pair.minimumRowFraction)+'–'+percent(pair.maximumRowFraction)).join('. ')+'. Blend suitability awaits the approved warping overlap requirement.';
   renderSpecification();renderFlags();guided?.onResult(next);
 }
-function queueQuote(){clearTimeout(quoteTimer);const serial=++quoteSerial;$('led-running-title').textContent='Updating configuration estimate';quoteTimer=setTimeout(()=>refreshQuote(serial),180);}
+function queueQuote(){clearTimeout(quoteTimer);const serial=++quoteSerial;$('led-running-title').textContent='Updating configuration estimate';quoteTimer=setTimeout(()=>refreshQuote(serial),120);}
+function localQuote(){
+  const d=dimensions(state),commercial=catalogue.commercial,lines=[],missing=[];
+  const screenRate=Number(commercial.fabrication?.screenSystemPerM2Eur||0);
+  const screenPrice=d.area*screenRate;
+  lines.push({id:'screen-system',label:'Curved projection screen & frame',amount:screenPrice,status:'priced'});
+  const enclosure=commercial.enclosures?.[state.enclosure];
+  const enclosureAmount=Number(enclosure?.fixedEur||0);
+  if(enclosureAmount>0)lines.push({id:'enclosure',label:enclosure.label,amount:enclosureAmount,status:'priced'});
+  const kitIncluded=(commercial.mountingKit?.includedIn||[]).includes(state.enclosure);
+  if(state.mountingKit){
+    lines.push({id:'mounting-kit',label:'Projector mounting kit',amount:kitIncluded?0:Number(commercial.mountingKit?.priceEur??0),status:kitIncluded?'included':'priced'});
+  }
+  for(const channel of state.projectors){
+    if(channel.supplyStatus!=='simworx'){lines.push({id:'projector-'+channel.id,label:channel.id+' · '+(profile(channel.modelId)?.displayName||profile(channel.modelId)?.model||channel.modelId),amount:0,status:'customer-supplied'});continue;}
+    const value=commercial.projectorPricesEur?.[channel.modelId];
+    if(finite(value)&&value>0)lines.push({id:'projector-'+channel.id,label:channel.id+' · '+(profile(channel.modelId)?.displayName||profile(channel.modelId)?.model||channel.modelId),amount:value,status:'priced'});
+    else{lines.push({id:'projector-'+channel.id,label:channel.id+' · '+(profile(channel.modelId)?.displayName||profile(channel.modelId)?.model||channel.modelId),amount:null,status:'pending'});missing.push((profile(channel.modelId)?.displayName||channel.modelId)+' selling price');}
+  }
+  const plan=catalogue.ledTariff.servicePlans.find(p=>p.id===state.servicePlan);
+  if(plan)lines.push({id:'warping',label:plan.quoteLabel||plan.label,amount:convertCurrency(plan.rate.amount,plan.rate.currency,'EUR',catalogue.ledTariff),status:'priced'});
+  const knownSubtotal=lines.reduce((sum,l)=>sum+(finite(l.amount)?l.amount:0),0);
+  const complete=!missing.length;
+  return {reference:'SWX-PROJ-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),date:new Date().toISOString(),catalogueVersion:commercial.catalogueVersion,status:complete?'complete':'partial',lineItems:lines,knownSubtotal,total:complete?knownSubtotal:null,tax:null,delivery:null,missing,errors:[]};
+}
 async function refreshQuote(serial=++quoteSerial){
-  const config=clone(state);config.opticalSummary=result?{coverageStatus:result.coverageStatus,shadowStatus:result.shadowStatus,coverage:result.stats?.coverage,warnings:technicalWarnings(),sampling:result.resolution}:null;config.profileVersions=state.projectors.map(p=>({id:p.id,modelId:p.modelId,sources:profile(p.modelId)?.sources||[],verificationStatus:profile(p.modelId)?.verificationStatus||'customer-supplied'}));config.sourceVersion=reference.source.sha256;
-  try{const response=await request('/api/quote',{configuration:config});if(serial!==quoteSerial)return;quote=response.quote;renderQuote();}
-  catch(error){if(serial!==quoteSerial)return;quote=null;$('led-running-total').textContent='Quote unavailable';$('led-running-note').textContent=error.message;$('led-price-status').textContent=error.message;}
+  const next=localQuote();if(serial!==quoteSerial)return;quote=next;renderQuote();
 }
 function renderQuote(){
   if(!quote)return;
-  if(!state.layoutReady){$('led-running-title').textContent='GUIDED PROJECTION PLANNING';$('led-running-total').textContent='Set up your room & screen';$('led-running-note').textContent='Projectors appear after you calculate a layout.';}
   const partial=quote.status!=='complete';
-  if(state.layoutReady)$('led-running-title').textContent=partial?'Priced items so far':'Configuration estimate';
+  $('led-running-title').textContent=partial?'Current screen & configured options':'Configuration estimate';
   const knownCharge=quote.lineItems.some(l=>finite(l.amount)&&l.amount>0);
-  const value=partial?(knownCharge?money(quote.knownSubtotal)+' + unpriced items':'Awaiting approved prices'):money(quote.total);
-  if(state.layoutReady)$('led-running-total').textContent=value;$('led-estimate').textContent=value;
-  if(state.layoutReady)$('led-running-note').textContent=partial?'Not a complete quote · '+quote.missing.length+' items or approvals pending.':'Includes configured delivery and tax · subject to engineering review.';
-  $('led-price-status').textContent=quote.errors.length?quote.errors.join(' '):partial?'Your configuration is saved in the estimate. A complete selling price appears once all selected items and commercial rules are approved.':'Development estimate. Confirm the installation design before accepting an order.';
+  const value=partial?(knownCharge?money(quote.knownSubtotal)+' + projector price to confirm':'Awaiting approved prices'):money(quote.total);
+  $('led-running-total').textContent=value;$('led-estimate').textContent=value;
+  $('led-running-note').textContent=partial?'Screen, enclosure and warping update live. Selected Simworx projector prices still need confirmation.':'Screen, enclosure, mounting and selected warping included. Delivery and VAT are additional.';
+  $('led-price-status').textContent=quote.errors.length?quote.errors.join(' '):partial?'The screen and selected options are priced. Any unpriced projector remains clearly separated from this total.':'Indicative configuration price. Final projector suitability, delivery and VAT are confirmed before order.';
   $('led-price-lines').innerHTML=quote.lineItems.filter(l=>l.id!=='enclosure-area'||state.enclosure!=='screen-only').map(line=>'<div><dt>'+esc(line.label)+(line.status==='customer-supplied'?' <small>· customer supplied</small>':line.status==='included'?' <small>· included</small>':'')+'</dt><dd class="'+(line.amount===null?'projection-missing-price':'')+'">'+esc(line.amount===null?'To confirm':money(line.amount))+'</dd></div>').join('')+'<div><dt>Tax</dt><dd>'+esc(quote.tax===null?'To confirm':money(quote.tax))+'</dd></div><div><dt>Delivery</dt><dd>'+esc(quote.delivery===null?'To confirm':money(quote.delivery))+'</dd></div>';
   $('projection-quote-missing').innerHTML=quote.missing.length?'<details><summary>'+quote.missing.length+' pricing inputs or approvals still needed</summary><ul>'+quote.missing.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul></details>':'';
-  $('projection-quote-reference').textContent=quote.reference+' · '+quote.catalogueVersion+' · LED warping tariff snapshot '+(catalogue.ledTariff.source?.retrievedAt||'22 October 2026');
+  $('projection-quote-reference').textContent=quote.reference+' · '+quote.catalogueVersion+' · Warping prices match the LED configurator tariff.';
 }
 
 function validateLoaded(data){

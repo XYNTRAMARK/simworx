@@ -68,6 +68,10 @@ function channelLayout(state,model,count,height,scale,zShift,throwRatio,fan,vert
 function placementPenalty(state,list,model,context){
  const b=model.body||{},margin=Math.max(.12,Math.hypot(b.widthMm||300,b.heightMm||150,b.depthMm||300)/2000),wall=margin+(model.installation?.wallClearanceMm||0)/1000,box=context.cockpitBounds;
  if(list.some(p=>Math.abs(p.position[0])+wall>=state.room.width/2||Math.abs(p.position[2])+wall>=state.room.depth/2||p.position[1]+margin>=state.room.height||p.position[1]-margin<=0))return {hard:true,penalty:99,reasons:['Projector body would lie outside the room boundary.']};
+ // Projector lens centres belong inside the plan footprint of the curved screen.
+ // The room is a secondary boundary, not an invitation to push projectors beyond the screen.
+ const footprintRadius=Math.max(.25,state.diameter/2-.08);
+ if(list.some(p=>Math.hypot(p.position[0],p.position[2])>footprintRadius+1e-6))return {hard:true,penalty:99,reasons:['A projector lens centre would sit outside the screen footprint. Move it closer to the screen and use optical pitch instead.']};
  let penalty=0,reasons=[];
  if(list.some((a,i)=>list.slice(i+1).some(b=>Math.hypot(...a.position.map((v,k)=>v-b.position[k]))<2*margin+.08))){penalty+=1.5;reasons.push('Projector body clearances overlap in the schematic model.');}
  if(box&&list.some(p=>p.position.every((n,k)=>n>box.min[k]-margin&&n<box.max[k]+margin))){penalty+=1.2;reasons.push('A schematic projector body overlaps the cockpit clearance envelope.');}
@@ -109,8 +113,8 @@ export async function findLayout({state,models,catalogue,preferences,contextFor,
     if(!budget.permitted){priceExcluded++;continue;}if(budget.withinKnownBudget===false)priceExcluded++;eligible++;
     const budgetPenalty=budget.withinKnownBudget===false?(prefs.objective==='budget'?4:2):0;
     const zoom=[...new Set([model.throwRatio.min,(model.throwRatio.min+model.throwRatio.max)/2,model.throwRatio.max])];
-    for(const height of [state.room.height-prefs.mountDrop,state.room.height-prefs.mountDrop-.25,state.room.height-prefs.mountDrop-.5])for(const scale of [.85,1.05,1.3,1.6])for(const z of [0,.45,.9])for(const ratio of zoom)for(const fan of [1,1.12])for(const v of [.4,.55]){
-     examined++;if(examined%80===0){onProgress({examined,stage:'Searching room-fitting layouts'});await yieldControl();}
+    for(const height of [state.room.height-prefs.mountDrop,state.room.height-prefs.mountDrop-.2,state.room.height-prefs.mountDrop-.45,state.room.height-prefs.mountDrop-.7])for(const scale of [.55,.7,.85,1.0,1.2,1.45])for(const z of [-.25,0,.25])for(const ratio of zoom)for(const fan of [.94,1,1.08])for(const v of [.25,.4,.55,.7]){
+     examined++;if(examined%100===0){onProgress({examined,stage:'Searching screen-footprint layouts and tilt angles'});await yieldControl();}
      const list=channelLayout(candidateState,model,count,height,scale,z,ratio,fan,v);if(!list)continue;const placement=placementPenalty(candidateState,list,model,context);if(placement.hard)continue;geometric++;
      const metrics=assess(candidateState,list,context,coarse,false),changePenalty=(prefs.objective==='projector'?0:(Math.abs(candidateState.diameter-state.diameter)*.04+Math.abs(candidateState.viewableHeight-state.viewableHeight)*.04+Math.abs((candidateState.simulatorZ||0)-(state.simulatorZ||0))*.08)),choice={state:candidateState,projectors:list,model,budget,metrics,placement,layoutParams:{height,scale,z,ratio,fan,v},score:metrics.score-count*.002-placement.penalty-budgetPenalty-changePenalty};
      const key=model.id+':'+count,listOfChoices=shortlists.get(key)||[];listOfChoices.push(choice);listOfChoices.sort((a,b)=>b.score-a.score);if(listOfChoices.length>5)listOfChoices.length=5;shortlists.set(key,listOfChoices);
@@ -137,7 +141,7 @@ export async function findLayout({state,models,catalogue,preferences,contextFor,
    }
   }
  }
- return {best,examined,geometric,priceExcluded,eligible,requiredThrowRatio,fallbackUsed:Boolean(best?.placement?.penalty),objective:prefs.objective,issues:[...new Set([...(failures||[]),...(best?.placement?.reasons||[])])],method:'Matched ceiling-mounted layouts; bounded sampled search; one lens height per layout; optional room/projector/budget objectives; imperfect arrangements retained and scored',completeSearch:false};
+ return {best,examined,geometric,priceExcluded,eligible,requiredThrowRatio,fallbackUsed:Boolean(best?.placement?.penalty),objective:prefs.objective,issues:[...new Set([...(failures||[]),...(best?.placement?.reasons||[])])],method:'Matched ceiling-mounted layouts; lens centres constrained inside the screen footprint; closer placement and optical pitch searched before wider room positions; one lens height per layout; optional room/projector/budget objectives; imperfect arrangements retained and scored',completeSearch:false};
 }
 export function evaluatePilotCoverage(state,result,eyes,obstruction){
  const cells=result?.cells||[],stride=Math.max(1,Math.floor(cells.length/800));let visible=0,covered=0,shadow=0;

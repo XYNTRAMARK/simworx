@@ -287,7 +287,19 @@ function wire(){
   $('projection-import').addEventListener('click',()=>importer.open());
   const admin=createAdminUI({onCatalogueChanged:async fresh=>{catalogue=fresh;renderCatalogue();update();toast('Development catalogue updated. Your estimate has been recalculated.');}});
   $('projection-admin').addEventListener('click',()=>admin.open());
-  eyeControls=createEyeControls({data:reference,getState:()=>state,getUnit:()=>unit,getSeat:()=>pilotSeat,onSeat:seat=>{pilotSeat=seat;viewer.setPilotView(pilotMode,pilotSeat);syncInputs();},onChange:next=>{state.pilotEyes=next;update({geometry:true,price:true});},onMode:setPilot,getPilotMode:()=>pilotMode,setMarker:value=>viewer?.setEyeMarkerVisible(value),onOpen:async()=>{setPilot(true);}});
+  eyeControls=createEyeControls({data:reference,getState:()=>state,getUnit:()=>unit,getSeat:()=>pilotSeat,onSeat:seat=>{pilotSeat=seat;viewer.setPilotView(pilotMode,pilotSeat);syncInputs();},onChange:next=>{state.pilotEyes=next;update({geometry:true,price:true});},onMode:setPilot,getPilotMode:()=>pilotMode,setMarker:value=>viewer?.setEyeMarkerVisible(value),onOpen:async()=>{
+    setPilot(true);
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const container=$('led-canvas'),context=viewer?.context?.();
+    if(container&&context){
+      const rect=container.getBoundingClientRect(),credit=container.querySelector('.led-viewer-credit')?.getBoundingClientRect().height||0;
+      const width=Math.max(1,Math.round(rect.width)),height=Math.max(1,Math.round(rect.height-credit));
+      context.renderer.setSize(width,height,false);
+      context.camera.aspect=width/height;
+      context.camera.updateProjectionMatrix();
+      context.invalidate();
+    }
+  }});
 }
 
 async function boot(){

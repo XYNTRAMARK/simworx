@@ -53,3 +53,5 @@ jobs:
                   print('Superseded run',run['run_number'],'is still in read-only validation/backup; safe to cancel.')
                   cancel(run)
           PY
+
+# prune generation 3

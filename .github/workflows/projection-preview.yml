@@ -38,6 +38,24 @@ jobs:
           sed 's#projection:/src/optics.js#./optics.js#g' projection/src/layout-planner.js > .projection-test/src/layout-planner.js
           sed 's#../../projection/src/layout-planner.js#./src/layout-planner.js#g' tests/projection/layout-planner.mjs > .projection-test/layout-planner.mjs
           node .projection-test/layout-planner.mjs
+      - name: Validate projection commercial pricing
+        run: |
+          python3 - <<'PY'
+          import json, math
+          c=json.load(open('projection/catalogue.json'))
+          commercial=c['commercial']
+          assert commercial['fabrication']['screenSystemPerM2Eur']==750
+          assert commercial['enclosures']['semi-enclosed']['fixedEur']==1000
+          assert commercial['enclosures']['fully-enclosed']['fixedEur']==4000
+          assert commercial['mountingKit']['priceEur']==1000
+          assert set(commercial['mountingKit']['includedIn'])=={'semi-enclosed','fully-enclosed'}
+          plans={p['id']:p['rate']['amount'] for p in c['ledTariff']['servicePlans']}
+          assert plans=={'self':0,'spain':3500,'onsite':5000}
+          # Exact fractional curved-area pricing; do not round square metres first.
+          area=(4.5/2)*math.radians(220)*2.15
+          assert abs(area*750-round(area,0)*750)>0.01
+          print('Projection commercial pricing checks passed:',area,area*750)
+          PY
       - name: Validate exact reviewed projection preview
         run: python3 .projection-deploy/publish.py validate
       - name: Test one-page scope and backup requirements

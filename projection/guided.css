@@ -55,3 +55,7 @@ html{scroll-behavior:smooth;scroll-padding-top:130px}body{margin:0;color:#242a31
 .led-quote-actions{display:flex;flex-wrap:wrap;gap:8px}
 .led-quote-actions .led-button{flex:1 1 180px}
 @media(max-width:640px){.guided-budget-breakdown{grid-template-columns:1fr}.led-quote-actions .led-button{flex-basis:100%}}
+
+.guided-viewer-status{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.guided-viewer-status .guided-recalculate{flex:0 0 auto;padding:7px 14px;min-height:34px;font-size:11px}
+@media(max-width:640px){.guided-viewer-status{align-items:stretch;flex-direction:column}.guided-viewer-status .guided-recalculate{width:100%}}

@@ -1,0 +1,32 @@
+name: Publish projection configurator V5
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/projection-v5.yml'
+      - '.projection-v5-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v5
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated V5
+        run: python3 .projection-v5-deploy/build_v5.py
+      - name: Check JavaScript syntax
+        run: |
+          for file in projection/src/*.js; do
+            node --check "$file"
+          done
+      - name: Publish immutable V5
+        run: python3 .projection-v5-deploy/publish_v5.py

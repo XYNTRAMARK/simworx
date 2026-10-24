@@ -1,0 +1,40 @@
+name: Publish projection configurator V2
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v2.yml'
+      - '.projection-v2-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v2
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Build and publish immutable projection V2
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V2 from the retained room-positioning source
+        run: |
+          python3 tools/build-projection-guided.py
+          cp projection-screen-configurator-preview.html projection-screen-configurator-v2.html
+      - name: Check projection JavaScript syntax
+        run: |
+          for file in projection/src/*.js; do node --check "$file"; done
+      - name: Run projection planner tests
+        run: |
+          rm -rf .projection-test
+          mkdir -p .projection-test/src
+          cp projection/src/optics.js .projection-test/src/optics.js
+          sed 's#projection:/src/optics.js#./optics.js#g' projection/src/layout-planner.js > .projection-test/src/layout-planner.js
+          sed 's#../../projection/src/layout-planner.js#./src/layout-planner.js#g' tests/projection/layout-planner.mjs > .projection-test/layout-planner.mjs
+          node .projection-test/layout-planner.mjs
+      - name: Publish only the new V2 filename
+        run: python3 .projection-v2-deploy/publish_v2.py

@@ -1,0 +1,32 @@
+name: Publish projection configurator V6
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/projection-v6.yml'
+      - '.projection-v6-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v6
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated V6
+        run: python3 .projection-v6-deploy/build_v6.py
+      - name: Check JavaScript syntax
+        run: |
+          for file in projection/src/*.js; do
+            node --check "$file"
+          done
+      - name: Publish immutable V6
+        run: python3 .projection-v6-deploy/publish_v6.py

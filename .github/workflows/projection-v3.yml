@@ -1,0 +1,63 @@
+name: Publish projection configurator V3
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v3.yml'
+      - '.projection-v3-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v3
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Build and publish immutable projection V3
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch V3-only room helper regression
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('projection/src/projection-layer.js')
+          s=p.read_text()
+          old1="const screenFromLeft=finite(room.screenFromLeft)?room.screenFromLeft:dimensions[0]/2;"
+          old2="const screenFromFront=finite(room.screenFromFront)?room.screenFromFront:dimensions[2]/2;"
+          new1="const screenFromLeft=numeric(room.screenFromLeft)!==null?room.screenFromLeft:dimensions[0]/2;"
+          new2="const screenFromFront=numeric(room.screenFromFront)!==null?room.screenFromFront:dimensions[2]/2;"
+          if old1 not in s or old2 not in s:
+              raise SystemExit('Expected V2 regression lines were not found; refusing an unreviewed patch.')
+          s=s.replace(old1,new1).replace(old2,new2)
+          p.write_text(s)
+          if 'finite(room.screenFrom' in s:
+              raise SystemExit('Undefined finite() room helper remains after V3 patch.')
+          print('Applied isolated V3 room-position helper fix.')
+          PY
+      - name: Build V3 from room-positioning source
+        run: |
+          python3 tools/build-projection-guided.py
+          cp projection-screen-configurator-preview.html projection-screen-configurator-v3.html
+      - name: Check projection JavaScript syntax
+        run: |
+          for file in projection/src/*.js; do node --check "$file"; done
+      - name: Run projection planner tests
+        run: |
+          rm -rf .projection-test
+          mkdir -p .projection-test/src
+          cp projection/src/optics.js .projection-test/src/optics.js
+          sed 's#projection:/src/optics.js#./optics.js#g' projection/src/layout-planner.js > .projection-test/src/layout-planner.js
+          sed 's#../../projection/src/layout-planner.js#./src/layout-planner.js#g' tests/projection/layout-planner.mjs > .projection-test/layout-planner.mjs
+          node .projection-test/layout-planner.mjs
+      - name: Verify V3 runtime helper regression is absent
+        run: |
+          ! grep -q 'finite(room.screenFrom' projection/src/projection-layer.js
+          grep -q 'numeric(room.screenFromLeft)!==null' projection/src/projection-layer.js
+          grep -q 'numeric(room.screenFromFront)!==null' projection/src/projection-layer.js
+      - name: Publish only the new V3 filename
+        run: python3 .projection-v3-deploy/publish_v3.py

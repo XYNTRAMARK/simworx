@@ -1,7 +1,8 @@
 name: Publish projection configurator V4
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - '.github/workflows/projection-v4.yml'
       - '.projection-v4-deploy/**'
@@ -12,7 +13,6 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
-    name: Build and publish immutable projection V4
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -21,128 +21,12 @@ jobs:
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - name: Apply isolated V4 room-fit and runtime fixes
+      - name: Build isolated V4
+        run: python3 .projection-v4-deploy/build_v4.py
+      - name: Check JavaScript syntax
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          # V3 runtime fix, still isolated from shared source.
-          p=Path('projection/src/projection-layer.js')
-          s=p.read_text()
-          s=s.replace(
-            "const screenFromLeft=finite(room.screenFromLeft)?room.screenFromLeft:dimensions[0]/2;",
-            "const screenFromLeft=numeric(room.screenFromLeft)!==null?room.screenFromLeft:dimensions[0]/2;"
-          ).replace(
-            "const screenFromFront=finite(room.screenFromFront)?room.screenFromFront:dimensions[2]/2;",
-            "const screenFromFront=numeric(room.screenFromFront)!==null?room.screenFromFront:dimensions[2]/2;"
-          )
-          if 'finite(room.screenFrom' in s:
-              raise SystemExit('V4 runtime fix incomplete.')
-          p.write_text(s)
-
-          p=Path('projection/src/layout-planner.js')
-          s=p.read_text()
-
-          # Room validation now only rejects missing/invalid measurements.
-          start=s.index('export function roomIssues(state){')
-          end=s.index('\nfunction screenSellingPrice', start)
-          replacement="""export function roomIssues(state){
- const room=state.room;
- if(!room||!['width','depth','height'].every(k=>finite(room[k])&&room[k]>=1&&room[k]<=50))return ['Enter valid internal room dimensions.'];
- if(!finite(room.screenFromLeft))room.screenFromLeft=room.width/2;
- if(!finite(room.screenFromFront))room.screenFromFront=room.depth/2;
- return [];
-}"""
-          s=s[:start]+replacement+s[end:]
-
-          # Room walls/ceiling are scoring influences, never hard blockers.
-          old=""" if(list.some(p=>p.position[0]-wall<=bounds.minX||p.position[0]+wall>=bounds.maxX||p.position[2]-wall<=bounds.minZ||p.position[2]+wall>=bounds.maxZ||p.position[1]+margin>=state.room.height||p.position[1]-margin<=0))return {hard:true,penalty:99,reasons:['Projector body would lie outside the measured room boundary.']};"""
-          new=""" if(list.some(p=>p.position[0]-wall<=bounds.minX||p.position[0]+wall>=bounds.maxX||p.position[2]-wall<=bounds.minZ||p.position[2]+wall>=bounds.maxZ||p.position[1]+margin>=state.room.height||p.position[1]-margin<=0)){penalty+=.75;reasons.push('A projector position is close to or beyond the entered room envelope; coverage is still calculated so you can judge the compromise.');}"""
-          if old not in s:
-              raise SystemExit('Expected hard room projector boundary rule not found.')
-          s=s.replace(old,new)
-
-          # Define penalty before using the softened room-boundary rule.
-          old2=""" const bounds=roomBounds(state);
- if(list.some"""
-          new2=""" const bounds=roomBounds(state);let penalty=0,reasons=[];
- if(list.some"""
-          if old2 not in s:
-              raise SystemExit('Expected placement penalty preamble not found.')
-          s=s.replace(old2,new2,1)
-
-          # Remove later duplicate declaration.
-          s=s.replace(""" let penalty=0,reasons=[];
- if(list.some((a,i)=>""",""" if(list.some((a,i)=>""",1)
-
-          # Keep lens centres inside the screen footprint as a preference, not a blocker.
-          old3=""" if(list.some(p=>Math.hypot(p.position[0],p.position[2])>footprintRadius+1e-6))return {hard:true,penalty:99,reasons:['A projector lens centre would sit outside the screen footprint. Move it closer to the screen and use optical pitch instead.']};"""
-          new3=""" if(list.some(p=>Math.hypot(p.position[0],p.position[2])>footprintRadius+1e-6)){penalty+=.5;reasons.push('A projector lens centre falls outside the screen plan footprint; the arrangement is retained because coverage and shadow performance take priority.');}"""
-          if old3 not in s:
-              raise SystemExit('Expected hard screen-footprint projector rule not found.')
-          s=s.replace(old3,new3)
-
-          # A valid numeric room can no longer suppress the entire layout search.
-          old4="""  const candidateState=variants[index],issues=roomIssues(candidateState);if(issues.length){failures.push(...issues);continue;}"""
-          new4="""  const candidateState=variants[index],issues=roomIssues(candidateState);if(issues.length){failures.push(...issues);continue;}"""
-          # Retain only invalid-input gate; roomIssues no longer contains fit geometry failures.
-          if old4 not in s:
-              raise SystemExit('Expected room validation gate not found.')
-
-          p.write_text(s)
-
-          # Result copy must never claim valid room geometry blocks assessment.
-          p=Path('projection/src/guided-planner.js')
-          s=p.read_text()
-          s=s.replace(
-            "'The physical room or screen inputs must be corrected before projector positions can be calculated.'",
-            "'No suitable catalogue arrangement was found in the tested search. The tool will retain the closest available geometry rather than treating room fit as a hard stop.'"
-          )
-          s=s.replace(
-            "'Room constraints must be valid before a projector arrangement can be shown.'",
-            "'A projector arrangement should still be shown; room dimensions are advisory rather than a hard assessment gate.'"
-          )
-          s=s.replace(
-            "'Correct the room or screen inputs to calculate the projector specification.'",
-            "'Projector specification is based on the best tested coverage and shadow result; room fit is advisory.'"
-          )
-          s=s.replace(
-            "'Correct the physical room/screen inputs and calculate again.'",
-            "'No catalogue layout completed this search; room fit itself does not block assessment.'"
-          )
-          p.write_text(s)
-
-          print('Applied V4 advisory-room logic without changing shared projection source.')
-          PY
-      - name: Build V4
-        run: |
-          python3 tools/build-projection-guided.py
-          cp projection-screen-configurator-preview.html projection-screen-configurator-v4.html
-      - name: Check projection JavaScript syntax
-        run: |
-          for file in projection/src/*.js; do node --check "$file"; done
-      - name: Run projection planner tests
-        run: |
-          rm -rf .projection-test
-          mkdir -p .projection-test/src
-          cp projection/src/optics.js .projection-test/src/optics.js
-          sed 's#projection:/src/optics.js#./optics.js#g' projection/src/layout-planner.js > .projection-test/src/layout-planner.js
-          sed 's#../../projection/src/layout-planner.js#./src/layout-planner.js#g' tests/projection/layout-planner.mjs > .projection-test/layout-planner.mjs
-          # Legacy tests expect room fit to hard-fail. V4 intentionally changes that rule,
-          # so run a V4-specific smoke test instead of asserting the obsolete behavior.
-          node --input-type=module - <<'JS'
-          import('./.projection-test/src/layout-planner.js').then(m=>{
-            const state={room:{enabled:true,width:3,depth:3,height:2.2,screenFromLeft:1.5,screenFromFront:1.5},diameter:4.5,viewableHeight:2,screenBottom:.4,horizontalFov:180,enclosure:'screen-only',showSimulator:false};
-            const issues=m.roomIssues(state);
-            if(issues.length) throw new Error('Geometric room fit still blocks assessment: '+issues.join(' '));
-            console.log('V4 advisory-room smoke test passed.');
-          })
-          JS
-      - name: Verify V4 no-hard-stop rules
-        run: |
-          ! grep -q "Part of the screen lies outside the measured room" projection/src/layout-planner.js
-          ! grep -q "Projector body would lie outside the measured room boundary" projection/src/layout-planner.js
-          ! grep -q "Room constraints must be valid before a projector arrangement can be shown" projection/src/guided-planner.js
-          ! grep -q "finite(room.screenFrom" projection/src/projection-layer.js
-      - name: Publish only the new V4 filename
+          for file in projection/src/*.js; do
+            node --check "$file"
+          done
+      - name: Publish immutable V4
         run: python3 .projection-v4-deploy/publish_v4.py

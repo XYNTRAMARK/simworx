@@ -1,0 +1,36 @@
+name: Publish projection configurator V14
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/projection-v14.yml'
+      - '.projection-v14-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v14
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated V14
+        run: python3 .projection-v14-deploy/build_v14.py
+      - name: Check JavaScript syntax
+        run: |
+          for file in projection/src/*.js; do
+            node --check "$file"
+          done
+      - name: Verify viewer state declarations
+        run: |
+          test "$(grep -c 'let guidedStep = 1;' projection/src/projection-layer.js)" -eq 1
+          test "$(grep -c 'let roomMoveMode = false;' projection/src/projection-layer.js)" -eq 1
+      - name: Publish immutable V14
+        run: python3 .projection-v14-deploy/publish_v14.py

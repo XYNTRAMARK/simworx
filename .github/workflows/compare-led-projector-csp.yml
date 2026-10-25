@@ -1,0 +1,28 @@
+name: Compare LED and Projector CSP
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/compare-led-projector-csp.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare CSP meta policies
+        run: |
+          python3 - <<'PY'
+          import urllib.request,re
+          for name,url in [
+            ('LED','https://www.sim-worx.com/led-screen-configurator.html'),
+            ('PROJECTOR','https://www.sim-worx.com/projection-screen-configurator-v47.html')
+          ]:
+            req=urllib.request.Request(url,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-csp-inspector'})
+            with urllib.request.urlopen(req,timeout=45) as r:s=r.read().decode('utf-8','replace')
+            metas=re.findall(r'<meta[^>]+http-equiv=["\']Content-Security-Policy["\'][^>]*>',s,re.I)
+            print('\n###',name)
+            for m in metas:print(m)
+          PY

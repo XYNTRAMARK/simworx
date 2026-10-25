@@ -50,6 +50,16 @@ with sync_playwright() as pw:
         page.locator(selector).evaluate("(el,v)=>{el.value=v;el.dispatchEvent(new Event('change',{bubbles:true}));}",value)
         page.wait_for_timeout(120)
 
+    source_pose={
+        'x':float(page.locator('#projection-x').input_value()),
+        'y':float(page.locator('#projection-y').input_value()),
+        'z':float(page.locator('#projection-z').input_value()),
+        'yaw':float(page.locator('#projection-yaw').input_value()),
+        'pitch':float(page.locator('#projection-pitch').input_value()),
+        'roll':float(page.locator('#projection-roll').input_value()),
+    }
+    print('LIVE_SOURCE_P1',source_pose)
+
     label=page.locator('#v33-mirror').text_content()
     print('MIRROR_LABEL',label)
     assert 'P1' in label and 'P3' in label
@@ -65,12 +75,12 @@ with sync_playwright() as pw:
     pitch=float(page.locator('#projection-pitch').input_value())
     roll=float(page.locator('#projection-roll').input_value())
     print('MIRRORED_P3',x,y,z,yaw,pitch,roll)
-    assert abs(x-1.7)<0.02
-    assert abs(y-3.25)<0.02
-    assert abs(z-1.35)<0.02
-    assert abs(yaw+18)<0.2
-    assert abs(pitch+7)<0.2
-    assert abs(roll+170)<0.2
+    assert abs(x+source_pose['x'])<0.02
+    assert abs(y-source_pose['y'])<0.02
+    assert abs(z-source_pose['z'])<0.02
+    assert abs(yaw+source_pose['yaw'])<0.2
+    assert abs(pitch-source_pose['pitch'])<0.2
+    assert abs(roll+source_pose['roll'])<0.2
     print('MIRROR_PASS')
 
     # Throw is forced to every projector.

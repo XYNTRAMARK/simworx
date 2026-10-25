@@ -1,0 +1,42 @@
+name: Publish projection configurator V42
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v42.yml'
+      - '.projection-v42-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v42
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V42 from published V41
+        run: python3 .projection-v42-deploy/build_v42.py
+      - name: Validate projection email endpoint
+        run: php -l .projection-v42-deploy/projection-quote-submit.php
+      - name: Run V42 browser acceptance test
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install --with-deps chromium
+          python3 -m http.server 8765 >/tmp/v42-server.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v42-deploy/test_v42.py
+          kill $P || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v42-proof
+          path: /tmp/v42-proof.png
+          retention-days: 1
+      - name: Publish V42 and projection email endpoint
+        run: python3 .projection-v42-deploy/publish_v42.py

@@ -19,6 +19,10 @@ required=[
     "projection-v29-stable-viewer-owner",
     "projection-fixed-estimate-v24",
     "Move projector",
+    "projection-v37-projector-popup",
+    "projection-v37-projector-popup-js",
+    "simworxProjectorResults",
+    "This configurator remains open.",
 ]
 missing=[x for x in required if x not in html]
 if missing:
@@ -46,6 +50,14 @@ css="""<style id="projection-v37-space-optimisation">
 }
 </style>"""
 html=html.replace("</head>",css+"\n</head>",1)
+
+popup_css="""<style id="projection-v37-projector-popup">
+#v37-projector-popup-fallback{max-width:640px;width:calc(100% - 32px);border:1px solid #cbd5e1;border-radius:10px;padding:0}
+#v37-projector-popup-fallback::backdrop{background:rgba(15,23,42,.45)}
+#v37-projector-popup-fallback .v37-popup-body{padding:18px}
+#v37-projector-popup-fallback .v37-popup-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+</style>"""
+html=html.replace("</head>",popup_css+"\n</head>",1)
 
 js=r"""<script id="projection-v37-space-optimisation-js">
 (function(){
@@ -87,6 +99,54 @@ js=r"""<script id="projection-v37-space-optimisation-js">
 })();
 </script>"""
 html=html.replace("</body>",js+"\n</body>",1)
+
+popup_js=r"""<script id="projection-v37-projector-popup-js">
+(function(){
+  const q=id=>document.getElementById(id);
+
+  function ensureFallback(){
+    let dialog=q('v37-projector-popup-fallback');
+    if(dialog)return dialog;
+    dialog=document.createElement('dialog');
+    dialog.id='v37-projector-popup-fallback';
+    dialog.innerHTML='<div class="v37-popup-body"><h3>Projector search</h3><p>Your browser blocked the projector-results popup. The configurator has been kept open.</p><p id="v37-projector-popup-query" class="led-help"></p><div class="v37-popup-actions"><a id="v37-projector-popup-open" class="led-button led-primary" target="_blank" rel="noopener noreferrer">Open results in new tab</a><button type="button" id="v37-projector-popup-close" class="led-button led-outline">Close</button></div></div>';
+    document.body.appendChild(dialog);
+    q('v37-projector-popup-close').addEventListener('click',()=>dialog.close());
+    return dialog;
+  }
+
+  function install(){
+    const link=q('v31-projector-search');
+    if(!link||link.dataset.popupBound==='true')return false;
+    link.dataset.popupBound='true';
+    link.removeAttribute('target');
+    link.addEventListener('click',event=>{
+      event.preventDefault();
+      if(link.getAttribute('aria-disabled')==='true'||!link.href)return;
+      const width=1100,height=780;
+      const left=Math.max(0,Math.round((window.screen.width-width)/2));
+      const top=Math.max(0,Math.round((window.screen.height-height)/2));
+      const popup=window.open(link.href,'simworxProjectorResults','popup=yes,width='+width+',height='+height+',left='+left+',top='+top+',resizable=yes,scrollbars=yes');
+      const status=q('v31-projector-search-status');
+      if(popup){
+        try{popup.focus();}catch(_){}
+        if(status)status.textContent='Projector results opened in a separate results window. This configurator remains open.';
+        return;
+      }
+      const dialog=ensureFallback();
+      q('v37-projector-popup-query').textContent=link.dataset.searchPrompt||'The calculated projector specification is ready to search.';
+      q('v37-projector-popup-open').href=link.href;
+      dialog.showModal();
+      if(status)status.textContent='Your browser blocked the popup; use the fallback viewing box below.';
+    });
+    return true;
+  }
+
+  const timer=setInterval(()=>{if(install())clearInterval(timer);},50);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
+})();
+</script>"""
+html=html.replace("</body>",popup_js+"\n</body>",1)
 
 checks=[
     "projection-v37-space-optimisation",

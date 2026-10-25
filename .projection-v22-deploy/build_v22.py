@@ -70,7 +70,7 @@ html,count=pattern.subn(lambda m:new_event,html,count=1)
 if count!=1: raise SystemExit(f'V22 throw event regex replaced {count}')
 
 # Existing optics engine honours an explicit planning range after the user changes throw.
-pattern=re.compile(r"const throwMin = valueAt\(profile, \['throwRatio\.min', 'throwRatioMin'\]\);\s*const throwMax = valueAt\(profile, \['throwRatio\.max', 'throwRatioMax'\]\);")
+pattern=re.compile(r"const\s+throwMin\s*=\s*valueAt\(profile,\s*\['throwRatio\.min',\s*'throwRatioMin'\]\);\s*const\s+throwMax\s*=\s*valueAt\(profile,\s*\['throwRatio\.max',\s*'throwRatioMax'\]\);")
 new_opt="const throwMin = instance.planningThrowRange?.[0] ?? valueAt(profile, ['throwRatio.min', 'throwRatioMin']);\n  const throwMax = instance.planningThrowRange?.[1] ?? valueAt(profile, ['throwRatio.max', 'throwRatioMax']);"
 html,count=pattern.subn(new_opt,html,count=1)
 if count!=1: raise SystemExit(f'V22 optics throw range regex replaced {count}')

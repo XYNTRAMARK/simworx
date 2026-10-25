@@ -1,5 +1,6 @@
 from pathlib import Path
 from urllib.request import Request, urlopen
+import re
 
 BASE_URL = "https://www.sim-worx.com"
 SOURCE = "projection-screen-configurator-v30.html"
@@ -34,10 +35,6 @@ if old_cov not in html:
     raise SystemExit("V31 coverage/runway exclusivity anchor missing")
 html = html.replace(old_cov, new_cov, 1)
 
-draw_anchor = """    mapContext.clearRect(0, 0, canvas.width, canvas.height);
-    for (const cell of result.cells) {
-      const { classification } = cell;
-      const shadows = classification === 'shadow' || classification === 'partial-shadow';"""
 draw_new = """    mapContext.clearRect(0, 0, canvas.width, canvas.height);
     const runwayMask = state.runwayPreview === true;
     overlayMaterial.opacity = runwayMask ? 1 : 0.82;
@@ -54,9 +51,10 @@ draw_new = """    mapContext.clearRect(0, 0, canvas.width, canvas.height);
         mapContext.fillRect(x, y, tile, tile);
         continue;
       }"""
-if draw_anchor not in html:
-    raise SystemExit("V31 coverage draw anchor missing")
-html = html.replace(draw_anchor, draw_new, 1)
+draw_pattern = re.compile(r"    mapContext\.clearRect\(0, 0, canvas\.width, canvas\.height\);\\n    for \(const cell of result\.cells\) \{\\n      const \{ classification \} = cell;\\n      const shadows = classification === 'shadow' \|\| classification === 'partial-shadow';")
+html, count = draw_pattern.subn(lambda m: draw_new.replace("\n","\\n"), html, count=1)
+if count != 1:
+    raise SystemExit(f"V31 bundled coverage draw anchor replaced {count}")
 
 old_visible = "if (overlay) overlay.visible = state.showCoverage !== false || state.showShadows !== false;"
 new_visible = "if (overlay) overlay.visible = state.runwayPreview === true || state.showCoverage !== false || state.showShadows !== false;"

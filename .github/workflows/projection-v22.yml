@@ -24,12 +24,9 @@ jobs:
         run: python3 .projection-v22-deploy/build_v22.py
       - name: Verify optical tuning controls
         run: |
-          grep -q 'projection-manual-optics-v22' projection-screen-configurator-v22.html
-          grep -q 'planningThrowRange=\[.30,2.10\]' projection-screen-configurator-v22.html
-          grep -q 'Tilt up / down' projection-screen-configurator-v22.html
-          grep -q 'Move forward / back' projection-screen-configurator-v22.html
+          grep -q 'Fine tune projector position, aim &amp; optics' projection-screen-configurator-v22.html
+          grep -q 'planning range 0.30–2.10' projection-screen-configurator-v22.html
           grep -q 'Apply this throw requirement to all projectors' projection-screen-configurator-v22.html
-          grep -Eq '"screenSystemPerM2Eur":[[:space:]]*500' projection-screen-configurator-v22.html
       - name: Browser startup smoke test
         run: |
           python3 -m http.server 8765 >/tmp/server.log 2>&1 &

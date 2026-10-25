@@ -49,72 +49,85 @@ jobs:
           print('V29 navigation patch applied on top of published V28')
           PY
 
-      - name: Real in-page Step 3 navigation test
+      - name: Playwright Step 3 navigation acceptance test
         run: |
-          cp projection-screen-configurator-v29.html projection-screen-configurator-v29-test.html
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('projection-screen-configurator-v29-test.html')
-          s=p.read_text()
-          test='''<script id="v29-navigation-selftest">
-          (async function(){
-            const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-            const current=()=>document.querySelector('[data-guided-go][aria-current="step"]')?.dataset?.guidedGo||'';
-            const status=()=>document.getElementById('guided-step-status')?.textContent||'';
-            const checks=[];
-
-            await sleep(1800);
-            document.querySelector('[data-guided-go="2"]')?.click();
-            await sleep(600);
-            checks.push(current()==='2');
-
-            document.querySelector('[data-guided-go="3"]')?.click();
-            await sleep(1000);
-            checks.push(current()==='3' && status().includes('Step 3 of 4'));
-
-            document.querySelector('[data-guided-go="2"]')?.click();
-            await sleep(500);
-            const width=document.getElementById('projection-room-width');
-            const budget=document.getElementById('guided-budget');
-            if(width)width.value='0';
-            if(budget)budget.value='-1';
-            document.querySelector('[data-guided-go="3"]')?.click();
-            await sleep(1000);
-            checks.push(current()==='3');
-
-            const bar=document.querySelector('.led-estimate-bar');
-            checks.push(bar && getComputedStyle(bar).pointerEvents==='none');
-
-            const out=document.createElement('div');
-            out.id='v29-navigation-result';
-            out.dataset.result=checks.every(Boolean)?'PASS':'FAIL';
-            out.textContent=(checks.every(Boolean)?'PASS':'FAIL')+' '+JSON.stringify({checks,current:current(),status:status()});
-            document.body.appendChild(out);
-          })();
-          </script>'''
-          s=s.replace('</body>',test+'\n</body>',1)
-          p.write_text(s)
-          PY
-
+          python3 -m pip install --quiet playwright
           python3 -m http.server 8765 >/tmp/server.log 2>&1 &
           P=$!
           sleep 2
-          C="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
-          set +e
-          timeout 45 "$C" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=8000 --dump-dom http://127.0.0.1:8765/projection-screen-configurator-v29-test.html >/tmp/v29-dom.html 2>/tmp/v29-console.log
-          RC=$?
-          set -e
+          python3 - <<'PY'
+          import json, shutil
+          from playwright.sync_api import sync_playwright
+
+          chrome=shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
+          if not chrome: raise SystemExit('Chrome not found')
+
+          with sync_playwright() as pw:
+              browser=pw.chromium.launch(headless=True,executable_path=chrome,args=['--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader'])
+              page=browser.new_page(viewport={'width':1600,'height':1000})
+              page.goto('http://127.0.0.1:8765/projection-screen-configurator-v29.html',wait_until='domcontentloaded',timeout=15000)
+              page.wait_for_function("document.documentElement.dataset.standaloneReady==='true'",timeout=20000)
+
+              def state(label):
+                  data=page.evaluate("""() => {
+                    const cur=document.querySelector('[data-guided-go][aria-current="step"]');
+                    const ws=document.getElementById('projection-v26-workspace');
+                    const panel=document.getElementById('projection-v25-controls');
+                    const canvas=document.getElementById('led-canvas');
+                    const r=canvas?.getBoundingClientRect();
+                    return {
+                      current:cur?.dataset?.guidedGo||'',
+                      status:document.getElementById('guided-step-status')?.textContent||'',
+                      workspaceHidden:ws?.hidden??true,
+                      controlsHidden:panel?.hidden??true,
+                      canvasWidth:r?.width||0,
+                      canvasHeight:r?.height||0,
+                      canvasInWorkspace:!!document.getElementById('led-canvas-home')?.closest('#projection-v26-workspace')
+                    };
+                  }""")
+                  print(label,json.dumps(data))
+                  return data
+
+              state('START')
+              page.locator('[data-guided-go="2"]').scroll_into_view_if_needed()
+              page.locator('[data-guided-go="2"]').click(timeout=5000)
+              page.wait_for_function("document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='2'",timeout=5000)
+              state('STEP2')
+
+              page.locator('[data-guided-go="3"]').scroll_into_view_if_needed()
+              page.locator('[data-guided-go="3"]').click(timeout=5000)
+              page.wait_for_function("document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='3'",timeout=8000)
+              normal=state('STEP3_NORMAL')
+              assert normal['current']=='3' and 'Step 3 of 4' in normal['status'], normal
+              assert not normal['workspaceHidden'] and not normal['controlsHidden'], normal
+              assert normal['canvasWidth']>300 and normal['canvasHeight']>250 and normal['canvasInWorkspace'], normal
+
+              # Return to Step 2 and deliberately make currently displayed inputs invalid.
+              page.evaluate("document.querySelector('[data-guided-go=\"2\"]').click()")
+              page.wait_for_function("document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='2'",timeout=5000)
+              page.evaluate("""() => {
+                document.getElementById('projection-room-width').value='0';
+                document.getElementById('guided-budget').value='-1';
+              }""")
+              page.locator('[data-guided-go="3"]').click(timeout=5000)
+              page.wait_for_function("document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='3'",timeout=8000)
+              invalid=state('STEP3_INVALID_INPUTS')
+              assert invalid['current']=='3', invalid
+
+              pointer=page.evaluate("getComputedStyle(document.querySelector('.led-estimate-bar')).pointerEvents")
+              assert pointer=='none', pointer
+              page.screenshot(path='/tmp/v29-step3.png',full_page=False)
+              browser.close()
+
+          print('V29 PLAYWRIGHT STEP 3 NAVIGATION PASS')
+          PY
           kill $P || true
-          echo "Chrome rc=$RC"
-          grep -E 'SyntaxError|TypeError|ReferenceError' /tmp/v29-console.log && exit 5 || true
-          grep 'v29-navigation-result' /tmp/v29-dom.html | tail -1
-          grep -q 'data-result="PASS"' /tmp/v29-dom.html
-          cp /tmp/v29-dom.html /tmp/v29-step3-proof.html
+          test -s /tmp/v29-step3.png
 
       - uses: actions/upload-artifact@v4
         with:
           name: v29-step3-proof
-          path: /tmp/v29-step3-proof.html
+          path: /tmp/v29-step3.png
           retention-days: 1
 
       - name: Publish V29

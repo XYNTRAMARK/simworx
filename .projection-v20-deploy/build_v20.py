@@ -1,5 +1,5 @@
 from pathlib import Path
-import subprocess, re
+import subprocess
 
 # Build the known-good V19 first.
 subprocess.run(['python3','.projection-v19-deploy/build_v19.py'],check=True)
@@ -8,15 +8,21 @@ source=Path('projection-screen-configurator-v19.html')
 target=Path('projection-screen-configurator-v20.html')
 html=source.read_text()
 
-pattern = re.compile(r'<div class="led-shape-bar" data-guided-step="2">.*?</fieldset></div>', re.S)
-replacement = '<div class="projection-enclosure-default" hidden><input type="radio" name="projection-enclosure" value="screen-only" checked></div>'
-html, count = pattern.subn(replacement, html, count=1)
-if count != 1:
-    raise SystemExit(f'Expected one enclosure option block, replaced {count}')
+hide_css = """
+<style id="projection-hide-enclosure-options-v20">
+.led-shape-bar[data-guided-step="2"]{
+  display:none !important;
+}
+</style>
+"""
+
+if '</head>' not in html:
+    raise SystemExit('V20 could not find </head> for enclosure CSS')
+html=html.replace('</head>', hide_css+'\n</head>', 1)
 
 target.write_text(html)
 
-assert 'Semi enclosed' not in html
-assert 'Fully enclosed' not in html
-assert 'value="screen-only" checked' in html
-print('V20 removes visible enclosure choices while retaining screen-only default state')
+assert 'projection-hide-enclosure-options-v20' in html
+assert '.led-shape-bar[data-guided-step="2"]' in html
+assert 'display:none !important' in html
+print('V20 hides enclosure choices on Step 2 while retaining screen-only internal state')

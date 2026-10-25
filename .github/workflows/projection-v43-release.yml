@@ -1,5 +1,5 @@
 name: Release projection configurator V43 website shell
-# retry after footer-loader correction v3
+# retry after header-offset correction
 on:
   push:
     branches: [main]

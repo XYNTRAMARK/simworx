@@ -1,5 +1,5 @@
 from pathlib import Path
-import subprocess
+import subprocess, re
 
 # CRITICAL: V23 is a direct child of the finished V21 artifact.
 # Do not rebuild from V18/source and attempt to recreate V19-V21 changes.
@@ -59,11 +59,6 @@ if old_throw not in html: raise SystemExit('V23 V21 throw UI anchor missing')
 html=html.replace(old_throw,new_throw,1)
 
 # ---- V21 application sync: do NOT clamp throw to internal sample projector. ----
-old_sync="""  const min=model?.throwRatio?.min,max=model?.throwRatio?.max;
-  $('projection-throw').disabled=p.locked||!finite(min)||!finite(max)||max===min;
-  if(finite(min)&&finite(max)){$('projection-throw').min=min;$('projection-throw').max=max;$('projection-throw').value=p.throwRatio??min;}
-  $('projection-throw-limits').textContent=finite(min)&&finite(max)?'('+min+'–'+max+')':'(unknown)';
-  $('projection-throw-value').textContent=finite(p.throwRatio)?p.throwRatio.toFixed(3):'Unknown';"""
 new_sync="""  const min=.30,max=2.10;
   $('projection-throw').disabled=p.locked;
   $('projection-throw').min=min;$('projection-throw').max=max;$('projection-throw').step=.005;
@@ -72,8 +67,9 @@ new_sync="""  const min=.30,max=2.10;
   $('projection-throw-value').textContent=finite(p.throwRatio)?p.throwRatio.toFixed(3):'0.720';
   const throwClass=$('projection-throw-class');
   if(throwClass){const r=finite(p.throwRatio)?p.throwRatio:.72;throwClass.textContent=r<.45?'Ultra-short throw / very wide':r<1?'Short throw':'Standard / zoom';}"""
-if old_sync not in html: raise SystemExit('V23 V21 throw sync anchor missing')
-html=html.replace(old_sync,new_sync,1)
+pattern=re.compile(r"  const min=model\?\.throwRatio\?\.min,max=model\?\.throwRatio\?\.max;\\n\s*\$\('projection-throw'\)\.disabled=.*?\$\('projection-throw-value'\)\.textContent=finite\(p\.throwRatio\)\?p\.throwRatio\.toFixed\(3\):'Unknown';",re.S)
+html,count=pattern.subn(lambda m:new_sync.replace('\n','\\n'),html,count=1)
+if count!=1: raise SystemExit(f'V23 V21 throw sync regex replaced {count}')
 
 # ---- Preserve V21 event logic, but let the throw requirement apply to one/all projectors. ----
 old_event="$('projection-throw').addEventListener('input',e=>{selected().throwRatio=Number(e.target.value);update();});"

@@ -1,0 +1,35 @@
+name: Inspect LED layout shell
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-led-layout-shell.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect exact LED layout rules
+        run: |
+          python3 - <<'PY'
+          import urllib.request,re
+          url='https://www.sim-worx.com/led-screen-configurator.html'
+          req=urllib.request.Request(url,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-led-layout-inspector'})
+          with urllib.request.urlopen(req,timeout=45) as r:s=r.read().decode('utf-8','replace')
+          for label,pat in [
+            ('BODY',r'<body[^>]*>'),
+            ('MAIN',r'<main[^>]*>'),
+            ('ESTIMATE',r'[^{}]*\.led-estimate-bar[^{}]*\{[^{}]*\}'),
+            ('SHELL',r'[^{}]*\.led-shell[^{}]*\{[^{}]*\}'),
+            ('HEADER',r'[^{}]*\.global-header[^{}]*\{[^{}]*\}'),
+            ('FOOTER',r'[^{}]*\.sw-global-footer[^{}]*\{[^{}]*\}'),
+          ]:
+            print('\n###',label)
+            for m in list(re.finditer(pat,s,re.I))[:20]:
+              print(m.group(0)[:2500])
+          print('\nHEAD_END')
+          print(s[:min(len(s),22000)])
+          PY

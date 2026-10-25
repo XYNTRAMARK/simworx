@@ -57,6 +57,26 @@ with sync_playwright() as pw:
     page.on("requestfailed",lambda req: captured["errors"].append("requestfailed: "+req.url+" "+str(req.failure)))
     page.goto(URL,wait_until="domcontentloaded",timeout=60000)
     page.wait_for_timeout(1200)
+    page.evaluate("""() => {
+      window.__v48FetchTrace=[];
+      const original=window.fetch.bind(window);
+      window.fetch=async function(...args){
+        const item={url:String(args[0]),started:true};
+        window.__v48FetchTrace.push(item);
+        try{
+          const response=await original(...args);
+          item.status=response.status; item.ok=response.ok;
+          return response;
+        }catch(error){
+          item.error=String(error?.message||error);
+          throw error;
+        }
+      };
+      const form=document.getElementById('v48-email-form');
+      window.__v48SubmitTrace=[];
+      form?.addEventListener('submit',e=>window.__v48SubmitTrace.push({phase:'capture-observer',defaultPrevented:e.defaultPrevented}),true);
+      form?.addEventListener('submit',e=>window.__v48SubmitTrace.push({phase:'bubble-observer',defaultPrevented:e.defaultPrevented}));
+    }""")
 
     page.evaluate("""snap=>{
       window.SimworxProjection={snapshot:()=>snap};
@@ -107,8 +127,9 @@ with sync_playwright() as pw:
 
     status=page.locator("#v37-proposal-status").text_content() or ""
     email_status=page.locator("#v37-email-status").text_content() or ""
-    print("EMAIL_AFTER_SUBMIT",{"proposal_status":status,"email_status":email_status,"hit":captured.get("hit",False),"requests":captured.get("requests"),"errors":captured.get("errors"),"url":page.url})
-    assert "sent successfully" in status.lower(), (status,email_status,captured.get("requests"),captured.get("errors"),page.url)
+    trace=page.evaluate("({fetch:window.__v48FetchTrace,submit:window.__v48SubmitTrace})")
+    print("EMAIL_AFTER_SUBMIT",{"proposal_status":status,"email_status":email_status,"hit":captured.get("hit",False),"requests":captured.get("requests"),"trace":trace,"errors":captured.get("errors"),"url":page.url})
+    assert "sent successfully" in status.lower(), (status,email_status,captured.get("requests"),trace,captured.get("errors"),page.url)
     body=captured.get('body','')
     assert 'test-turnstile-token' in body
     assert 'proposal_html' in body and 'proposal_text' in body and 'proposal_reference' in body

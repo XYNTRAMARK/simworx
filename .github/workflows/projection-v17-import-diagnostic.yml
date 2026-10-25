@@ -19,24 +19,20 @@ jobs:
           from pathlib import Path
           p=Path('projection-screen-configurator-v17.html')
           s=p.read_text()
-          old="""  const offline=await import('projection:/src/offline-api.js');offline.installOfflineAPI(payload);
-          await import('projection:/src/app.js');
-          document.documentElement.dataset.standaloneReady='true';"""
-          new="""  for(const file of Object.keys(payload.modules)){
-            try{
-              console.log('IMPORTTEST',file);
-              await import('projection:'+file);
-              console.log('IMPORTOK',file);
-            }catch(error){
-              console.error('IMPORTFAIL',file,error?.stack||error?.message||error);
-              throw error;
-            }
-          }
-          const offline=await import('projection:/src/offline-api.js');offline.installOfflineAPI(payload);
-          await import('projection:/src/app.js');
-          document.documentElement.dataset.standaloneReady='true';"""
-          if old not in s: raise SystemExit('wrapper anchor not found')
-          p.write_text(s.replace(old,new,1))
+          import re
+          marker=r"(\s*const offline=await import\('projection:/src/offline-api\.js'\);offline\.installOfflineAPI\(payload\);)"
+          injection="""\n  for(const file of Object.keys(payload.modules)){
+    try{
+      console.log('IMPORTTEST',file);
+      await import('projection:'+file);
+      console.log('IMPORTOK',file);
+    }catch(error){
+      console.error('IMPORTFAIL',file,error?.stack||error?.message||error);
+      throw error;
+    }
+  }"""
+          if not re.search(marker,s): raise SystemExit('wrapper anchor not found')
+          p.write_text(re.sub(marker,injection+r"\1",s,count=1))
           PY
       - name: Run Chrome import diagnostic
         run: |

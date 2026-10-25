@@ -61,8 +61,13 @@ def main():
     live_header=public(HEADER+"?v48=1")
     if digest(live_header)!=digest(header):raise RuntimeError("public header checksum mismatch")
     text=live.decode("utf-8","replace")
-    for required in ['global-header.css','global-header.js','global-footer.js','id="sw-global-footer"','projection-v48-site-shell']:
-        if required not in text:raise RuntimeError("live V48 shell missing "+required)
-    print("Published V48 with normal SIMWORX website header/footer and updated live dropdown")
+    for required in ['global-header.css','global-header.js','global-footer.js','id="sw-global-footer"','projection-v47-site-shell','projection-v48-delivery-fix','projection-v48-antispam']:
+        if required not in text:raise RuntimeError("live V48 shell/delivery feature missing "+required)
+    if 'Content-Security-Policy' in text:raise RuntimeError("obsolete standalone CSP is still present on live V48")
+    import json
+    caps=json.loads(public("projection-quote-submit.php?action=capabilities").decode("utf-8"))
+    if not caps.get("ok") or not caps.get("protected") or not caps.get("mail"):
+        raise RuntimeError("Projection email endpoint is not protected/mail-capable: "+repr(caps))
+    print("Published V48; PDF delivery present, CSP removed, protected projection email endpoint mail-capable, live dropdown updated")
 
 if __name__=="__main__":main()

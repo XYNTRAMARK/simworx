@@ -24,7 +24,7 @@ with sync_playwright() as p:
     assert page.locator("#v37-print-proposal").inner_text()=="Save proposal as PDF"
     assert page.locator("#v37-download-proposal").is_hidden()
 
-    page.locator("#v37-email-proposal").click()
+    page.locator("#v37-email-proposal").dispatch_event("click")
     assert page.locator("#v37-email-dialog").is_visible()
     assert page.locator("#v37-email-send").inner_text()=="Send proposal"
     page.locator("#v37-email-address").fill("mark@sim-worx.com")

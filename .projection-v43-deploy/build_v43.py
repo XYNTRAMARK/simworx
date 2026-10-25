@@ -52,7 +52,7 @@ else:
     if ".sw-global-footer" not in html: html=html.replace("</head>",footer_style+"\n</head>",1)
 
 # Add the normal site footer placeholder after the configurator.
-if "sw-global-footer" not in html:
+if 'id="sw-global-footer"' not in html:
     pos=html.rfind("</body>")
     html=html[:pos]+footer+"\n"+html[pos:]
 

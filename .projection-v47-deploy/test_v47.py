@@ -25,6 +25,12 @@ with sync_playwright() as pw:
     top=metrics()
     print("TOP_METRICS",top)
     print("BODY_HTML_START",page.locator("body").evaluate("(el)=>el.innerHTML.slice(0,2500)"))
+    print("DOC_STATE",page.evaluate("""() => ({
+      scrollY:window.scrollY,
+      html:{margin:getComputedStyle(document.documentElement).margin,padding:getComputedStyle(document.documentElement).padding,overflowX:getComputedStyle(document.documentElement).overflowX,overflowY:getComputedStyle(document.documentElement).overflowY},
+      body:{margin:getComputedStyle(document.body).margin,padding:getComputedStyle(document.body).padding,overflowX:getComputedStyle(document.body).overflowX,overflowY:getComputedStyle(document.body).overflowY},
+      children:Array.from(document.body.children).slice(0,30).map((el,i)=>{const r=el.getBoundingClientRect();const s=getComputedStyle(el);return {i,tag:el.tagName,id:el.id,cls:el.className,display:s.display,position:s.position,marginTop:s.marginTop,marginBottom:s.marginBottom,x:r.x,y:r.y,w:r.width,h:r.height}})
+    })"""))
     assert close(top["header"]["x"],0)
     assert close(top["header"]["y"],0)
     assert close(top["header"]["width"],1680)

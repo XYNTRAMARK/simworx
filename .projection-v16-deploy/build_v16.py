@@ -335,5 +335,6 @@ assert 'screen-frame-upright-outside-surface' in layer
 assert 'projector-truss-beam' in layer
 assert 'generic-ceiling-projector-drop' in layer
 assert 'WUXGA or better' in guided
-assert 'modelName' not in guided.split("function renderResult()",1)[1].split("function onResult",1)[0]
+assert "summary.count+' × '+summary.modelName" not in guided
+assert "summary.count+' projectors · '" in guided
 print('V16 simplified brand-neutral projector requirement workflow checks passed')

@@ -51,6 +51,22 @@ with sync_playwright() as pw:
     assert below.is_visible()
     print('SECONDARY_PANELS_MOVED_BELOW_VIEWER_PASS')
 
+
+    # Projector search must open a separate popup and leave the configurator page in place.
+    search=page.locator('#v31-projector-search')
+    assert search.get_attribute('aria-disabled')=='false'
+    main_url=page.url
+    with page.expect_popup(timeout=5000) as popup_info:
+        search.click()
+    popup=popup_info.value
+    page.wait_for_timeout(300)
+    print('PROJECTOR_POPUP_URL',popup.url)
+    assert page.url==main_url
+    assert 'Projector results opened in a separate results window' in (page.locator('#v31-projector-search-status').text_content() or '')
+    assert 'google.com/search' in (search.get_attribute('href') or '')
+    popup.close()
+    print('PROJECTOR_POPUP_PASS')
+
     # Confirm layout geometry: panels start immediately after viewer, rather than leaving a blank column.
     home=page.locator('#led-canvas-home').bounding_box()
     below_box=below.bounding_box()

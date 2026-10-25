@@ -1,0 +1,189 @@
+name: Publish projection configurator V26
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v26.yml'
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start from published V25 exactly
+        run: |
+          curl -fsSL https://www.sim-worx.com/projection-screen-configurator-v25.html -o projection-screen-configurator-v26.html
+          grep -q 'projection-v25-controls' projection-screen-configurator-v26.html
+          grep -q 'projection-fixed-estimate-v24' projection-screen-configurator-v26.html
+          grep -q '"screenSystemPerM2Eur":500' projection-screen-configurator-v26.html
+
+      - name: Add viewer-side controls and direct 3D gizmos
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('projection-screen-configurator-v26.html')
+          s=p.read_text()
+
+          # Make the existing Three.js transform handles easier to see.
+          s=s.replace('transform.setSize(0.8);','transform.setSize(1.15);',1)
+
+          css='''<style id="projection-v26-viewer-editing">
+          #led-preview.v26-editing{grid-column:1/-1!important;max-width:none!important;width:100%!important}
+          .projection-v26-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,360px);gap:16px;align-items:start}
+          .projection-v26-viewer-column{min-width:0}
+          .projection-v26-workspace #projection-v25-controls{margin:0!important;position:sticky;top:112px;max-height:calc(100vh - 132px);overflow:auto}
+          .projection-v26-workspace #projection-v25-controls .projection-v25-grid{grid-template-columns:1fr}
+          .projection-v26-gizmo-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 10px;padding:8px;border:1px solid #d9e0e7;border-radius:6px;background:#fff}
+          .projection-v26-gizmo-toolbar button{min-height:40px}
+          .projection-v26-gizmo-toolbar [aria-pressed="true"]{border-color:#d52b1e;background:#fff3f2}
+          .projection-v26-mode-note{font-size:11px;color:#64748b;align-self:center}
+          @media(max-width:1050px){
+            .projection-v26-workspace{grid-template-columns:1fr}
+            .projection-v26-workspace #projection-v25-controls{position:static;max-height:none;overflow:visible}
+            .projection-v26-workspace #projection-v25-controls .projection-v25-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+          }
+          @media(max-width:650px){.projection-v26-workspace #projection-v25-controls .projection-v25-grid{grid-template-columns:1fr}}
+          </style>'''
+          s=s.replace('</head>',css+'\n</head>',1)
+
+          js='''<script id="projection-v26-viewer-editing-js">
+          (function(){
+            const q=id=>document.getElementById(id);
+            let originalParent=null, originalNext=null, workspace=null, viewerColumn=null, installed=false;
+
+            function clickChange(el,checked){
+              if(!el)return;
+              if(typeof checked==='boolean')el.checked=checked;
+              el.dispatchEvent(new Event('change',{bubbles:true}));
+            }
+
+            function step3Active(){
+              return document.querySelector('[data-guided-go="3"]')?.getAttribute('aria-current')==='step';
+            }
+
+            function enableDirectEditing(){
+              const manual=q('projection-manual-viewer');
+              if(manual&&!manual.checked)clickChange(manual,true);
+              document.querySelector('[data-transform="translate"]')?.click();
+              updateToolbar('move');
+            }
+
+            function updateToolbar(mode){
+              q('v26-move')?.setAttribute('aria-pressed',String(mode==='move'));
+              q('v26-rotate')?.setAttribute('aria-pressed',String(mode==='rotate'));
+              const note=q('v26-mode-note');
+              if(note)note.textContent=mode==='rotate'?'Drag the rotation rings around the selected projector.':'Drag the arrows on the selected projector to reposition it.';
+            }
+
+            function install(){
+              if(installed)return;
+              const preview=q('led-preview'),home=q('led-canvas-home'),panel=q('projection-v25-controls');
+              if(!preview||!home||!panel)return;
+              installed=true;
+              originalParent=panel.parentNode;originalNext=panel.nextSibling;
+
+              workspace=document.createElement('div');
+              workspace.id='projection-v26-workspace';
+              workspace.className='projection-v26-workspace';
+
+              viewerColumn=document.createElement('div');
+              viewerColumn.className='projection-v26-viewer-column';
+
+              const toolbar=document.createElement('div');
+              toolbar.className='projection-v26-gizmo-toolbar';
+              toolbar.innerHTML='<button type="button" class="led-button led-outline" id="v26-move" aria-pressed="true">Move handles</button><button type="button" class="led-button led-outline" id="v26-rotate" aria-pressed="false">Rotation ball</button><button type="button" class="led-button led-outline" id="v26-undo">Undo</button><span class="projection-v26-mode-note" id="v26-mode-note">Drag the arrows on the selected projector to reposition it.</span>';
+
+              home.parentNode.insertBefore(workspace,home);
+              viewerColumn.append(toolbar,home);
+              workspace.append(viewerColumn,panel);
+
+              q('v26-move').addEventListener('click',()=>{
+                const manual=q('projection-manual-viewer');if(manual&&!manual.checked)clickChange(manual,true);
+                q('v25-move')?.click();updateToolbar('move');
+              });
+              q('v26-rotate').addEventListener('click',()=>{
+                const manual=q('projection-manual-viewer');if(manual&&!manual.checked)clickChange(manual,true);
+                q('v25-aim')?.click();updateToolbar('rotate');
+              });
+              q('v26-undo').addEventListener('click',()=>q('v25-undo')?.click());
+
+              // Selecting any projector keeps the direct gizmo attached.
+              q('projection-v25-tabs')?.addEventListener('click',()=>setTimeout(enableDirectEditing,0));
+              applyStep();
+            }
+
+            function applyStep(){
+              if(!installed)return;
+              const active=step3Active();
+              q('led-preview')?.classList.toggle('v26-editing',active);
+              if(workspace)workspace.hidden=!active;
+              if(active){
+                const panel=q('projection-v25-controls');
+                if(panel)panel.hidden=false;
+                enableDirectEditing();
+              }
+            }
+
+            const observer=new MutationObserver(()=>{install();applyStep();});
+            observer.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['aria-current'],childList:true});
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{install();applyStep();});
+            else {install();applyStep();}
+          })();
+          </script>'''
+          s=s.replace('</body>',js+'\n</body>',1)
+
+          p.write_text(s)
+
+          checks=[
+            'projection-fixed-estimate-v24',
+            'projection-v25-controls',
+            'projection-v26-workspace',
+            'Rotation ball',
+            'Move handles',
+            'transform.setSize(1.15)',
+            'id="v25-throw"',
+            'id="v25-yaw"',
+            'id="v25-pitch"',
+            '"screenSystemPerM2Eur":500'
+          ]
+          missing=[x for x in checks if x not in s]
+          if missing:raise SystemExit('V26 inheritance/editing check failed '+repr(missing))
+          print('V26 viewer-side controls and 3D gizmos added on top of V25')
+          PY
+
+      - name: Browser startup and runtime layout test
+        run: |
+          python3 -m http.server 8765 >/tmp/server.log 2>&1 &
+          P=$!
+          sleep 2
+          C="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          set +e
+          timeout 45 "$C" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=14000 --dump-dom http://127.0.0.1:8765/projection-screen-configurator-v26.html >/tmp/v26-dom.html 2>/tmp/v26-console.log
+          set -e
+          kill $P || true
+          grep -E 'SyntaxError|TypeError|ReferenceError' /tmp/v26-console.log && exit 5 || true
+          grep -q 'data-standalone-ready="true"' /tmp/v26-dom.html
+          grep -q 'projection-v26-workspace' /tmp/v26-dom.html
+          grep -q 'Rotation ball' /tmp/v26-dom.html
+          grep -q 'projection-fixed-estimate-v24' /tmp/v26-dom.html
+
+      - name: Publish V26
+        run: |
+          cp .projection-v23-deploy/publish_v23.py /tmp/publish_v26.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/publish_v26.py')
+          s=p.read_text()
+          s=s.replace('projection-screen-configurator-v23.html','projection-screen-configurator-v26.html')
+          s=s.replace('projection-screen-configurator-v22.html','projection-screen-configurator-v26-old.html')
+          s=s.replace('Published immutable V23 and removed public V22','Published immutable V26')
+          p.write_text(s)
+          PY
+          python3 /tmp/publish_v26.py

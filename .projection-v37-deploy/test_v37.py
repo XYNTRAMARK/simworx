@@ -93,7 +93,18 @@ with sync_playwright() as pw:
             break
         page.wait_for_timeout(100)
     else:
-        raise AssertionError('V37 Proposal step did not open')
+        debug=page.evaluate("""() => ({
+          current:document.querySelector('[data-guided-go][aria-current="step"]')?.dataset?.guidedGo||null,
+          status:document.getElementById('guided-step-status')?.textContent||'',
+          proposalExists:!!document.getElementById('v37-proposal'),
+          proposalHidden:document.getElementById('v37-proposal')?.hidden,
+          layoutStatus:document.getElementById('guided-viewer-status-text')?.textContent||'',
+          recalcHidden:document.getElementById('guided-recalculate')?.hidden,
+          nextDisabled:document.getElementById('guided-next')?.disabled,
+          step4Disabled:document.querySelector('[data-guided-go="4"]')?.disabled
+        })""")
+        print('PROPOSAL_OPEN_DEBUG',debug)
+        raise AssertionError('V37 Proposal step did not open: '+str(debug))
 
     assert (page.locator('[data-guided-go="4"]').text_content() or '').strip().endswith('Proposal')
     assert 'Proposal' in (page.locator('#guided-step-status').text_content() or '')

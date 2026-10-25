@@ -67,16 +67,22 @@ html=html[:pos]+shell_scripts+html[pos:]
 # configurator chrome below the live sticky header without changing its workflow.
 layout_css=r"""<style id="projection-v45-site-shell">
 /* Use the normal website flow like the working LED configurator. */
-body{margin:0}
+body{margin:0;padding:0 14px 14px}
 .global-header{z-index:12000!important}
+.led-shell{
+  width:min(1180px,calc(100% - 54px))!important;
+  margin:auto!important;
+  padding-bottom:64px!important;
+}
 #projection-app{
   position:relative;
   padding-top:0!important;
 }
 .led-estimate-bar{
   position:sticky!important;
-  top:var(--sw-header-h,84px)!important;
-  z-index:10000!important;
+  top:var(--sw-header-h)!important;
+  z-index:50!important;
+  margin:0 0 24px!important;
 }
 #v40-guided-header{
   position:sticky!important;
@@ -102,7 +108,9 @@ checks=[
     'global-header.js',
     'global-footer.js',
     'position:sticky!important',
-    'top:var(--sw-header-h,84px)!important',
+    'body{margin:0;padding:0 14px 14px}',
+    'width:min(1180px,calc(100% - 54px))',
+    'top:var(--sw-header-h)!important',
     'top:calc(var(--sw-header-h,84px) + var(--v40-estimate-h))!important',
     'projection-v42-proposal-delivery',
 ]

@@ -28,6 +28,13 @@ if '<button type="button" data-guided-go="4"><b>4</b> Review</button>' not in ht
     raise SystemExit("V37 Step 4 Review nav anchor missing")
 html=html.replace('<button type="button" data-guided-go="4"><b>4</b> Review</button>','<button type="button" data-guided-go="4"><b>4</b> Proposal</button>',1)
 
+# Proposal uses the current live/manual projector state. Do not block Step 4 merely because
+# manual edits mark the optimiser result dirty; only block when no layout exists at all.
+proposal_guard="if(n===4&&(!s.layoutReady||s.layoutDirty)){"
+if proposal_guard not in html:
+    raise SystemExit("V37 Step 4 layout guard anchor missing")
+html=html.replace(proposal_guard,"if(n===4&&!s.layoutReady){",1)
+
 # Keep the shared WebGL viewer inside the V37 left column after V29 step refreshes.
 owner_old="if(home.parentNode!==row)row.appendChild(home);"
 owner_new="const v37Left=document.getElementById('v37-left-column');const homeTarget=v37Left||row;if(home.parentNode!==homeTarget){if(v37Left)v37Left.insertBefore(home,v37Left.firstChild||null);else row.appendChild(home);}"
@@ -364,6 +371,10 @@ proposal_js=r"""<script id="projection-v37-proposal-js">
 
   const timer=setInterval(()=>{if(ensureProposal()){clearInterval(timer);refreshProposal();}},50);
   new MutationObserver(refreshProposal).observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['aria-current']});
+  document.querySelectorAll('[data-guided-go]').forEach(button=>button.addEventListener('click',()=>setTimeout(refreshProposal,30)));
+  q('guided-next')?.addEventListener('click',()=>setTimeout(refreshProposal,30));
+  q('guided-back')?.addEventListener('click',()=>setTimeout(refreshProposal,30));
+  setInterval(()=>{if(currentStep()===4)refreshProposal();},500);
   document.addEventListener('change',event=>{if(event.target?.id==='projection-currency')setTimeout(refreshProposal,300)});
 })();
 </script>"""

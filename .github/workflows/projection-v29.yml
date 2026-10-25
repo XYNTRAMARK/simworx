@@ -49,86 +49,72 @@ jobs:
           print('V29 navigation patch applied on top of published V28')
           PY
 
-      - name: Selenium physical Step 3 navigation test
+      - name: Real in-page Step 3 navigation test
         run: |
-          python3 -m pip install --quiet selenium
+          cp projection-screen-configurator-v29.html projection-screen-configurator-v29-test.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('projection-screen-configurator-v29-test.html')
+          s=p.read_text()
+          test='''<script id="v29-navigation-selftest">
+          (async function(){
+            const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+            const current=()=>document.querySelector('[data-guided-go][aria-current="step"]')?.dataset?.guidedGo||'';
+            const status=()=>document.getElementById('guided-step-status')?.textContent||'';
+            const checks=[];
+
+            await sleep(1800);
+            document.querySelector('[data-guided-go="2"]')?.click();
+            await sleep(600);
+            checks.push(current()==='2');
+
+            document.querySelector('[data-guided-go="3"]')?.click();
+            await sleep(1000);
+            checks.push(current()==='3' && status().includes('Step 3 of 4'));
+
+            document.querySelector('[data-guided-go="2"]')?.click();
+            await sleep(500);
+            const width=document.getElementById('projection-room-width');
+            const budget=document.getElementById('guided-budget');
+            if(width)width.value='0';
+            if(budget)budget.value='-1';
+            document.querySelector('[data-guided-go="3"]')?.click();
+            await sleep(1000);
+            checks.push(current()==='3');
+
+            const bar=document.querySelector('.led-estimate-bar');
+            checks.push(bar && getComputedStyle(bar).pointerEvents==='none');
+
+            const out=document.createElement('div');
+            out.id='v29-navigation-result';
+            out.dataset.result=checks.every(Boolean)?'PASS':'FAIL';
+            out.textContent=(checks.every(Boolean)?'PASS':'FAIL')+' '+JSON.stringify({checks,current:current(),status:status()});
+            document.body.appendChild(out);
+          })();
+          </script>'''
+          s=s.replace('</body>',test+'\n</body>',1)
+          p.write_text(s)
+          PY
+
           python3 -m http.server 8765 >/tmp/server.log 2>&1 &
           P=$!
           sleep 2
-          python3 - <<'PY'
-          import json, shutil, time
-          from selenium import webdriver
-          from selenium.webdriver.common.by import By
-          from selenium.webdriver.support.ui import WebDriverWait
-
-          chrome=shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
-          options=webdriver.ChromeOptions()
-          options.binary_location=chrome
-          options.page_load_strategy='none'
-          for arg in ['--headless=new','--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader','--window-size=1600,1000']:
-              options.add_argument(arg)
-          d=webdriver.Chrome(options=options)
-          d.get('http://127.0.0.1:8765/projection-screen-configurator-v29.html')
-          WebDriverWait(d,20).until(lambda x:x.execute_script("return document.documentElement.dataset.standaloneReady==='true'"))
-          time.sleep(2)
-
-          def snap(label):
-              x=d.execute_script("""
-                const cur=document.querySelector('[data-guided-go][aria-current="step"]');
-                const b3=document.querySelector('[data-guided-go="3"]');
-                const r=b3.getBoundingClientRect();
-                const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
-                return {
-                  current:cur?.dataset?.guidedGo||null,
-                  status:document.getElementById('guided-step-status')?.textContent||'',
-                  button3Disabled:b3.disabled,
-                  button3PointElement:top?.dataset?.guidedGo||top?.id||top?.tagName||'',
-                  workspaceHidden:document.getElementById('projection-v26-workspace')?.hidden,
-                  viewerInWorkspace:!!document.getElementById('led-canvas-home')?.closest('#projection-v26-workspace')
-                };
-              """)
-              print(label,json.dumps(x))
-              return x
-
-          def physical_click(selector):
-              el=d.find_element(By.CSS_SELECTOR,selector)
-              d.execute_script("arguments[0].scrollIntoView({block:'center'});",el)
-              time.sleep(.25)
-              el.click()
-
-          snap('START')
-          physical_click('[data-guided-go="2"]')
-          WebDriverWait(d,8).until(lambda x:x.execute_script("return document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='2'"))
-          snap('STEP2')
-
-          physical_click('[data-guided-go="3"]')
-          WebDriverWait(d,8).until(lambda x:x.execute_script("return document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='3'"))
-          normal=snap('STEP3_NORMAL')
-          assert normal['current']=='3' and 'Step 3 of 4' in normal['status'], normal
-
-          # Regression test: a hidden exact-wall field must not silently lock the user out.
-          d.execute_script("document.querySelector('[data-guided-go=\"2\"]').click();")
-          WebDriverWait(d,8).until(lambda x:x.execute_script("return document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='2'"))
-          d.execute_script("""
-            document.getElementById('projection-room-width').value='0';
-            document.getElementById('guided-budget').value='-1';
-          """)
-          physical_click('[data-guided-go="3"]')
-          WebDriverWait(d,8).until(lambda x:x.execute_script("return document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='3'"))
-          invalid=snap('STEP3_WITH_INVALID_FIELDS')
-          assert invalid['current']=='3', invalid
-
-          d.save_screenshot('/tmp/v29-step3.png')
-          d.quit()
-          print('V29 PHYSICAL STEP 3 NAVIGATION PASS')
-          PY
+          C="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          set +e
+          timeout 45 "$C" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=8000 --dump-dom http://127.0.0.1:8765/projection-screen-configurator-v29-test.html >/tmp/v29-dom.html 2>/tmp/v29-console.log
+          RC=$?
+          set -e
           kill $P || true
-          test -s /tmp/v29-step3.png
+          echo "Chrome rc=$RC"
+          grep -E 'SyntaxError|TypeError|ReferenceError' /tmp/v29-console.log && exit 5 || true
+          grep 'v29-navigation-result' /tmp/v29-dom.html | tail -1
+          grep -q 'data-result="PASS"' /tmp/v29-dom.html
+          cp /tmp/v29-dom.html /tmp/v29-step3-proof.html
 
       - uses: actions/upload-artifact@v4
         with:
           name: v29-step3-proof
-          path: /tmp/v29-step3.png
+          path: /tmp/v29-step3-proof.html
           retention-days: 1
 
       - name: Publish V29

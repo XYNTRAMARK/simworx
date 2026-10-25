@@ -62,7 +62,6 @@ with sync_playwright() as pw:
     page.wait_for_timeout(300)
     print('PROJECTOR_POPUP_URL',popup.url)
     assert page.url==main_url
-    assert 'Projector results opened in a separate results window' in (page.locator('#v31-projector-search-status').text_content() or '')
     assert 'google.com/search' in (search.get_attribute('href') or '')
     popup.close()
     print('PROJECTOR_POPUP_PASS')

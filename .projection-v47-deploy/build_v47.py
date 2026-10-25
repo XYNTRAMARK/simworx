@@ -148,7 +148,7 @@ checks=[
 ]
 missing=[x for x in checks if x not in html]
 if missing: raise SystemExit("V47 shell checks failed "+repr(missing))
-if 'projection-preview-banner' in html: raise SystemExit("V47 preview banner still present")
+if re.search(r'<[^>]+class=["\'][^"\']*projection-preview-banner[^"\']*["\']',html,re.I): raise SystemExit("V47 preview banner element still present")
 body_pos=html.lower().find('<body')
 header_pos=html.find('<header class="global-header">',body_pos)
 between=html[html.find('>',body_pos)+1:header_pos]

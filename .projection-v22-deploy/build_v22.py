@@ -1,5 +1,5 @@
 from pathlib import Path
-import subprocess
+import subprocess, re
 
 subprocess.run(['python3','.projection-v21-deploy/build_v21.py'],check=True)
 
@@ -54,40 +54,32 @@ if old not in html:
 html=html.replace(old,new,1)
 
 # 3. Stop the sample projector profile constraining the planning slider.
-old_js="""  const min=model?.throwRatio?.min,max=model?.throwRatio?.max;
-  $('projection-throw').disabled=p.locked||!finite(min)||!finite(max)||max===min;
-  if(finite(min)&&finite(max)){$('projection-throw').min=min;$('projection-throw').max=max;$('projection-throw').value=p.throwRatio??min;}
-  $('projection-throw-limits').textContent=finite(min)&&finite(max)?'('+min+'–'+max+')':'(unknown)';
-  $('projection-throw-value').textContent=finite(p.throwRatio)?p.throwRatio.toFixed(3):'Unknown';"""
 new_js="""  const min=.30,max=2.10;
   $('projection-throw').disabled=p.locked;
   $('projection-throw').min=min;$('projection-throw').max=max;$('projection-throw').step=.005;$('projection-throw').value=finite(p.throwRatio)?Math.max(min,Math.min(max,p.throwRatio)):.72;
   $('projection-throw-limits').textContent='(planning range 0.30–2.10)';
   $('projection-throw-value').textContent=finite(p.throwRatio)?p.throwRatio.toFixed(3):'0.720';
   const throwClass=$('projection-throw-class');if(throwClass){const r=finite(p.throwRatio)?p.throwRatio:.72;throwClass.textContent=r<.45?'Ultra-short throw':r<1?'Short / wide throw':'Standard / medium zoom';}"""
-if old_js not in html:
-    raise SystemExit('V22 app throw sync anchor missing')
-html=html.replace(old_js,new_js,1)
+pattern=re.compile(r"  const min=model\?\.throwRatio\?\.min,max=model\?\.throwRatio\?\.max;.*?\$\('projection-throw-value'\)\.textContent=finite\(p\.throwRatio\)\?p\.throwRatio\.toFixed\(3\):'Unknown';",re.S)
+html,count=pattern.subn(new_js,html,count=1)
+if count!=1: raise SystemExit(f'V22 app throw sync regex replaced {count}')
 
-old_event="$('projection-throw').addEventListener('input',e=>{selected().throwRatio=Number(e.target.value);update();});"
 new_event="$('projection-throw').addEventListener('input',e=>{const ratio=Number(e.target.value),targets=$('projection-throw-all')?.checked?state.projectors:[selected()];for(const p of targets){p.throwRatio=ratio;p.planningThrowRange=[.30,2.10];}state.manualLayout=true;update();});"
-if old_event not in html:
-    raise SystemExit('V22 throw event anchor missing')
-html=html.replace(old_event,new_event,1)
+pattern=re.compile(r"\$\('projection-throw'\)\??\.addEventListener\('input',e=>\{.*?\}\);")
+html,count=pattern.subn(lambda m:new_event,html,count=1)
+if count!=1: raise SystemExit(f'V22 throw event regex replaced {count}')
 
 # Existing optics engine honours an explicit planning range after the user changes throw.
-old_opt="const throwMin = valueAt(profile, ['throwRatio.min', 'throwRatioMin']);\n  const throwMax = valueAt(profile, ['throwRatio.max', 'throwRatioMax']);"
+pattern=re.compile(r"const throwMin = valueAt\(profile, \['throwRatio\.min', 'throwRatioMin'\]\);\s*const throwMax = valueAt\(profile, \['throwRatio\.max', 'throwRatioMax'\]\);")
 new_opt="const throwMin = instance.planningThrowRange?.[0] ?? valueAt(profile, ['throwRatio.min', 'throwRatioMin']);\n  const throwMax = instance.planningThrowRange?.[1] ?? valueAt(profile, ['throwRatio.max', 'throwRatioMax']);"
-if old_opt not in html:
-    raise SystemExit('V22 optics throw range anchor missing')
-html=html.replace(old_opt,new_opt,1)
+html,count=pattern.subn(new_opt,html,count=1)
+if count!=1: raise SystemExit(f'V22 optics throw range regex replaced {count}')
 
 # Make the customer-facing requirement prefer the user's live throw setting.
-old_spec="const targetThrow=finite(summary.requiredThrowRatio)?summary.requiredThrowRatio:currentThrow;"
-new_spec="const targetThrow=throws.length?currentThrow:(finite(summary.requiredThrowRatio)?summary.requiredThrowRatio:null);"
-if old_spec not in html:
-    raise SystemExit('V22 required spec throw anchor missing')
-html=html.replace(old_spec,new_spec,1)
+html,count=re.subn(r"const targetThrow=finite\(summary\.requiredThrowRatio\)\?summary\.requiredThrowRatio:currentThrow;",
+                   "const targetThrow=throws.length?currentThrow:(finite(summary.requiredThrowRatio)?summary.requiredThrowRatio:null);",
+                   html,count=1)
+if count!=1: raise SystemExit(f'V22 required spec throw regex replaced {count}')
 
 # Styling.
 css='''<style id="projection-manual-optics-v22">

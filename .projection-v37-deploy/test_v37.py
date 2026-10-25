@@ -7,7 +7,7 @@ if not chrome: raise SystemExit('Chrome not found')
 with sync_playwright() as pw:
     browser=pw.chromium.launch(headless=True,executable_path=chrome,args=['--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader'])
     page=browser.new_page(viewport={'width':1600,'height':1000})
-    page.on('pageerror',lambda error: print('PAGE_ERROR',error))
+    page.on('pageerror',lambda error: print('PAGE_ERROR',getattr(error,'stack',None) or str(error)))
     page.on('console',lambda msg: print('BROWSER_CONSOLE',msg.type,msg.text) if msg.type in ['error','warning'] else None)
     page.goto('http://127.0.0.1:8765/projection-screen-configurator-v37.html',wait_until='domcontentloaded',timeout=15000)
 

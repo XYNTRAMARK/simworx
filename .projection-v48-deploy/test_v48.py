@@ -43,12 +43,18 @@ with sync_playwright() as pw:
       };
     """)
 
-    captured={}
+    captured={"requests":[],"errors":[]}
     def route_handler(route):
-        captured['body']=route.request.post_data or ''
+        req=route.request
+        captured["requests"].append({"url":req.url,"method":req.method,"post_data":req.post_data,"headers":req.headers})
+        captured["body"]=req.post_data or ""
+        captured["hit"]=True
         route.fulfill(status=200,content_type="application/json",body='{"ok":true,"message":"Proposal sent successfully.","reference":"SWX-PROJ-V48-TEST"}')
     page.route("**/projection-quote-submit.php",route_handler)
 
+    page.on("console",lambda msg: captured["errors"].append("console "+msg.type+": "+msg.text) if msg.type in ["error","warning"] else None)
+    page.on("pageerror",lambda exc: captured["errors"].append("pageerror: "+str(exc)))
+    page.on("requestfailed",lambda req: captured["errors"].append("requestfailed: "+req.url+" "+str(req.failure)))
     page.goto(URL,wait_until="domcontentloaded",timeout=60000)
     page.wait_for_timeout(1200)
 
@@ -101,8 +107,8 @@ with sync_playwright() as pw:
 
     status=page.locator("#v37-proposal-status").text_content() or ""
     email_status=page.locator("#v37-email-status").text_content() or ""
-    print("EMAIL_AFTER_SUBMIT",{"proposal_status":status,"email_status":email_status,"captured":bool(captured.get('body')),"url":page.url})
-    assert "sent successfully" in status.lower(), (status,email_status,captured.get('body','')[:500],page.url)
+    print("EMAIL_AFTER_SUBMIT",{"proposal_status":status,"email_status":email_status,"hit":captured.get("hit",False),"requests":captured.get("requests"),"errors":captured.get("errors"),"url":page.url})
+    assert "sent successfully" in status.lower(), (status,email_status,captured.get("requests"),captured.get("errors"),page.url)
     body=captured.get('body','')
     assert 'test-turnstile-token' in body
     assert 'proposal_html' in body and 'proposal_text' in body and 'proposal_reference' in body

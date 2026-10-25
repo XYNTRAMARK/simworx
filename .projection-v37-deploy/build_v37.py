@@ -1,5 +1,6 @@
 from pathlib import Path
 from urllib.request import Request, urlopen
+import subprocess
 
 BASE_URL="https://www.sim-worx.com"
 SOURCE="projection-screen-configurator-v36.html"
@@ -379,6 +380,11 @@ proposal_js=r"""<script id="projection-v37-proposal-js">
 })();
 </script>"""
 html=html.replace("</body>",proposal_js+"\\n</body>",1)
+# Fail the build immediately if the customer-facing Proposal JavaScript is invalid.
+proposal_source=proposal_js[proposal_js.index(">")+1:proposal_js.rindex("</script>")]
+Path("/tmp/v37-proposal.js").write_text(proposal_source)
+subprocess.run(["node","--check","/tmp/v37-proposal.js"],check=True)
+
 
 popup_js=r"""<script id="projection-v37-projector-popup-js">
 (function(){

@@ -45,7 +45,7 @@ jobs:
               if(node&&before&&before.parentNode)before.parentNode.insertBefore(node,before);
             }
 
-            function apply(){
+            function apply(forcedStep){
               const preview=q('led-preview');
               const home=q('led-canvas-home');
               const toolbar=preview?.querySelector('.led-viewer-toolbar');
@@ -54,7 +54,7 @@ jobs:
               const panel=q('projection-v25-controls');
               if(!preview||!home||!workspace||!viewerColumn)return;
 
-              const step=currentStep();
+              const step=forcedStep||currentStep();
               if(step===3){
                 preview.classList.add('v26-editing');
                 workspace.hidden=false;
@@ -173,7 +173,7 @@ jobs:
           driver.execute_script("""
             document.querySelectorAll('[data-guided-go]').forEach(b=>b.removeAttribute('aria-current'));
             document.querySelector('[data-guided-go="3"]').setAttribute('aria-current','step');
-            window.__projectionV28ApplyViewer();
+            window.__projectionV28ApplyViewer(3);
           """)
           time.sleep(1)
           measure('STEP3-LAYOUT',True)

@@ -68,6 +68,8 @@ with sync_playwright() as pw:
     print('PROJECTOR_POPUP_PASS')
 
     # Confirm layout geometry: panels start immediately after viewer, rather than leaving a blank column.
+    page.locator('#v37-left-column').scroll_into_view_if_needed()
+    page.wait_for_timeout(150)
     home=page.locator('#led-canvas-home').bounding_box()
     below_box=below.bounding_box()
     panel=page.locator('#projection-v25-controls').bounding_box()
@@ -83,6 +85,65 @@ with sync_playwright() as pw:
     used_left=(below_box['y']+below_box['height'])-home['y']
     print('LEFT_COLUMN_USED_HEIGHT',used_left,'RIGHT_PANEL_HEIGHT',panel['height'])
     assert used_left>home['height']+150
+
+    # Step 4 is a real Proposal, not the old passive Review screen.
+    page.locator('[data-guided-go="4"]').click()
+    for _ in range(80):
+        cur=page.locator('[data-guided-go][aria-current="step"]')
+        if cur.count() and cur.get_attribute('data-guided-go')=='4' and page.locator('#v37-proposal').is_visible():
+            break
+        page.wait_for_timeout(100)
+    else:
+        raise AssertionError('V37 Proposal step did not open')
+
+    assert (page.locator('[data-guided-go="4"]').text_content() or '').strip().endswith('Proposal')
+    assert 'Proposal' in (page.locator('#guided-step-status').text_content() or '')
+    assert page.locator('#v37-proposal-spec').is_visible()
+    assert page.locator('#v37-projector-rows tr').count()==3
+    assert page.locator('#v37-price-lines').is_visible()
+    assert page.locator('#v37-print-proposal').is_visible()
+    assert page.locator('#v37-download-proposal').is_visible()
+    assert page.locator('#v37-email-proposal').is_visible()
+    assert page.locator('#v37-request-quote').is_visible()
+    assert not page.locator('#led-review').is_visible()
+    print('PROPOSAL_STEP_VISIBLE_PASS')
+
+    # Spain uses the visible 21% VAT estimate and delivery stays quote-only.
+    page.locator('#v37-destination').select_option('spain')
+    page.wait_for_timeout(150)
+    lines=page.locator('#v37-price-lines').text_content() or ''
+    vat_note=page.locator('#v37-vat-note').text_content() or ''
+    print('SPAIN_FINANCE',lines,vat_note)
+    assert 'VAT · 21%' in lines
+    assert 'Delivery' in lines and 'To be quoted' in lines
+    assert '21%' in vat_note
+    print('SPAIN_VAT_PASS')
+
+    # EU business VAT treatment changes to 0% estimate when a VAT number is supplied.
+    page.locator('#v37-destination').select_option('eu')
+    page.locator('#v37-customer-type').select_option('business')
+    page.locator('#v37-vat-number').fill('FR12345678901')
+    page.wait_for_timeout(150)
+    eu_lines=page.locator('#v37-price-lines').text_content() or ''
+    eu_note=page.locator('#v37-vat-note').text_content() or ''
+    print('EU_BUSINESS_FINANCE',eu_lines,eu_note)
+    assert 'VAT · 0%' in eu_lines
+    assert 'VIES' in eu_note
+    print('EU_BUSINESS_VAT_PASS')
+
+    # Proposal currency remains synchronized with the main configurator currency.
+    page.locator('#v37-currency-buttons button[data-currency="GBP"]').click()
+    page.wait_for_timeout(500)
+    assert page.locator('#projection-currency').input_value()=='GBP'
+    assert page.locator('#v37-currency-buttons button[data-currency="GBP"]').get_attribute('aria-pressed')=='true'
+    print('PROPOSAL_CURRENCY_SYNC_PASS')
+
+    # Email action opens the proposal email box without leaving the proposal.
+    page.locator('#v37-email-proposal').click()
+    assert page.locator('#v37-email-dialog').is_visible()
+    page.locator('#v37-email-close').click()
+    assert not page.locator('#v37-email-dialog').is_visible()
+    print('PROPOSAL_EMAIL_DIALOG_PASS')
 
     page.screenshot(path='/tmp/v37-proof.png',full_page=False)
     browser.close()

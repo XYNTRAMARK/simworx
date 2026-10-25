@@ -1,0 +1,39 @@
+name: Publish projection configurator V36
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v36.yml'
+      - '.projection-v36-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v36
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V36 from published V35
+        run: python3 .projection-v36-deploy/build_v36.py
+      - name: Run V36 browser acceptance test
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m http.server 8765 >/tmp/v36-server.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v36-deploy/test_v36.py
+          kill $P || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v36-proof
+          path: /tmp/v36-proof.png
+          retention-days: 1
+      - name: Publish immutable V36
+        run: python3 .projection-v36-deploy/publish_v36.py

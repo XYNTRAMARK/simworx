@@ -1,4 +1,5 @@
 name: Release projection configurator V43 website shell
+# retry after footer-loader correction
 on:
   push:
     branches: [main]

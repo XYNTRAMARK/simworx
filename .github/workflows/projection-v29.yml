@@ -200,6 +200,16 @@ jobs:
                   page.wait_for_timeout(100)
               else:
                   raise AssertionError('Step 3 did not become current')
+              for _ in range(50):
+                  row=page.locator('#projection-v29-edit-row')
+                  panel=page.locator('#projection-v25-controls')
+                  row_class=row.get_attribute('class') or ''
+                  panel_hidden=panel.get_attribute('hidden')
+                  if 'is-step3' in row_class and panel_hidden is None:
+                      break
+                  page.wait_for_timeout(100)
+              else:
+                  raise AssertionError('Step 3 controls did not appear beside viewer')
               normal=state('STEP3_NORMAL')
               assert normal['current']=='3' and 'Step 3 of 4' in normal['status'], normal
               assert normal['workspaceHidden'] and not normal['controlsHidden'], normal
@@ -225,6 +235,11 @@ jobs:
                   page.wait_for_timeout(100)
               else:
                   raise AssertionError('Step 3 was blocked by invalid inputs')
+              for _ in range(50):
+                  row_class=page.locator('#projection-v29-edit-row').get_attribute('class') or ''
+                  if 'is-step3' in row_class:
+                      break
+                  page.wait_for_timeout(100)
               invalid=state('STEP3_INVALID_INPUTS')
               assert invalid['current']=='3', invalid
 

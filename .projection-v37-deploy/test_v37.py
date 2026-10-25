@@ -1,4 +1,6 @@
 import shutil
+import subprocess
+from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 chrome=shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
@@ -117,6 +119,13 @@ with sync_playwright() as pw:
       proposalHidden:document.getElementById('v37-proposal')?.hidden
     })""")
     print('PROPOSAL_RUNTIME_DEBUG',proposal_debug)
+    browser_script=page.locator('#projection-v37-proposal-js').text_content() or ''
+    Path('/tmp/v37-proposal-browser.js').write_text(browser_script)
+    syntax=subprocess.run(['node','--check','/tmp/v37-proposal-browser.js'],capture_output=True,text=True)
+    print('PROPOSAL_BROWSER_SYNTAX_RC',syntax.returncode)
+    print('PROPOSAL_BROWSER_SYNTAX_OUT',syntax.stdout)
+    print('PROPOSAL_BROWSER_SYNTAX_ERR',syntax.stderr)
+
     assert page.locator('#v37-proposal-spec').is_visible()
     assert page.locator('#v37-projector-rows tr').count()==3
     assert page.locator('#v37-price-lines').is_visible()

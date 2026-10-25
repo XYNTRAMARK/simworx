@@ -19,10 +19,6 @@ required=[
     "projection-v29-stable-viewer-owner",
     "projection-fixed-estimate-v24",
     "Move projector",
-    "projection-v37-projector-popup",
-    "projection-v37-projector-popup-js",
-    "simworxProjectorResults",
-    "This configurator remains open.",
 ]
 missing=[x for x in required if x not in html]
 if missing:
@@ -158,6 +154,10 @@ checks=[
     "projection-v35-count-lock",
     "projection-v34-height-control",
     "Move projector",
+    "projection-v37-projector-popup",
+    "projection-v37-projector-popup-js",
+    "simworxProjectorResults",
+    "This configurator remains open.",
 ]
 missing=[x for x in checks if x not in html]
 if missing:

@@ -5,6 +5,8 @@ needle="const offline=await import('projection:/src/offline-api.js');offline.ins
 idx=s.find(needle)
 if idx<0: raise SystemExit('offline import marker not found')
 ordered=[
+'/src/optics.js',
+'/src/layout-planner.js',
 '/src/guided-planner.js',
 '/src/led-viewer.js',
 '/src/projection-layer.js',
@@ -12,7 +14,6 @@ ordered=[
 '/assets/js/led/pilot-view.js',
 '/assets/js/led/pilot-eyes.js',
 '/assets/js/led/units.js',
-'/src/optics.js',
 '/src/screen-geometry.js',
 '/src/import-ui.js',
 '/src/admin-ui.js',

@@ -21,6 +21,30 @@ with sync_playwright() as p:
     page.goto(URL,wait_until="domcontentloaded",timeout=30000)
     page.wait_for_function("document.getElementById('v37-email-proposal') !== null",timeout=20000)
 
+    # The local static acceptance server does not load the production 3D module
+    # graph, so provide a deterministic canonical snapshot for the delivery layer.
+    page.locator("body").evaluate("""(el)=>{
+      if(!window.SimworxProjection?.snapshot?.()){
+        window.SimworxProjection={
+          snapshot:()=>({
+            configuration:{
+              currency:'GBP',diameter:4.5,horizontalFov:180,viewableHeight:2.4,
+              screenBottom:0.35,simulatorType:'airliner',mountingStyle:'ceiling',
+              room:{width:6,depth:6,height:3.2},notes:'Acceptance test proposal',
+              projectors:[{id:'P1',position:[0,2.8,-2.2],yaw:0,pitch:-4,roll:0,throwRatio:0.8}]
+            },
+            quote:{
+              reference:'SWX-PROJ-TEST',date:'2026-10-25',
+              lineItems:[
+                {id:'screen',label:'Projection screen and frame',amount:12000,status:'priced'},
+                {id:'warping',label:'Warping / calibration package',amount:1500,status:'priced'}
+              ]
+            }
+          })
+        };
+      }
+    }""")
+
     # Put the inherited proposal controller into Step 4 so it initialises the
     # canonical proposal reference/state exactly as the live UI does.
     page.wait_for_timeout(1200)
@@ -46,7 +70,10 @@ with sync_playwright() as p:
     page.locator("#v37-email-send").click()
     page.wait_for_timeout(900)
     status=page.locator("#v37-proposal-status").inner_text()
-    assert "sent successfully" in status.lower()
+    email_status=page.locator("#v37-email-status").inner_text()
+    print("PROPOSAL_STATUS",status)
+    print("EMAIL_STATUS",email_status)
+    assert "sent successfully" in status.lower(), (status,email_status)
 
     assert page.locator("body").evaluate("(el)=>document.documentElement.innerHTML.includes('projection-quote-submit.php')")
     assert page.locator("body").evaluate("(el)=>document.documentElement.innerHTML.includes('Commercial proposal')")

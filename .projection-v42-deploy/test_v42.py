@@ -21,10 +21,20 @@ with sync_playwright() as p:
     page.goto(URL,wait_until="domcontentloaded",timeout=30000)
     page.wait_for_function("document.getElementById('v37-email-proposal') !== null",timeout=20000)
 
+    # Put the inherited proposal controller into Step 4 so it initialises the
+    # canonical proposal reference/state exactly as the live UI does.
+    page.wait_for_function("document.getElementById('v37-proposal')?.dataset.bound === 'true'",timeout=20000)
+    page.evaluate("""
+      document.querySelectorAll('[data-guided-go]').forEach(b=>b.removeAttribute('aria-current'));
+      const proposalStep=document.querySelector('[data-guided-go="4"]');
+      if(proposalStep)proposalStep.setAttribute('aria-current','step');
+    """)
+    page.wait_for_function("document.getElementById('v37-proposal') && !document.getElementById('v37-proposal').hidden",timeout=5000)
+
     assert page.locator("#v37-print-proposal").inner_text()=="Save proposal as PDF"
     assert page.locator("#v37-download-proposal").is_hidden()
 
-    page.locator("#v37-email-proposal").dispatch_event("click")
+    page.locator("#v37-email-proposal").click()
     assert page.locator("#v37-email-dialog").is_visible()
     assert page.locator("#v37-email-send").inner_text()=="Send proposal"
     page.locator("#v37-email-address").fill("mark@sim-worx.com")
@@ -32,8 +42,9 @@ with sync_playwright() as p:
 
     # Ensure proposal state exists before submit. If Step 4 is not current, direct
     # handler still uses the canonical snapshot exposed by the configurator.
+    page.wait_for_function("document.querySelector('#v42-projection-turnstile')?.dataset.fake === 'ready'",timeout=5000)
     page.locator("#v37-email-send").click()
-    page.wait_for_timeout(1200)
+    page.wait_for_function("document.getElementById('v37-proposal-status').textContent.toLowerCase().includes('sent successfully')",timeout=5000)
     status=page.locator("#v37-proposal-status").inner_text()
     assert "sent successfully" in status.lower()
 

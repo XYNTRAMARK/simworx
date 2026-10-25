@@ -1,0 +1,21 @@
+name: Verify reports live HTML without writes
+on:
+  push:
+    branches: [codex/simworx-intelligence-20261025]
+    paths:
+      - '.github/workflows/verify-intelligence-reports.yml'
+      - 'website-intelligence/deploy/verify_live.py'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect uploaded reports and check HTTPS without FTP writes
+        run: python3 website-intelligence/deploy/verify_live.py

@@ -109,83 +109,87 @@ jobs:
           print('V28 corrected viewer ownership without rebuilding earlier versions')
           PY
 
-      - name: Build runtime self-test page
+      - name: Selenium viewer visibility test
         run: |
-          cp projection-screen-configurator-v28.html projection-screen-configurator-v28-selftest.html
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('projection-screen-configurator-v28-selftest.html')
-          s=p.read_text()
-          test='''<script id="v28-runtime-selftest">
-          (async function(){
-            const q=id=>document.getElementById(id);
-            const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-            const failures=[];
-            function hiddenByAncestor(el){
-              for(let n=el;n;n=n.parentElement)if(n.hidden)return true;
-              return false;
-            }
-            function checkViewer(label,expectStep3){
-              const home=q('led-canvas-home'),canvas=q('led-canvas'),renderer=canvas?.querySelector('canvas'),workspace=q('projection-v26-workspace');
-              const r=canvas?.getBoundingClientRect(),rr=renderer?.getBoundingClientRect();
-              if(!home||!canvas)failures.push(label+': canvas home missing');
-              if(!r||r.width<400||r.height<250)failures.push(label+': viewer box '+(r?Math.round(r.width)+'x'+Math.round(r.height):'missing'));
-              if(hiddenByAncestor(canvas))failures.push(label+': viewer hidden by ancestor');
-              if(renderer&&(!rr||rr.width<300||rr.height<200))failures.push(label+': renderer canvas not visibly sized');
-              if(expectStep3){
-                if(!home.closest('.projection-v26-viewer-column'))failures.push(label+': viewer not in Step 3 viewer column');
-                if(workspace?.hidden)failures.push(label+': Step 3 workspace hidden');
-                if(q('projection-v25-controls')?.hidden)failures.push(label+': projector controls hidden');
-              }else{
-                if(home.closest('#projection-v26-workspace'))failures.push(label+': viewer still trapped in hidden Step 3 workspace');
-                if(home.parentElement?.id!=='led-preview')failures.push(label+': viewer not restored to preview');
-              }
-            }
-
-            await sleep(2500);
-            checkViewer('Step 1',false);
-
-            document.querySelector('[data-guided-go="2"]')?.click();
-            await sleep(1200);
-            checkViewer('Step 2',false);
-
-            document.querySelector('[data-guided-go="3"]')?.click();
-            await sleep(1200);
-            checkViewer('Step 3',true);
-
-            const out=document.createElement('div');
-            out.id='v28-selftest-result';
-            out.dataset.result=failures.length?'FAIL':'PASS';
-            out.textContent=failures.length?'FAIL: '+failures.join(' | '):'PASS: viewer visible in Steps 1/2 and editing workspace active in Step 3';
-            document.body.appendChild(out);
-          })();
-          </script>'''
-          s=s.replace('</body>',test+'\n</body>',1)
-          p.write_text(s)
-          PY
-
-      - name: Run browser visibility self-test
-        run: |
+          python3 -m pip install --quiet selenium
           python3 -m http.server 8765 >/tmp/server.log 2>&1 &
           P=$!
           sleep 2
-          C="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
-          set +e
-          timeout 45 "$C" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=16000 --dump-dom http://127.0.0.1:8765/projection-screen-configurator-v28-selftest.html >/tmp/v28-test-dom.html 2>/tmp/v28-console.log
-          RC=$?
-          set -e
-          grep -E 'SyntaxError|TypeError|ReferenceError' /tmp/v28-console.log && { kill $P || true; exit 5; } || true
-          grep 'v28-selftest-result' /tmp/v28-test-dom.html | tail -1 || true
-          grep -q 'data-result="PASS"' /tmp/v28-test-dom.html
+          python3 - <<'PY'
+          import json, shutil, time
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
 
-          timeout 45 "$C" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=10000 --window-size=1600,1000 --screenshot=/tmp/v28-step1.png http://127.0.0.1:8765/projection-screen-configurator-v28.html >/tmp/v28-shot.log 2>&1
+          chrome=shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
+          if not chrome: raise SystemExit('Chrome not found')
+          options=webdriver.ChromeOptions()
+          options.binary_location=chrome
+          for arg in ['--headless=new','--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader','--window-size=1600,1000']:
+              options.add_argument(arg)
+
+          driver=webdriver.Chrome(options=options)
+          driver.get('http://127.0.0.1:8765/projection-screen-configurator-v28.html')
+          WebDriverWait(driver,20).until(lambda d: d.execute_script("return document.documentElement.dataset.standaloneReady==='true'"))
+          time.sleep(2)
+
+          def measure(label, expect_step3):
+              data=driver.execute_script("""
+                const home=document.getElementById('led-canvas-home');
+                const box=document.getElementById('led-canvas');
+                const renderer=box?.querySelector('canvas');
+                const workspace=document.getElementById('projection-v26-workspace');
+                const panel=document.getElementById('projection-v25-controls');
+                const r=box?.getBoundingClientRect();
+                const rr=renderer?.getBoundingClientRect();
+                const hidden=(el)=>{for(let n=el;n;n=n.parentElement){if(n.hidden||getComputedStyle(n).display==='none'||getComputedStyle(n).visibility==='hidden')return true;}return false;};
+                return {
+                  homeParentId:home?.parentElement?.id||'',
+                  homeParentClass:home?.parentElement?.className||'',
+                  inWorkspace:!!home?.closest('#projection-v26-workspace'),
+                  inViewerColumn:!!home?.closest('.projection-v26-viewer-column'),
+                  boxWidth:r?.width||0, boxHeight:r?.height||0,
+                  rendererWidth:rr?.width||0, rendererHeight:rr?.height||0,
+                  hidden:box?hidden(box):true,
+                  workspaceHidden:workspace?.hidden??true,
+                  panelHidden:panel?.hidden??true
+                };
+              """)
+              print(label,json.dumps(data))
+              assert data['boxWidth']>500 and data['boxHeight']>280, (label,data)
+              assert not data['hidden'], (label,data)
+              assert data['rendererWidth']>400 and data['rendererHeight']>250, (label,data)
+              if expect_step3:
+                  assert data['inViewerColumn'] and not data['workspaceHidden'] and not data['panelHidden'], (label,data)
+              else:
+                  assert not data['inWorkspace'] and data['homeParentId']=='led-preview', (label,data)
+              return data
+
+          measure('STEP1',False)
+          driver.save_screenshot('/tmp/v28-step1.png')
+
+          driver.find_element(By.CSS_SELECTOR,'[data-guided-go="2"]').click()
+          time.sleep(1)
+          measure('STEP2',False)
+
+          driver.find_element(By.CSS_SELECTOR,'[data-guided-go="3"]').click()
+          time.sleep(1)
+          measure('STEP3',True)
+          driver.save_screenshot('/tmp/v28-step3.png')
+
+          driver.quit()
+          print('SELENIUM VIEWER TEST PASS')
+          PY
           kill $P || true
           test -s /tmp/v28-step1.png
+          test -s /tmp/v28-step3.png
 
       - uses: actions/upload-artifact@v4
         with:
-          name: v28-step1-screenshot
-          path: /tmp/v28-step1.png
+          name: v28-viewer-screenshots
+          path: |
+            /tmp/v28-step1.png
+            /tmp/v28-step3.png
           retention-days: 1
 
       - name: Publish V28

@@ -175,8 +175,8 @@ jobs:
           RC=$?
           set -e
           grep -E 'SyntaxError|TypeError|ReferenceError' /tmp/v28-console.log && { kill $P || true; exit 5; } || true
+          grep 'v28-selftest-result' /tmp/v28-test-dom.html | tail -1 || true
           grep -q 'data-result="PASS"' /tmp/v28-test-dom.html
-          grep 'v28-selftest-result' /tmp/v28-test-dom.html | tail -1
 
           timeout 45 "$C" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=10000 --window-size=1600,1000 --screenshot=/tmp/v28-step1.png http://127.0.0.1:8765/projection-screen-configurator-v28.html >/tmp/v28-shot.log 2>&1
           kill $P || true

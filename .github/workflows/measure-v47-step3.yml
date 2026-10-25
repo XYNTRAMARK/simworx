@@ -1,4 +1,4 @@
-name: Measure V47 Step3 layout
+name: Measure V48 Step3 layout
 on:
   push:
     branches: [main]
@@ -21,7 +21,7 @@ jobs:
           python3 - <<'PY'
           from playwright.sync_api import sync_playwright
           import json
-          url='https://www.sim-worx.com/projection-screen-configurator-v47.html'
+          url='https://www.sim-worx.com/projection-screen-configurator-v48.html'
           with sync_playwright() as pw:
             b=pw.chromium.launch(headless=True)
             p=b.new_page(viewport={'width':1680,'height':1050})
@@ -31,6 +31,10 @@ jobs:
             step.click()
             p.wait_for_timeout(800)
             sels={
+              'workbench':'.led-workbench',
+              'leftControls':'#led-controls > .led-controls',
+              'planner':'.guided-planner',
+              'preview':'#led-preview',
               'row':'#projection-v29-edit-row',
               'left':'#v37-left-column',
               'viewer':'#led-canvas-home',

@@ -1,0 +1,17 @@
+name: Show V17 guided planner error block
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v17-guided-block.yml'
+permissions:
+  contents: read
+jobs:
+  show:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V17
+        run: python3 .projection-v17-deploy/build_v17.py
+      - name: Show lines
+        run: nl -ba projection/src/guided-planner.js | sed -n '145,166p'

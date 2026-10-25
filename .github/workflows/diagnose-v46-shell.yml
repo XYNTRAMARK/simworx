@@ -1,0 +1,40 @@
+name: Diagnose V46 shell conflicts
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-v46-shell.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect live V46 CSS and body structure
+        run: |
+          python3 - <<'PY'
+          import urllib.request,re
+          u='https://www.sim-worx.com/projection-screen-configurator-v46.html'
+          req=urllib.request.Request(u,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-v46-shell-diagnostic'})
+          with urllib.request.urlopen(req,timeout=45) as r:s=r.read().decode('utf-8','replace')
+          print('BODY_TAG',re.search(r'<body[^>]*>',s,re.I).group(0))
+          body=re.search(r'<body[^>]*>([\s\S]*?)</body>',s,re.I).group(1)
+          # Print the opening 6k chars with inline logo reduced.
+          head=body[:9000]
+          head=re.sub(r'data:image/[^"\']+','[INLINE_IMAGE]',head)
+          print('\nBODY_START\n',head)
+          print('\nMATCHING_STYLE_RULES')
+          for idx,m in enumerate(re.finditer(r'<style[^>]*>([\s\S]*?)</style>',s,re.I)):
+            css=m.group(1)
+            chunks=[]
+            for rule in re.finditer(r'([^{}]+)\{([^{}]*)\}',css):
+              sel=' '.join(rule.group(1).split())
+              dec=' '.join(rule.group(2).split())
+              if any(k in sel for k in ['body','html','.global-header','.led-shell','.led-estimate-bar','#projection-app','#v40-guided-header']):
+                chunks.append(sel+' { '+dec+' }')
+            if chunks:
+              print('\nSTYLE_BLOCK',idx)
+              for x in chunks: print(x[:3000])
+          PY

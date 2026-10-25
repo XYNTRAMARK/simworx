@@ -90,12 +90,22 @@ replacement=r"""  function downloadProposal(){ printProposal(); }
       window.__v42EnsureProjectionTurnstile?.();
       return;
     }
+    let proposalHtml='',proposalText='';
+    try{
+      status.textContent='Preparing the complete proposal…';
+      proposalHtml=documentHtml();
+      proposalText=plainText();
+    }catch(error){
+      status.textContent='The proposal could not be prepared: '+(error?.message||'unknown error')+'. Please refresh the configurator and try again.';
+      status.classList.add('v42-error');
+      return;
+    }
     const payload=new FormData();
     payload.set('email',email);
     payload.set('name',name);
     payload.set('proposal_reference',reference);
-    payload.set('proposal_html',documentHtml());
-    payload.set('proposal_text',plainText());
+    payload.set('proposal_html',proposalHtml);
+    payload.set('proposal_text',proposalText);
     payload.set('website','');
     payload.set('cf-turnstile-response',token);
     const old=button.textContent;button.disabled=true;button.textContent='Sending…';

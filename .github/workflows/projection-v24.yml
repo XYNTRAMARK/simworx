@@ -1,0 +1,40 @@
+name: Publish projection configurator V24
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v24.yml'
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore V24 build script
+        run: |
+          curl -sL https://api.github.com/repos/XYNTRAMARK/simworx/git/blobs/306c174db88c2622c3c2cfb8ce0992d1b707da94 | jq -r .content | tr -d '\n' | base64 -d > /tmp/build_v24.py
+          python3 /tmp/build_v24.py
+      - name: Browser startup smoke test
+        run: |
+          python3 -m http.server 8765 >/tmp/server.log 2>&1 &
+          P=$!
+          sleep 2
+          C="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          set +e
+          timeout 45 "$C" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=12000 --dump-dom http://127.0.0.1:8765/projection-screen-configurator-v24.html >/tmp/v24-dom.html 2>/tmp/v24-console.log
+          set -e
+          kill $P || true
+          grep -E 'SyntaxError|TypeError|ReferenceError' /tmp/v24-console.log && exit 5 || true
+          grep -q 'data-standalone-ready="true"' /tmp/v24-dom.html
+      - name: Publish V24
+        run: |
+          cp .projection-v23-deploy/publish_v23.py /tmp/publish_v24.py
+          sed -i 's/projection-screen-configurator-v23.html/projection-screen-configurator-v24.html/g' /tmp/publish_v24.py
+          sed -i 's/projection-screen-configurator-v22.html/projection-screen-configurator-v24-old.html/g' /tmp/publish_v24.py
+          python3 /tmp/publish_v24.py

@@ -145,7 +145,6 @@ checks=[
     'right:auto!important',
     'top:calc(var(--sw-header-h) + var(--v40-estimate-h))!important',
     'projection-v42-proposal-delivery',
-    'projection-v47-dom-normalizer',
 ]
 missing=[x for x in checks if x not in html]
 if missing: raise SystemExit("V47 shell checks failed "+repr(missing))

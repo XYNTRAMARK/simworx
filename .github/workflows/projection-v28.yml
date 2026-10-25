@@ -122,7 +122,9 @@ jobs:
           for arg in ['--headless=new','--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader','--window-size=1600,1000']:
               options.add_argument(arg)
 
+          options.page_load_strategy='none'
           driver=webdriver.Chrome(options=options)
+          driver.set_page_load_timeout(15)
           driver.get('http://127.0.0.1:8765/projection-screen-configurator-v28.html')
           WebDriverWait(driver,20).until(lambda d: d.execute_script("return document.documentElement.dataset.standaloneReady==='true'"))
           time.sleep(2)

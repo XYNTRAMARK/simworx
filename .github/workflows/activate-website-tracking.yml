@@ -1,0 +1,85 @@
+name: Activate first-party website tracking only
+on:
+  push:
+    branches: [codex/simworx-tracking-activation]
+    paths:
+      - '.github/workflows/activate-website-tracking.yml'
+      - 'website-intelligence/tracking-activation/activation.json'
+      - 'website-intelligence/tracking-activation/assets/**'
+      - 'website-intelligence/tracking-activation/reports/analytics.js'
+      - 'website-intelligence/tracking-activation/reports/app.js'
+      - 'website-intelligence/tracking-activation/deploy/activate_tracking.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: simworx-tracking-production
+  cancel-in-progress: false
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate byte-preserving tracking transforms and rollback
+        run: |
+          python3 -m unittest discover -s website-intelligence/tracking-activation/deploy -p 'test_*.py'
+          python3 -m unittest discover -s website-intelligence/tracking-activation/quality -p 'test_*.py'
+          python3 website-intelligence/tracking-activation/deploy/activate_tracking.py validate
+          for file in website-intelligence/tracking-activation/assets/*.js; do node --check "$file"; done
+          node --test website-intelligence/tracking-activation/assets/tests/*.test.mjs website-intelligence/tracking-activation/quality/*.test.mjs website-intelligence/tracking-activation/reports/tests/*.test.mjs
+          if test -f website-intelligence/tracking-activation/reports/analytics.js; then node --check website-intelligence/tracking-activation/reports/analytics.js; fi
+          if test -f website-intelligence/tracking-activation/reports/app.js; then node --check website-intelligence/tracking-activation/reports/app.js; fi
+      - name: Back up full live htdocs and prepare exact tracking-only manifest without writes
+        run: python3 website-intelligence/tracking-activation/deploy/activate_tracking.py backup
+      - name: Encrypt and verify the complete current backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s /tmp/simworx-tracking-activation/verified-backup.json
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in /tmp/simworx-tracking-activation/live-htdocs.tar.gz \
+            -out /tmp/simworx-tracking-activation/live-htdocs.tar.gz.enc -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in /tmp/simworx-tracking-activation/live-htdocs.tar.gz.enc -pass env:FTP_PASSWORD \
+            | cmp - /tmp/simworx-tracking-activation/live-htdocs.tar.gz
+      - uses: actions/upload-artifact@v4
+        id: retained_backup
+        with:
+          name: encrypted-live-backup-before-tracking-${{ github.sha }}
+          path: /tmp/simworx-tracking-activation/live-htdocs.tar.gz.enc
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tracking-only-change-manifest-${{ github.sha }}
+          path: /tmp/simworx-tracking-activation/patch-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Install only reviewed tracking hooks and immutable tracking assets
+        env:
+          RETAINED_BACKUP_ARTIFACT_ID: ${{ steps.retained_backup.outputs.artifact-id }}
+        run: python3 website-intelligence/tracking-activation/deploy/activate_tracking.py publish
+      - name: Verify deployed SDK events reach the real reports backend
+        env:
+          EXPECTED_TRACKER_SHA256: '7010cc28e04714473cf0e79f0fe40efcf3a96c4e73b553fb40b5c58319191ccb'
+          TRACKING_PROOF_PATH: /tmp/simworx-tracking-activation/collector-verified.json
+        run: node website-intelligence/tracking-activation/tests/verify-collector.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tracking-publication-proof-${{ github.sha }}
+          path: |
+            /tmp/simworx-tracking-activation/tracking-ftp-verified.json
+            /tmp/simworx-tracking-activation/tracking-deployed.json
+            /tmp/simworx-tracking-activation/collector-verified.json
+          if-no-files-found: ignore
+          retention-days: 30

@@ -1,0 +1,58 @@
+[
+  {
+    "page": "/index.html",
+    "consent": false,
+    "unchangedVisibleNodes": 92,
+    "events": 0,
+    "passed": true
+  },
+  {
+    "page": "/contact.html",
+    "consent": false,
+    "unchangedVisibleNodes": 71,
+    "events": 0,
+    "passed": true
+  },
+  {
+    "page": "/led-screen-configurator.html",
+    "consent": false,
+    "unchangedVisibleNodes": 127,
+    "events": 0,
+    "passed": true
+  },
+  {
+    "page": "/projection-screen-configurator-v37.html",
+    "consent": false,
+    "unchangedVisibleNodes": 55,
+    "events": 0,
+    "passed": true
+  },
+  {
+    "page": "/index.html",
+    "consent": true,
+    "unchangedVisibleNodes": 86,
+    "events": 5,
+    "passed": true
+  },
+  {
+    "page": "/contact.html",
+    "consent": true,
+    "unchangedVisibleNodes": 65,
+    "events": 5,
+    "passed": true
+  },
+  {
+    "page": "/led-screen-configurator.html",
+    "consent": true,
+    "unchangedVisibleNodes": 121,
+    "events": 6,
+    "passed": true
+  },
+  {
+    "page": "/projection-screen-configurator-v37.html",
+    "consent": true,
+    "unchangedVisibleNodes": 55,
+    "events": 6,
+    "passed": true
+  }
+]

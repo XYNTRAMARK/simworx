@@ -39,7 +39,7 @@ def main():
         common.canonical({'public_html':{p:state[p] for p in html}})
         (OUT/'inventory.json').write_bytes(common.canonical({'public_html':{p:state[p] for p in html},'public_js':{p:f for p,f in state.items() if p.startswith('/htdocs/assets/js/') and p.endswith('.js')}}))
         # Non-versioned content plus the latest published LED/projection page.
-        selected={p for p in html if not re.search(r'(?:-v|version[-_]?|preview)\d*',Path(p).name,re.I)}
+        selected={p for p in html if not re.search(r'(?:-v\d+|version[-_]?\d+|preview)',Path(p).name,re.I)}
         for kind in ('projection','led'):
             candidates=[p for p in html if kind in Path(p).name.lower() and 'configur' in Path(p).name.lower()]
             if candidates:

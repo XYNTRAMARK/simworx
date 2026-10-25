@@ -1,0 +1,35 @@
+name: Publish projection configurator V17
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/projection-v17.yml'
+      - '.projection-v17-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v16
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated V17
+        run: python3 .projection-v17-deploy/build_v17.py
+      - name: Check JavaScript syntax
+        run: |
+          for file in projection/src/*.js; do node --check "$file"; done
+      - name: Verify simplified workflow runtime guards
+        run: |
+          grep -q 'projection-legacy-compat' projection/main.html
+          grep -q 'Laser / LED preferred' projection/src/guided-planner.js
+          grep -q "supplyStatus:'customer'" projection/src/app.js
+      - name: Publish immutable V17
+        run: python3 .projection-v17-deploy/publish_v17.py

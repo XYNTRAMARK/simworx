@@ -1,0 +1,45 @@
+name: Release projection configurator V44 website shell
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v44-release.yml'
+      - '.projection-v44-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v44
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V44
+        run: python3 .projection-v44-deploy/build_v44.py
+      - name: Validate page padding and website shell
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('projection-screen-configurator-v44.html').read_text()
+          required=[
+            'class="global-header"',
+            'id="sw-global-footer"',
+            'global-header.css',
+            'global-header.js',
+            'global-footer.js',
+            'projection-v44-site-shell',
+            'padding-top:calc(var(--v44-site-header-h) + var(--v40-estimate-h) + var(--v40-guide-h) + 18px)',
+            'top:var(--v44-site-header-h)',
+          ]
+          missing=[x for x in required if x not in s]
+          if missing:raise SystemExit('Missing V44 layout features: '+repr(missing))
+          print('V44 website padding validation PASS')
+          PY
+      - name: Publish V44 and switch live navigation
+        run: python3 .projection-v44-deploy/publish_v44.py

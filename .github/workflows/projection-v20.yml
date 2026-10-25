@@ -22,11 +22,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build isolated V20
         run: python3 .projection-v20-deploy/build_v20.py
-      - name: Verify enclosure options removed
+      - name: Verify enclosure options hidden
         run: |
-          ! grep -q 'Semi enclosed' projection-screen-configurator-v20.html
-          ! grep -q 'Fully enclosed' projection-screen-configurator-v20.html
-          grep -q 'value="screen-only" checked' projection-screen-configurator-v20.html
+          grep -q 'projection-hide-enclosure-options-v20' projection-screen-configurator-v20.html
+          grep -q '.led-shape-bar\[data-guided-step="2"\]' projection-screen-configurator-v20.html
+          grep -q 'display:none !important' projection-screen-configurator-v20.html
       - name: Browser startup smoke test
         run: |
           python3 -m http.server 8765 >/tmp/server.log 2>&1 &

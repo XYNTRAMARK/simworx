@@ -176,6 +176,18 @@ js=r"""<script id="projection-v37-space-optimisation-js">
     if(lookup)below.appendChild(lookup);
 
     window.dispatchEvent(new Event('resize'));
+    const step4=document.querySelector('[data-guided-go="4"]');
+    if(step4){
+      step4.innerHTML='<b>4</b> Proposal';
+      step4.addEventListener('click',()=>setTimeout(()=>{
+        const status=q('guided-step-status');
+        if(status&&document.querySelector('[data-guided-go="4"]')?.getAttribute('aria-current')==='step')status.textContent='Step 4 of 4 · Proposal';
+      },40));
+    }
+    q('guided-next')?.addEventListener('click',()=>setTimeout(()=>{
+      const status=q('guided-step-status');
+      if(status&&document.querySelector('[data-guided-go="4"]')?.getAttribute('aria-current')==='step')status.textContent='Step 4 of 4 · Proposal';
+    },40));
     return true;
   }
 

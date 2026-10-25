@@ -46,9 +46,15 @@ with sync_playwright() as pw:
     captured={"requests":[],"errors":[]}
     def route_handler(route):
         req=route.request
-        captured["requests"].append({"url":req.url,"method":req.method,"post_data":req.post_data,"headers":req.headers})
-        captured["body"]=req.post_data or ""
         captured["hit"]=True
+        item={"url":req.url,"method":req.method,"headers":req.headers}
+        try:
+            item["post_data"]=req.post_data or ""
+            captured["body"]=item["post_data"]
+        except Exception as e:
+            item["post_data_error"]=repr(e)
+            captured["body"]=""
+        captured["requests"].append(item)
         route.fulfill(status=200,content_type="application/json",body='{"ok":true,"message":"Proposal sent successfully.","reference":"SWX-PROJ-V48-TEST"}')
     page.route("**/projection-quote-submit.php",route_handler)
 
@@ -57,6 +63,7 @@ with sync_playwright() as pw:
     page.on("requestfailed",lambda req: captured["errors"].append("requestfailed: "+req.url+" "+str(req.failure)))
     page.goto(URL,wait_until="domcontentloaded",timeout=60000)
     page.wait_for_timeout(1200)
+    assert page.locator('meta[http-equiv="Content-Security-Policy"]').count()==0
     page.evaluate("""() => {
       window.__v48FetchTrace=[];
       const original=window.fetch.bind(window);

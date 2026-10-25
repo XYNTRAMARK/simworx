@@ -1,0 +1,30 @@
+name: Inspect live proposal generator token
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-live-proposal-token.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect malformed proposal token
+        run: |
+          python3 - <<'PY'
+          import urllib.request
+          u='https://www.sim-worx.com/projection-screen-configurator-v47.html'
+          req=urllib.request.Request(u,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-proposal-token-inspector'})
+          with urllib.request.urlopen(req,timeout=45) as r:s=r.read().decode('utf-8','replace')
+          for needle in ['escproposalLineValue','proposalLineValue','function documentHtml','function plainText']:
+              pos=0
+              print('\n###',needle)
+              while True:
+                  i=s.find(needle,pos)
+                  if i<0:break
+                  print(s[max(0,i-1000):min(len(s),i+2200)])
+                  pos=i+len(needle)
+          PY

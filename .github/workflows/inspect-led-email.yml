@@ -10,35 +10,51 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect live LED email code
+      - name: Inspect LED server mail transport safely
         run: |
           python3 - <<'PY'
-          import re, urllib.request, urllib.parse
-          start='https://www.sim-worx.com/led-screen-configurator.html'
-          def get(url):
-              req=urllib.request.Request(url,headers={'User-Agent':'Simworx-email-inspector','Cache-Control':'no-cache'})
-              with urllib.request.urlopen(req,timeout=30) as r:
-                  return r.read().decode('utf-8','replace')
-          html=get(start)
-          scripts=[('PAGE',start,html)]
-          for src in re.findall(r'<script[^>]+src=["\']([^"\']+)["\']',html,re.I):
-              try:
-                  u=urllib.parse.urljoin(start,src); scripts.append(('SCRIPT',u,get(u)))
-              except Exception as e: print('FETCH_FAIL',src,repr(e))
-          needles=[
-              'led-quote-submit.php','quote_action','led-quote-form','new FormData',
-              'fetch(form.action','fetch(endpoint','Email me Quote','email-quote',
-              'actionResult','led-action-result','simworx:submission-complete'
+          import ftplib,os,ssl,re
+          from urllib.parse import urlsplit
+          class F(ftplib.FTP_TLS):
+              prefer_epsv=False
+              def makepasv(self):
+                  if self.prefer_epsv:
+                      try:return ftplib.parse229(self.sendcmd("EPSV"),self.sock.getpeername())
+                      except ftplib.error_perm:pass
+                  return super().makepasv()
+              def ntransfercmd(self,c,rest=None):
+                  try:return super().ntransfercmd(c,rest)
+                  except ftplib.error_temp as e:
+                      if str(e).startswith("425") and not self.prefer_epsv:
+                          self.prefer_epsv=True;return super().ntransfercmd(c,rest)
+                      raise
+          raw=os.environ["FTP_HOST"].strip();p=urlsplit(raw if "://" in raw else "ftp://"+raw)
+          f=F(context=ssl.create_default_context(),timeout=45);f.connect(p.hostname,p.port or 21);f.login(os.environ["FTP_USERNAME"],os.environ["FTP_PASSWORD"]);f.prot_p()
+          chunks=[];f.retrbinary("RETR /htdocs/led-quote-submit.php",chunks.append);f.quit()
+          text=b"".join(chunks).decode("utf-8","replace")
+          print("BYTES",len(text))
+          pats=[
+            r'\b(?:include|include_once|require|require_once)\s*\(?\s*[^;]+',
+            r'\bmail\s*\(',
+            r'PHPMailer',
+            r'\bSMTP\b',
+            r'\bwp_mail\b',
+            r'function\s+[A-Za-z0-9_]+\s*\(',
+            r'quote_action',
+            r'led_configuration',
+            r'json_encode\s*\(',
           ]
-          for typ,url,text in scripts:
-              for needle in needles:
-                  pos=0
-                  while True:
-                      i=text.find(needle,pos)
-                      if i<0: break
-                      print('\n###',typ,url,'NEEDLE',needle,'AT',i)
-                      print(text[max(0,i-1800):min(len(text),i+4200)].replace('\n',' '))
-                      pos=i+len(needle)
+          for pat in pats:
+              print("\nPATTERN",pat)
+              for m in list(re.finditer(pat,text,re.I))[:60]:
+                  a=max(0,m.start()-220);b=min(len(text),m.end()+420)
+                  frag=text[a:b].replace("\n"," ")
+                  frag=re.sub(r'(?i)(password|passwd|secret|token|api[_-]?key)\s*([=:>]+)\s*[^,;\s]+',r'\\1\\2[REDACTED]',frag)
+                  print(frag)
           PY

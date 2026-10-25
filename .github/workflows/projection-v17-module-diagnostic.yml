@@ -19,7 +19,7 @@ jobs:
           from pathlib import Path
           import re,json,subprocess,tempfile,os
           s=Path('projection-screen-configurator-v17.html').read_text()
-          m=re.search(r'<script[^>]*id="projection-standalone-data"[^>]*>(.*?)</script>',s,re.S)
+          m=re.search(r'<script type="application/json" id="projection-standalone-data">(.*?)</script>',s,re.S)
           if not m: raise SystemExit('standalone data not found')
           data=json.loads(m.group(1))
           failed=[]

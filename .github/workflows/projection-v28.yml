@@ -170,11 +170,7 @@ jobs:
           time.sleep(1)
           measure('STEP2',False)
 
-          driver.execute_script("""
-            document.querySelectorAll('[data-guided-go]').forEach(b=>b.removeAttribute('aria-current'));
-            document.querySelector('[data-guided-go="3"]').setAttribute('aria-current','step');
-            window.__projectionV28ApplyViewer(3);
-          """)
+          driver.execute_script("window.__projectionV28ApplyViewer(3);")
           time.sleep(1)
           measure('STEP3-LAYOUT',True)
           driver.save_screenshot('/tmp/v28-step3.png')

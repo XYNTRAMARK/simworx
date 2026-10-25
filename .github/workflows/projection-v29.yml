@@ -32,10 +32,21 @@ jobs:
           p=Path('projection-screen-configurator-v29.html')
           s=p.read_text()
 
-          old="if(n>1&&!Array.from(document.querySelectorAll('[data-room]')).every(e=>e.reportValidity()))return;"
+          old="""  if(n>1){
+    const requiredRoom=['projection-room-width','projection-room-depth','projection-room-height'].map($).filter(Boolean);
+    if(!requiredRoom.every(e=>e.reportValidity()))return;
+    const budget=$('guided-budget');
+    if(budget&&budget.value!==''&&!budget.reportValidity())return;
+  }"""
+          new="""  if(n===2){
+    const requiredRoom=['projection-room-width','projection-room-depth','projection-room-height'].map($).filter(Boolean);
+    if(!requiredRoom.every(e=>e.reportValidity()))return;
+    const budget=$('guided-budget');
+    if(budget&&budget.value!==''&&!budget.reportValidity())return;
+  }"""
           if old not in s:
-              raise SystemExit('V29 navigation validation anchor missing')
-          s=s.replace(old,"if(n>1){for(const e of document.querySelectorAll('[data-room]'))e.setCustomValidity('');}",1)
+              raise SystemExit('V29 live navigation validation block missing')
+          s=s.replace(old,new,1)
 
           css='''<style id="projection-v29-navigation-fix">
           .led-estimate-bar{pointer-events:none!important}
@@ -58,6 +69,7 @@ jobs:
           missing=[x for x in checks if x not in s]
           if missing: raise SystemExit('V29 inheritance check failed '+repr(missing))
           if old in s: raise SystemExit('V29 old blocking validation still present')
+          if 'if(n===2){' not in s: raise SystemExit('V29 Step 2-only validation patch missing')
           print('V29 navigation patch applied on top of published V28')
           PY
 
@@ -122,12 +134,12 @@ jobs:
           d.execute_script("document.querySelector('[data-guided-go=\"2\"]').click();")
           WebDriverWait(d,8).until(lambda x:x.execute_script("return document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='2'"))
           d.execute_script("""
-            const e=document.getElementById('projection-screen-from-left');
-            e.value='-1';
+            document.getElementById('projection-room-width').value='0';
+            document.getElementById('guided-budget').value='-1';
           """)
           physical_click('[data-guided-go="3"]')
           WebDriverWait(d,8).until(lambda x:x.execute_script("return document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='3'"))
-          invalid=snap('STEP3_WITH_INVALID_HIDDEN_FIELD')
+          invalid=snap('STEP3_WITH_INVALID_FIELDS')
           assert invalid['current']=='3', invalid
 
           d.save_screenshot('/tmp/v29-step3.png')

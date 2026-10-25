@@ -115,6 +115,11 @@ html=replace_fragment(html,old_drag,new_drag,"drag lifecycle")
 
 old_object="""  function onObjectChange() {
     if (syncing) return;
+    if(transform.object===roomGroup){
+      emitTransform(false);
+      viewer.context().invalidate();
+      return;
+    }
     // The owner writes the patch immediately. Coalesce high-frequency pointer
     // events into one coarse physical-coverage calculation per rendered frame.
     emitTransform(false);
@@ -127,6 +132,11 @@ old_object="""  function onObjectChange() {
   }"""
 new_object="""  function onObjectChange() {
     if (syncing) return;
+    if(transform.object===roomGroup){
+      emitTransform(false);
+      viewer.context().invalidate();
+      return;
+    }
     // Interactive manipulation is preview-first: update the live projector state
     // and beam every animation frame, but defer the engineering shadow/coverage
     // calculation until the pointer pauses or is released.

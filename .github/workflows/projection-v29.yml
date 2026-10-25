@@ -1,0 +1,158 @@
+name: Publish projection configurator V29
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v29.yml'
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start from published V28 exactly
+        run: |
+          curl -fsSL https://www.sim-worx.com/projection-screen-configurator-v28.html -o projection-screen-configurator-v29.html
+          grep -q 'projection-v28-step-viewer-owner' projection-screen-configurator-v29.html
+          grep -q 'projection-v26-workspace' projection-screen-configurator-v29.html
+          grep -q 'projection-v25-controls' projection-screen-configurator-v29.html
+          grep -q 'projection-fixed-estimate-v24' projection-screen-configurator-v29.html
+
+      - name: Remove silent Step 3 block and prevent price-card click interception
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('projection-screen-configurator-v29.html')
+          s=p.read_text()
+
+          old="if(n>1&&!Array.from(document.querySelectorAll('[data-room]')).every(e=>e.reportValidity()))return;"
+          if old not in s:
+              raise SystemExit('V29 navigation validation anchor missing')
+          s=s.replace(old,"if(n>1){for(const e of document.querySelectorAll('[data-room]'))e.setCustomValidity('');}",1)
+
+          css='''<style id="projection-v29-navigation-fix">
+          .led-estimate-bar{pointer-events:none!important}
+          .led-estimate-bar select,.led-estimate-bar button,.led-estimate-bar input,.led-estimate-bar a{pointer-events:auto!important}
+          .guided-steps{scroll-margin-top:130px}
+          </style>'''
+          s=s.replace('</head>',css+'\n</head>',1)
+
+          p.write_text(s)
+
+          checks=[
+            'projection-v29-navigation-fix',
+            'projection-v28-step-viewer-owner',
+            'projection-v26-workspace',
+            'projection-v25-controls',
+            'projection-fixed-estimate-v24',
+            '"screenSystemPerM2Eur":500',
+            'Projector position, swivel &amp; throw'
+          ]
+          missing=[x for x in checks if x not in s]
+          if missing: raise SystemExit('V29 inheritance check failed '+repr(missing))
+          if old in s: raise SystemExit('V29 old blocking validation still present')
+          print('V29 navigation patch applied on top of published V28')
+          PY
+
+      - name: Selenium physical Step 3 navigation test
+        run: |
+          python3 -m pip install --quiet selenium
+          python3 -m http.server 8765 >/tmp/server.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 - <<'PY'
+          import json, shutil, time
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+
+          chrome=shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
+          options=webdriver.ChromeOptions()
+          options.binary_location=chrome
+          options.page_load_strategy='none'
+          for arg in ['--headless=new','--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader','--window-size=1600,1000']:
+              options.add_argument(arg)
+          d=webdriver.Chrome(options=options)
+          d.get('http://127.0.0.1:8765/projection-screen-configurator-v29.html')
+          WebDriverWait(d,20).until(lambda x:x.execute_script("return document.documentElement.dataset.standaloneReady==='true'"))
+          time.sleep(2)
+
+          def snap(label):
+              x=d.execute_script("""
+                const cur=document.querySelector('[data-guided-go][aria-current="step"]');
+                const b3=document.querySelector('[data-guided-go="3"]');
+                const r=b3.getBoundingClientRect();
+                const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+                return {
+                  current:cur?.dataset?.guidedGo||null,
+                  status:document.getElementById('guided-step-status')?.textContent||'',
+                  button3Disabled:b3.disabled,
+                  button3PointElement:top?.dataset?.guidedGo||top?.id||top?.tagName||'',
+                  workspaceHidden:document.getElementById('projection-v26-workspace')?.hidden,
+                  viewerInWorkspace:!!document.getElementById('led-canvas-home')?.closest('#projection-v26-workspace')
+                };
+              """)
+              print(label,json.dumps(x))
+              return x
+
+          def physical_click(selector):
+              el=d.find_element(By.CSS_SELECTOR,selector)
+              d.execute_script("arguments[0].scrollIntoView({block:'center'});",el)
+              time.sleep(.25)
+              el.click()
+
+          snap('START')
+          physical_click('[data-guided-go="2"]')
+          WebDriverWait(d,8).until(lambda x:x.execute_script("return document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='2'"))
+          snap('STEP2')
+
+          physical_click('[data-guided-go="3"]')
+          WebDriverWait(d,8).until(lambda x:x.execute_script("return document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='3'"))
+          normal=snap('STEP3_NORMAL')
+          assert normal['current']=='3' and 'Step 3 of 4' in normal['status'], normal
+
+          # Regression test: a hidden exact-wall field must not silently lock the user out.
+          d.execute_script("document.querySelector('[data-guided-go=\"2\"]').click();")
+          WebDriverWait(d,8).until(lambda x:x.execute_script("return document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='2'"))
+          d.execute_script("""
+            const e=document.getElementById('projection-screen-from-left');
+            e.value='-1';
+          """)
+          physical_click('[data-guided-go="3"]')
+          WebDriverWait(d,8).until(lambda x:x.execute_script("return document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='3'"))
+          invalid=snap('STEP3_WITH_INVALID_HIDDEN_FIELD')
+          assert invalid['current']=='3', invalid
+
+          d.save_screenshot('/tmp/v29-step3.png')
+          d.quit()
+          print('V29 PHYSICAL STEP 3 NAVIGATION PASS')
+          PY
+          kill $P || true
+          test -s /tmp/v29-step3.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v29-step3-proof
+          path: /tmp/v29-step3.png
+          retention-days: 1
+
+      - name: Publish V29
+        run: |
+          cp .projection-v23-deploy/publish_v23.py /tmp/publish_v29.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/publish_v29.py')
+          s=p.read_text()
+          s=s.replace('projection-screen-configurator-v23.html','projection-screen-configurator-v29.html')
+          s=s.replace('projection-screen-configurator-v22.html','projection-screen-configurator-v29-old.html')
+          s=s.replace('Published immutable V23 and removed public V22','Published immutable V29')
+          p.write_text(s)
+          PY
+          python3 /tmp/publish_v29.py

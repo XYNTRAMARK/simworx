@@ -1,0 +1,72 @@
+name: Smoke live V48 delivery
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/smoke-live-v48-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify live V48 delivery shell
+        run: |
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          import json
+          url='https://www.sim-worx.com/projection-screen-configurator-v48.html'
+          with sync_playwright() as pw:
+            b=pw.chromium.launch(headless=True)
+            p=b.new_page(viewport={'width':1440,'height':950})
+            errors=[]
+            p.on('pageerror',lambda e: errors.append('pageerror:'+str(e)))
+            p.goto(url,wait_until='domcontentloaded',timeout=60000)
+            p.wait_for_timeout(2500)
+            assert p.locator('meta[http-equiv="Content-Security-Policy"]').count()==0
+            assert p.locator('.global-header').is_visible()
+            assert p.locator('#sw-global-footer').count()==1
+            p.evaluate("""() => {
+              window.SimworxProjection={snapshot:()=>({
+                configuration:{
+                  currency:'GBP',diameter:4.5,horizontalFov:180,viewableHeight:2.4,screenBottom:.35,
+                  simulatorType:'airliner',mountingStyle:'ceiling',room:{width:6,depth:6,height:3.2},
+                  projectors:[
+                    {id:'P1',position:[-1.1,2.8,-2.2],yaw:8,pitch:-4,roll:0,throwRatio:.69},
+                    {id:'P2',position:[0,2.8,-2.3],yaw:0,pitch:-4,roll:0,throwRatio:.69},
+                    {id:'P3',position:[1.1,2.8,-2.2],yaw:-8,pitch:-4,roll:0,throwRatio:.69}
+                  ]
+                },
+                quote:{reference:'SWX-LIVE-SMOKE',date:'2026-10-25',lineItems:[
+                  {id:'screen',label:'Projection screen and frame',amount:12000,status:'priced'}
+                ]}
+              })};
+              document.querySelectorAll('[data-guided-go]').forEach(x=>x.removeAttribute('aria-current'));
+              document.querySelector('[data-guided-go="4"]').setAttribute('aria-current','step');
+            }""")
+            p.wait_for_timeout(700)
+            p.locator('#v37-email-proposal').click()
+            p.wait_for_timeout(4000)
+            state=p.evaluate("""() => ({
+              dialog:document.getElementById('v37-email-dialog')?.open||false,
+              verification:document.querySelector('#v48-email-form .sw-form-verification')?.innerText||'',
+              turnstileApi:!!window.turnstile,
+              iframeCount:document.querySelectorAll('#v48-email-form iframe').length,
+              scripts:Array.from(document.scripts).map(s=>s.src).filter(Boolean).filter(x=>x.includes('challenges.cloudflare.com')),
+              csp:document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content||''
+            })""")
+            print('LIVE_V48_STATE',json.dumps(state))
+            print('PAGE_ERRORS',json.dumps(errors))
+            assert state['dialog']
+            assert state['verification']!=''
+            assert state['scripts'], state
+            assert state['iframeCount']>=1 or state['turnstileApi'], state
+            print('LIVE V48 TURNSTILE LOAD PASS')
+            b.close()
+          PY

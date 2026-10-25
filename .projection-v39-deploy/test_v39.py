@@ -140,7 +140,8 @@ with sync_playwright() as pw:
     note=page.locator('#v37-vat-note').text_content() or ''
     total=page.locator('#v37-proposal-total').text_content() or ''
     print('ONSITE_FOREIGN_VAT',lines,note,total)
-    assert 'VATTo confirm' in lines.replace(' ','') or 'VAT To confirm' in lines
+    compact=''.join(lines.split())
+    assert 'VATToconfirm' in compact
     assert 'installation / assembly' in note
     assert 'To confirm' in total
     print('VAT_ONSITE_INSTALLED_GOODS_PASS')

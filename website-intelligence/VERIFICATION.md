@@ -8,6 +8,7 @@
 - Node checks cover reporting calculations, API request validation/session/settings behavior, consent-aware SDK collection and independent integration contracts. Run `npm test` for the current result.
 - Chromium desktop and 390px mobile checks passed for all ten report sections, simulator filters and responsive layout, with no page/console errors or horizontal overflow. Additional browser interactions passed for saved demo lead status/notes, opt-in newsletter CSV, scoring settings, page and drop-off detail drawers, custom dates, Logout and a rejected-PIN response.
 - Applied the additive standalone-consent repair and reran the complete real-database rollback suite, including direct newsletter signup and withdrawal from another browser. No test analytics remained.
+- The GitHub validation workflow passed the real deployed API checks: invalid PIN rejection, authenticated snapshot, event validation, Logout and rejected reuse of a revoked session. A follow-up database check confirmed zero analytics, lead and configuration test rows and zero active test login sessions.
 - Supabase advisors checked the new tables: RLS is intentionally enabled with no public policies; browser-role table privileges are revoked. Only the server service role accesses them.
 
 ## Deployment boundary
@@ -18,4 +19,4 @@ No existing live website file, public configurator, sitemap, navigation, root ro
 
 Tracking scripts are staged under `integration/` and are not loaded by existing public pages. Real activity starts only after that separate integration is activated. The checked-in configurator source differs from live versions, so adapter hooks must be reviewed against the deployed source before activation. In particular, the inspected projection enquiry action opens a mail client and downloads a specification; it cannot prove successful delivery or enquiry receipt.
 
-The separate HTML preview and GitHub branch provide a reviewable build. The requested `/reports/` production path remains a separate reports-only upload unless explicitly selected; the existing website's complete-backup requirement applies before that upload.
+The user selected the existing GitHub-to-FTP hosting route. The dedicated reports workflow creates and verifies a complete live backup, retains its encrypted archive, then uploads only the new `/htdocs/reports/` folder. Existing website files remain protected; source and review history are retained in the GitHub branch.

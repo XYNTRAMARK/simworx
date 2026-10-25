@@ -18,7 +18,7 @@ The backend uses the existing Simworx Supabase project `euttubfvsrgkeiescsdm`. A
 
 ## HTML application
 
-1. Record the live homepage checksum and confirm the live `/reports/` folder does not already contain another application.
+1. Use `.github/workflows/deploy-intelligence-reports.yml`, which reads the existing FTP secrets through GitHub Actions. It records the live homepage checksum and confirms the live `/reports/` folder does not already contain another application.
 2. Download and verify a complete backup of `/htdocs/`; preserve a manifest and archive before writing anything.
 3. Upload the files inside `reports/` to the new `/htdocs/reports/` directory, without modifying any pre-existing remote file. For later updates, explicitly scope the upload to reports files and preserve the prior reports version.
 4. Check `https://www.sim-worx.com/reports/` and enter PIN `260873`. Verify all navigation, mobile layout, dates, CSV exports and Logout.

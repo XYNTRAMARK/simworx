@@ -6,3 +6,5 @@ work/
 coverage/
 *.zip
 *.log
+__pycache__/
+*.pyc

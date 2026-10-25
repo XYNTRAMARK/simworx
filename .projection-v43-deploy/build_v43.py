@@ -89,6 +89,10 @@ layout_css=r"""<style id="projection-v43-site-shell">
 :root{--v43-site-header-h:var(--sw-header-h,84px)}
 body{margin:0}
 .global-header{z-index:12000!important}
+#projection-app{
+  position:relative;
+  padding-top:calc(var(--v43-site-header-h) + var(--v40-estimate-h) + var(--v40-guide-h) + 18px)!important;
+}
 .led-estimate-bar{
   top:var(--v43-site-header-h)!important;
   z-index:10000!important;
@@ -97,7 +101,6 @@ body{margin:0}
   top:calc(var(--v43-site-header-h) + var(--v40-estimate-h))!important;
   z-index:9990!important;
 }
-#projection-app{position:relative}
 #sw-global-footer{position:relative;z-index:10;margin-top:44px}
 </style>"""
 html=html.replace("</head>",layout_css+"\n</head>",1)
@@ -113,6 +116,7 @@ checks=[
     'global-header.js',
     'global-footer.js',
     'projection-v43-shell-sync',
+    'padding-top:calc(var(--v43-site-header-h) + var(--v40-estimate-h) + var(--v40-guide-h) + 18px)',
     'top:calc(var(--v43-site-header-h) + var(--v40-estimate-h))',
     'projection-v42-proposal-delivery',
 ]

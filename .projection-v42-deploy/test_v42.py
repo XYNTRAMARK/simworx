@@ -26,7 +26,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(1200)
     assert page.locator("#v37-proposal").get_attribute("data-bound")=="true"
     for button in page.locator("[data-guided-go]").all():
-        button.remove_attribute("aria-current")
+        button.set_attribute("aria-current","")
     page.locator('[data-guided-go="4"]').set_attribute("aria-current","step")
     page.wait_for_timeout(800)
     assert not page.locator("#v37-proposal").is_hidden()

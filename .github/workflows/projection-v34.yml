@@ -1,0 +1,39 @@
+name: Publish projection configurator V34
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v34.yml'
+      - '.projection-v34-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v34
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V34 from published V33
+        run: python3 .projection-v34-deploy/build_v34.py
+      - name: Run V34 browser acceptance test
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m http.server 8765 >/tmp/v34-server.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v34-deploy/test_v34.py
+          kill $P || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v34-proof
+          path: /tmp/v34-proof.png
+          retention-days: 1
+      - name: Publish immutable V34
+        run: python3 .projection-v34-deploy/publish_v34.py

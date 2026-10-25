@@ -38,6 +38,13 @@ jobs:
               raise SystemExit(f'Expected exactly one Step navigation guard, found {count}')
           s=s.replace(token,'if(n===2){',1)
 
+          sync_nav="render();update({price:false});requestAnimationFrame(()=>$('guided-steps').scrollIntoView({block:'start',behavior:'instant'}));"
+          async_nav="render();if(n!==3)update({price:false});requestAnimationFrame(()=>$('guided-steps').scrollIntoView({block:'start',behavior:'instant'}));"
+          sync_count=s.count(sync_nav)
+          if sync_count!=1:
+              raise SystemExit(f'Expected one synchronous guided navigation update, found {sync_count}')
+          s=s.replace(sync_nav,async_nav,1)
+
           css='<style id="projection-v29-navigation-fix">.led-estimate-bar{pointer-events:none!important}.led-estimate-bar select,.led-estimate-bar button,.led-estimate-bar input,.led-estimate-bar a{pointer-events:auto!important}.guided-steps{scroll-margin-top:130px}</style>'
           s=s.replace('</head>',css+'\n</head>',1)
           p.write_text(s)
@@ -46,6 +53,8 @@ jobs:
           missing=[x for x in checks if x not in s]
           if missing: raise SystemExit('V29 inheritance check failed '+repr(missing))
           if token in s: raise SystemExit('V29 old Step navigation guard still present')
+          if sync_nav in s: raise SystemExit('V29 synchronous Step 3 update still present')
+          if async_nav not in s: raise SystemExit('V29 non-blocking Step 3 navigation patch missing')
           print('V29 navigation patch applied on top of published V28')
           PY
 

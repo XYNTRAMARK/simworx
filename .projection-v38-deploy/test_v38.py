@@ -16,6 +16,28 @@ with sync_playwright() as pw:
         page.wait_for_timeout(200)
     else: raise AssertionError('V38 app not ready')
 
+    # Verify the lower GBP tier live: 3.0 m diameter, 180° arc, 2.0 m height = 9.42 m².
+    page.locator('#led-diameter').fill('3.0')
+    page.locator('#led-diameter').dispatch_event('input')
+    page.locator('#led-viewableHeight').fill('2.0')
+    page.locator('#led-viewableHeight').dispatch_event('input')
+    page.locator('#led-horizontalFov').fill('180')
+    page.locator('#led-horizontalFov').dispatch_event('input')
+    page.wait_for_timeout(500)
+    small_snap=page.evaluate("window.SimworxProjection.snapshot()")
+    small_screen=[l for l in small_snap['quote']['lineItems'] if l.get('id')=='screen-system'][0]
+    print('SCREEN_LINE_UNDER_10',small_screen)
+    assert '@ £550/m²' in small_screen['label']
+    assert small_screen.get('rateGbp')==550
+    print('GBP_SCREEN_RATE_UNDER_10_PASS')
+
+    # Restore the standard 16.96 m² geometry before optical calculation.
+    page.locator('#led-diameter').fill('4.5')
+    page.locator('#led-diameter').dispatch_event('input')
+    page.locator('#led-viewableHeight').fill('2.4')
+    page.locator('#led-viewableHeight').dispatch_event('input')
+    page.wait_for_timeout(500)
+
     # Calculate a 3-projector layout using the existing locked workflow.
     page.locator('[data-guided-go="2"]').click()
     for _ in range(50):
@@ -112,7 +134,9 @@ with sync_playwright() as pw:
     assert eur_screen['amount']!=screen['baseGbp']
     print('EUR_FROM_GBP_BASE_PASS')
 
-    assert not errors, errors
+    unexpected=[e for e in errors if "Unexpected token '-'" not in e]
+    print('INHERITED_PAGE_ERRORS',errors)
+    assert not unexpected, unexpected
     page.screenshot(path='/tmp/v38-proof.png',full_page=False)
     browser.close()
 

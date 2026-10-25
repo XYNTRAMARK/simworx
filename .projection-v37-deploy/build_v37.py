@@ -203,6 +203,7 @@ html=html.replace("</body>",js+"\n</body>",1)
 
 proposal_js=r"""<script id="projection-v37-proposal-js">
 (function(){
+  window.__v37ProposalScriptRan='entered';
   const q=id=>document.getElementById(id);
   let reference='';
 
@@ -373,7 +374,20 @@ proposal_js=r"""<script id="projection-v37-proposal-js">
     q('v37-proposal-status').textContent='Formal quote request prepared for info@sim-worx.com.';
   }
 
-  const timer=setInterval(()=>{if(ensureProposal()){clearInterval(timer);refreshProposal();}},50);
+  const timer=setInterval(()=>{
+    try{
+      const proposal=ensureProposal();
+      if(proposal){
+        window.__v37ProposalScriptRan='installed';
+        clearInterval(timer);
+        refreshProposal();
+      }
+    }catch(error){
+      window.__v37ProposalScriptRan='error: '+(error?.message||String(error));
+      console.error('V37 proposal install failed',error);
+      clearInterval(timer);
+    }
+  },50);
   new MutationObserver(refreshProposal).observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['aria-current']});
   document.querySelectorAll('[data-guided-go]').forEach(button=>button.addEventListener('click',()=>setTimeout(refreshProposal,30)));
   q('guided-next')?.addEventListener('click',()=>setTimeout(refreshProposal,30));

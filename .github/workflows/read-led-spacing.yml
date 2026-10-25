@@ -1,0 +1,38 @@
+name: Read LED spacing rules
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/read-led-spacing.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read exact LED spacing
+        run: |
+          python3 - <<'PY'
+          import urllib.request,re
+          u='https://www.sim-worx.com/led-screen-configurator.html'
+          req=urllib.request.Request(u,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-spacing-inspector'})
+          with urllib.request.urlopen(req,timeout=45) as r:s=r.read().decode('utf-8','replace')
+          selectors=['body','.global-header','.led-shell','.led-estimate-bar','#led-app','#sw-global-footer']
+          for sel in selectors:
+              print('\n##',sel)
+              pat=re.compile(re.escape(sel)+r'\s*\{([^{}]*)\}',re.I)
+              for m in pat.finditer(s):
+                  body=' '.join(m.group(1).split())
+                  if any(k in body for k in ['position','top','padding','margin','height','z-index','display']):
+                      print(body[:1800])
+          # show immediate sequence of body children, stripped of huge attributes/content
+          b=re.search(r'<body[^>]*>([\s\S]*?)</body>',s,re.I)
+          if b:
+              x=b.group(1)
+              tags=re.findall(r'<(header|main|footer|script)\b([^>]*)>',x,re.I)
+              for tag,attrs in tags[:40]:
+                  attrs=re.sub(r'src=["\']data:[^"\']+["\']','src="[data]"',attrs)
+                  print('CHILD',tag,attrs[:500])
+          PY

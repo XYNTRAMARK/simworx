@@ -1,0 +1,32 @@
+name: Publish projection configurator V13
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/projection-v13.yml'
+      - '.projection-v13-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v13
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated V13
+        run: python3 .projection-v13-deploy/build_v13.py
+      - name: Check JavaScript syntax
+        run: |
+          for file in projection/src/*.js; do
+            node --check "$file"
+          done
+      - name: Publish immutable V13
+        run: python3 .projection-v13-deploy/publish_v13.py

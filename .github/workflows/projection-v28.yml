@@ -75,10 +75,12 @@ jobs:
               });
             }
 
+            window.__projectionV28ApplyViewer=apply;
             const observer=new MutationObserver(records=>{
               if(records.some(r=>r.type==='attributes'&&r.attributeName==='aria-current'))apply();
             });
             observer.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['aria-current']});
+            document.querySelectorAll('[data-guided-go]').forEach(button=>button.addEventListener('click',()=>setTimeout(apply,50)));
 
             if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(apply,0));
             else setTimeout(apply,0);
@@ -171,6 +173,7 @@ jobs:
           driver.execute_script("""
             document.querySelectorAll('[data-guided-go]').forEach(b=>b.removeAttribute('aria-current'));
             document.querySelector('[data-guided-go="3"]').setAttribute('aria-current','step');
+            window.__projectionV28ApplyViewer();
           """)
           time.sleep(1)
           measure('STEP3-LAYOUT',True)

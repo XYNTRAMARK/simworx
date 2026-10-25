@@ -30,7 +30,7 @@ if "escproposalLineValue" in html:
 # It blocks Turnstile, fetch(), form submissions and shared site assets. The
 # working live LED configurator does not carry this meta policy, so remove it.
 html,csp_count=re.subn(
-    r"<meta\\s+http-equiv=[\"']Content-Security-Policy[\"'][^>]*>",
+    r"<meta\s+http-equiv=[\"']Content-Security-Policy[\"'][^>]*>",
     '',
     html,
     count=1,
@@ -257,7 +257,7 @@ if missing: raise SystemExit("V48 delivery checks failed "+repr(missing))
 if 'id="projection-v42-turnstile-js"' in html: raise SystemExit("V48 old custom Turnstile script remains")
 if "frame.srcdoc=documentHtml()" in html: raise SystemExit("V48 old blank iframe print path remains")
 if "escproposalLineValue" in html: raise SystemExit("V48 malformed proposal serializer token remains")
-if re.search(r"<meta\\s+http-equiv=[\"']Content-Security-Policy[\"']",html,re.I): raise SystemExit("V48 obsolete standalone CSP remains")
+if re.search(r"<meta\s+http-equiv=[\"']Content-Security-Policy[\"']",html,re.I): raise SystemExit("V48 obsolete standalone CSP remains")
 
 # Validate the modified customer-facing proposal JS and extracted protection JS.
 for sid,out in [

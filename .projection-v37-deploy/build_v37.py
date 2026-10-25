@@ -28,6 +28,13 @@ if '<button type="button" data-guided-go="4"><b>4</b> Review</button>' not in ht
     raise SystemExit("V37 Step 4 Review nav anchor missing")
 html=html.replace('<button type="button" data-guided-go="4"><b>4</b> Review</button>','<button type="button" data-guided-go="4"><b>4</b> Proposal</button>',1)
 
+# Keep the shared WebGL viewer inside the V37 left column after V29 step refreshes.
+owner_old="if(home.parentNode!==row)row.appendChild(home);"
+owner_new="const v37Left=document.getElementById('v37-left-column');const homeTarget=v37Left||row;if(home.parentNode!==homeTarget){if(v37Left)v37Left.insertBefore(home,v37Left.firstChild||null);else row.appendChild(home);}"
+if owner_old not in html:
+    raise SystemExit("V37 stable-viewer owner anchor missing")
+html=html.replace(owner_old,owner_new,1)
+
 css="""<style id="projection-v37-space-optimisation">
 .projection-v29-edit-row.is-step3{
   grid-template-columns:minmax(0,1.65fr) minmax(300px,360px)!important;

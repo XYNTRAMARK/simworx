@@ -1,6 +1,6 @@
 # Simworx Website Intelligence
 
-Standalone HTML reports for `https://www.sim-worx.com/reports/`, backed by an isolated first-party event collector. This project adds no links to the public navigation or sitemap and does not replace public pages, configurators, assets, portal code, or existing Supabase functions.
+Standalone HTML reports at `https://sim-worx.com/reports/`, backed by an isolated first-party event collector. This project adds no links to the public navigation or sitemap and does not replace public pages, configurators, assets, portal code, or existing Supabase functions.
 
 ## Open the reports
 

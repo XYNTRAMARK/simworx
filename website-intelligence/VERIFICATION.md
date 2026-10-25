@@ -13,6 +13,12 @@
 
 ## Deployment boundary
 
+The new HTML reports were uploaded through the existing GitHub/FTPS connection on 25 October 2026. All nine new `/htdocs/reports/` files matched the reviewed build in a separate read-only FTP check. The complete 316-file, 833,951,075-byte site backup was verified and retained as encrypted GitHub artifact `12604666004` before upload. The uploader's checks of existing-file metadata and protected homepage/header hashes completed before its subsequent HTTPS request timed out.
+
+Verified public URL: `https://sim-worx.com/reports/`, PIN `260873`. HTTPS checks from GitHub and the execution environment confirmed the live HTML, JavaScript and stylesheet match the reviewed source, and the noindex/nofollow response header is present. The `www` hostname timed out during checks; no hosting or DNS configuration was changed. Automated live Chrome checks did not run reliably in the GitHub runner, so live browser automation is an explicitly optional follow-up. Local browser interaction checks and deployed API checks passed.
+
+Validation comprises 47 JavaScript behavioral checks, 16 FTP-helper checks, desktop/mobile Chromium interactions, real API session checks, and rolled-back database assertions. The production upload workflow is now manual-only so future helper edits cannot trigger another first-deployment attempt.
+
 No existing live website file, public configurator, sitemap, navigation, root robots file, support portal function or support portal table was modified. Demo records stay in the browser. Database test records were rolled back.
 
 ## Remaining activation

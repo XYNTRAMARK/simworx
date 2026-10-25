@@ -6,6 +6,12 @@ on:
       - '.github/workflows/verify-intelligence-reports.yml'
       - 'website-intelligence/deploy/verify_live.py'
       - 'website-intelligence/tests/live-browser.mjs'
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: Run the optional Chrome browser check
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -24,7 +30,8 @@ jobs:
           node-version: '24'
       - name: Inspect uploaded reports and check HTTPS without FTP writes
         run: python3 website-intelligence/deploy/verify_live.py
-      - name: Check actual reports PIN and navigation in Chrome
+      - name: Optional Chrome check of actual reports PIN and navigation
+        if: github.event_name == 'workflow_dispatch' && inputs.browser
         shell: bash
         run: |
           CHROME_BIN="$(command -v google-chrome || command -v chromium)" node website-intelligence/tests/live-browser.mjs

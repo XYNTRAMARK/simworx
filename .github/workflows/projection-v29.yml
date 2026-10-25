@@ -32,21 +32,20 @@ jobs:
           p=Path('projection-screen-configurator-v29.html')
           s=p.read_text()
 
-          old = "  if(n>1){\n    const requiredRoom=['projection-room-width','projection-room-depth','projection-room-height'].map($).filter(Boolean);\n    if(!requiredRoom.every(e=>e.reportValidity()))return;\n    const budget=$('guided-budget');\n    if(budget&&budget.value!==''&&!budget.reportValidity())return;\n  }"
-          new = "  if(n===2){\n    const requiredRoom=['projection-room-width','projection-room-depth','projection-room-height'].map($).filter(Boolean);\n    if(!requiredRoom.every(e=>e.reportValidity()))return;\n    const budget=$('guided-budget');\n    if(budget&&budget.value!==''&&!budget.reportValidity())return;\n  }"
-          if old not in s:
-              raise SystemExit('V29 live navigation validation block missing')
-          s=s.replace(old,new,1)
+          token='if(n>1){'
+          count=s.count(token)
+          if count!=1:
+              raise SystemExit(f'Expected exactly one Step navigation guard, found {count}')
+          s=s.replace(token,'if(n===2){',1)
 
           css='<style id="projection-v29-navigation-fix">.led-estimate-bar{pointer-events:none!important}.led-estimate-bar select,.led-estimate-bar button,.led-estimate-bar input,.led-estimate-bar a{pointer-events:auto!important}.guided-steps{scroll-margin-top:130px}</style>'
           s=s.replace('</head>',css+'\n</head>',1)
           p.write_text(s)
 
-          checks=['projection-v29-navigation-fix','projection-v28-step-viewer-owner','projection-v26-workspace','projection-v25-controls','projection-fixed-estimate-v24','"screenSystemPerM2Eur":500','Projector position, swivel &amp; throw']
+          checks=['projection-v29-navigation-fix','projection-v28-step-viewer-owner','projection-v26-workspace','projection-v25-controls','projection-fixed-estimate-v24','"screenSystemPerM2Eur":500','Projector position, swivel &amp; throw','if(n===2){']
           missing=[x for x in checks if x not in s]
           if missing: raise SystemExit('V29 inheritance check failed '+repr(missing))
-          if old in s: raise SystemExit('V29 old blocking validation still present')
-          if 'if(n===2){' not in s: raise SystemExit('V29 Step 2-only validation patch missing')
+          if token in s: raise SystemExit('V29 old Step navigation guard still present')
           print('V29 navigation patch applied on top of published V28')
           PY
 

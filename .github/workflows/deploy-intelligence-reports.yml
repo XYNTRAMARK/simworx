@@ -1,11 +1,6 @@
 name: Publish isolated reports HTML through FTP
 
 on:
-  push:
-    branches: [codex/simworx-intelligence-20261025]
-    paths:
-      - '.github/workflows/deploy-intelligence-reports.yml'
-      - 'website-intelligence/deploy/**'
   workflow_dispatch:
 
 permissions:

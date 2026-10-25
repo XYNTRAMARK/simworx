@@ -4,6 +4,10 @@ import sys
 import time
 from urllib.error import URLError
 import reports_ftp as deployment
+import os
+
+if os.environ.get('REPORTS_PUBLIC_BASE') in {'https://sim-worx.com', 'https://www.sim-worx.com'}:
+    deployment.PUBLIC = os.environ['REPORTS_PUBLIC_BASE']
 
 
 def main():

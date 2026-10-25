@@ -15,7 +15,15 @@ jobs:
       FTP_HOST: ${{ secrets.FTP_HOST }}
       FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      REPORTS_PUBLIC_BASE: https://sim-worx.com
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - name: Inspect uploaded reports and check HTTPS without FTP writes
         run: python3 website-intelligence/deploy/verify_live.py
+      - name: Check actual reports PIN and navigation in Chrome
+        shell: bash
+        run: |
+          CHROME_BIN="$(command -v google-chrome || command -v chromium)" node website-intelligence/tests/live-browser.mjs

@@ -35,8 +35,7 @@ with sync_playwright() as pw:
 
     # Turn shadows off, then calculate: the new layout must turn them back on automatically.
     shadows=page.locator('#projection-shadows')
-    if shadows.is_checked():
-        shadows.uncheck()
+    shadows.evaluate("el=>{el.checked=false;}")
     assert not shadows.is_checked()
 
     calc=page.locator('#guided-calculate')

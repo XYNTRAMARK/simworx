@@ -1,0 +1,79 @@
+name: Visual test projection V28
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v28-visual.yml'
+permissions:
+  contents: read
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build corrected V28 from published V27
+        run: |
+          curl -fsSL https://www.sim-worx.com/projection-screen-configurator-v27.html -o projection-screen-configurator-v28-visual.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('projection-screen-configurator-v28-visual.html')
+          s=p.read_text()
+          corrected='''<script id="projection-v28-step-viewer-owner">
+          (function(){
+            const q=id=>document.getElementById(id);
+            function currentStep(){return Number(document.querySelector('[data-guided-go][aria-current="step"]')?.dataset?.guidedGo||1);}
+            function apply(){
+              const preview=q('led-preview'),home=q('led-canvas-home'),workspace=q('projection-v26-workspace'),panel=q('projection-v25-controls');
+              const toolbar=preview?.querySelector('.led-viewer-toolbar'),viewerColumn=workspace?.querySelector('.projection-v26-viewer-column');
+              if(!preview||!home||!workspace||!viewerColumn)return;
+              if(currentStep()===3){
+                preview.classList.add('v26-editing');workspace.hidden=false;
+                if(home.parentNode!==viewerColumn)viewerColumn.appendChild(home);
+                if(panel&&panel.parentNode!==workspace)workspace.appendChild(panel);
+                if(panel)panel.hidden=false;
+                const manual=q('projection-manual-viewer');
+                if(manual&&!manual.checked){manual.checked=true;manual.dispatchEvent(new Event('change',{bubbles:true}));}
+                document.querySelector('[data-transform="translate"]')?.click();
+              }else{
+                preview.classList.remove('v26-editing');
+                if(toolbar&&home.parentNode!==preview)preview.insertBefore(home,toolbar);
+                workspace.hidden=true;if(panel)panel.hidden=true;
+              }
+              requestAnimationFrame(()=>window.dispatchEvent(new Event('resize')));
+            }
+            new MutationObserver(rs=>{if(rs.some(r=>r.type==='attributes'&&r.attributeName==='aria-current'))apply();})
+              .observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['aria-current']});
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(apply,0));else setTimeout(apply,0);
+          })();
+          </script>'''
+          s,n=re.subn(r'<script id="projection-v27-step-viewer-restore">.*?</script>',corrected,s,count=1,flags=re.S)
+          if n!=1:raise SystemExit('V27 script replacement failed')
+          p.write_text(s)
+
+          step3=s.replace('</body>','''<script>
+          setTimeout(()=>document.querySelector('[data-guided-go="3"]')?.click(),2500);
+          </script></body>''',1)
+          Path('projection-screen-configurator-v28-step3.html').write_text(step3)
+          PY
+      - name: Screenshot Step 1 and Step 3
+        run: |
+          python3 -m http.server 8765 >/tmp/server.log 2>&1 &
+          P=$!
+          sleep 2
+          C="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          timeout 35 "$C" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --enable-logging=stderr --virtual-time-budget=8000 --window-size=1600,1000 --screenshot=/tmp/v28-step1.png http://127.0.0.1:8765/projection-screen-configurator-v28-visual.html >/tmp/step1.log 2>&1
+          timeout 35 "$C" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --enable-logging=stderr --virtual-time-budget=9000 --window-size=1600,1000 --screenshot=/tmp/v28-step3.png http://127.0.0.1:8765/projection-screen-configurator-v28-step3.html >/tmp/step3.log 2>&1
+          kill $P || true
+          ! grep -Eq 'SyntaxError|TypeError|ReferenceError' /tmp/step1.log
+          ! grep -Eq 'SyntaxError|TypeError|ReferenceError' /tmp/step3.log
+          test -s /tmp/v28-step1.png
+          test -s /tmp/v28-step3.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v28-visual-proof
+          path: |
+            /tmp/v28-step1.png
+            /tmp/v28-step3.png
+          retention-days: 1

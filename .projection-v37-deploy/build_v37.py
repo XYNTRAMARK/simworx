@@ -144,6 +144,223 @@ js=r"""<script id="projection-v37-space-optimisation-js">
 </script>"""
 html=html.replace("</body>",js+"\n</body>",1)
 
+proposal_js=r"""<script id="projection-v37-proposal-js">
+(function(){
+  const q=id=>document.getElementById(id);
+  let reference='';
+
+  function snapshot(){try{return window.SimworxProjection?.snapshot?.()||null}catch(_){return null}}
+  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  function money(value,currency){
+    if(typeof value!=='number'||!Number.isFinite(value))return 'To confirm';
+    try{return new Intl.NumberFormat('en-GB',{style:'currency',currency:currency,maximumFractionDigits:2}).format(value)}
+    catch(_){return value.toFixed(2)+' '+currency}
+  }
+  function metres(v){return Number(v||0).toFixed(2)+' m'}
+  function currentStep(){return Number(document.querySelector('[data-guided-go][aria-current="step"]')?.dataset?.guidedGo||1)}
+
+  function ensureProposal(){
+    let proposal=q('v37-proposal');
+    if(proposal)return proposal;
+
+    document.querySelectorAll('[data-guided-step="4"]').forEach(el=>el.classList.add('v37-old-step4'));
+    const nav=document.querySelector('.guided-navigation');
+    if(!nav)return null;
+
+    proposal=document.createElement('section');
+    proposal.id='v37-proposal';
+    proposal.dataset.guidedStep='4';
+    proposal.hidden=true;
+    proposal.innerHTML=
+      '<div class="v37-proposal-head"><div><span class="led-step">COMMERCIAL PROPOSAL</span><h2>Projection system proposal</h2><p class="led-help">Final technical configuration and Simworx commercial estimate.</p></div><a class="led-text-link" href="#led-controls">Change configuration ↑</a></div>'+
+      '<div class="v37-proposal-meta"><span id="v37-proposal-ref">Reference —</span><span id="v37-proposal-date">Date —</span><span>Validity: confirmed on formal quotation</span></div>'+
+      '<div class="v37-proposal-grid">'+
+        '<div style="display:grid;gap:16px">'+
+          '<section class="v37-proposal-card"><h3>System specification</h3><dl class="v37-proposal-spec" id="v37-proposal-spec"></dl></section>'+
+          '<section class="v37-proposal-card"><h3>Projector requirement</h3><table class="v37-projector-table"><thead><tr><th>Projector</th><th>Lens position</th><th>Aim</th><th>Throw</th></tr></thead><tbody id="v37-projector-rows"></tbody></table><p class="v37-finance-note">Projectors are customer sourced and are not included in the Simworx commercial total. Final projector/lens suitability must be confirmed with the projector supplier before purchase.</p></section>'+
+          '<details class="v37-proposal-card"><summary><strong>Technical assumptions &amp; review notes</strong></summary><ul id="v37-proposal-warnings"></ul></details>'+
+        '</div>'+
+        '<aside class="v37-proposal-card"><h3>Commercial proposal</h3>'+
+          '<span class="led-help">Quote currency</span><div class="v37-currency-buttons" id="v37-currency-buttons"><button type="button" data-currency="EUR">EUR</button><button type="button" data-currency="GBP">GBP</button><button type="button" data-currency="USD">USD</button></div>'+
+          '<div class="v37-finance-grid" style="margin-top:12px">'+
+            '<label>Delivery destination<select id="v37-destination"><option value="spain">Spain</option><option value="eu">European Union</option><option value="uk">United Kingdom</option><option value="usa">United States</option><option value="middle-east">Middle East</option><option value="rest">Rest of world</option></select></label>'+
+            '<label>Customer type<select id="v37-customer-type"><option value="personal">Personal</option><option value="business">Business</option></select></label>'+
+            '<label id="v37-vat-wrap" hidden>EU VAT number<input id="v37-vat-number" maxlength="32" placeholder="e.g. FR12345678901"></label>'+
+          '</div>'+
+          '<div class="v37-proposal-lines" id="v37-price-lines"></div>'+
+          '<div class="v37-total-row"><span>Estimated total before delivery</span><strong id="v37-proposal-total">—</strong></div>'+
+          '<p class="v37-finance-note" id="v37-vat-note"></p>'+
+          '<p class="v37-finance-note"><strong>Delivery:</strong> To be quoted for the completed screen system. Outside the EU, import duties, tariffs and local import taxes remain the customer responsibility.</p>'+
+          '<div class="v37-proposal-actions">'+
+            '<button type="button" class="led-button v37-primary" id="v37-print-proposal">Print / save PDF</button>'+
+            '<button type="button" class="led-button led-outline" id="v37-download-proposal">Download configuration quote</button>'+
+            '<button type="button" class="led-button led-outline" id="v37-email-proposal">Email proposal</button>'+
+            '<button type="button" class="led-button led-outline" id="v37-request-quote">Request formal quote</button>'+
+          '</div><p class="led-action-result" id="v37-proposal-status" role="status"></p>'+
+        '</aside>'+
+      '</div>';
+    nav.parentNode.insertBefore(proposal,nav);
+
+    const dialog=document.createElement('dialog');
+    dialog.id='v37-email-dialog';
+    dialog.innerHTML='<div class="v37-email-body"><h3>Email proposal</h3><p class="led-help">The proposal file will download and your email application will open with the proposal summary.</p><div class="v37-email-fields"><label>Recipient email<input id="v37-email-address" type="email" required placeholder="name@example.com"></label><label>Recipient name<input id="v37-email-name" maxlength="100"></label></div><div class="v37-proposal-actions"><button type="button" class="led-button v37-primary" id="v37-email-send">Prepare email</button><button type="button" class="led-button led-outline" id="v37-email-close">Cancel</button></div><p id="v37-email-status" class="led-help"></p></div>';
+    document.body.appendChild(dialog);
+
+    q('v37-currency-buttons').addEventListener('click',event=>{
+      const b=event.target.closest('button[data-currency]');if(!b)return;
+      const select=q('projection-currency');
+      if(select){select.value=b.dataset.currency;select.dispatchEvent(new Event('change',{bubbles:true}));}
+      setTimeout(refreshProposal,300);
+    });
+    ['v37-destination','v37-customer-type','v37-vat-number'].forEach(id=>q(id).addEventListener('input',refreshProposal));
+    q('v37-print-proposal').addEventListener('click',printProposal);
+    q('v37-download-proposal').addEventListener('click',downloadProposal);
+    q('v37-email-proposal').addEventListener('click',()=>q('v37-email-dialog').showModal());
+    q('v37-email-close').addEventListener('click',()=>q('v37-email-dialog').close());
+    q('v37-email-send').addEventListener('click',emailProposal);
+    q('v37-request-quote').addEventListener('click',requestFormalQuote);
+    return proposal;
+  }
+
+  function financial(snap){
+    const cfg=snap.configuration||{},quote=snap.quote||{},currency=cfg.currency||'EUR';
+    const lines=(quote.lineItems||[]).filter(line=>!String(line.id||'').startsWith('projector-'));
+    const subtotal=lines.reduce((sum,line)=>sum+(typeof line.amount==='number'&&Number.isFinite(line.amount)?line.amount:0),0);
+    const destination=q('v37-destination')?.value||'spain';
+    const customer=q('v37-customer-type')?.value||'personal';
+    const vatNo=(q('v37-vat-number')?.value||'').trim();
+    let rate=null,note='';
+    if(destination==='spain'){
+      rate=21; note='Spanish VAT estimate: 21%.';
+    }else if(destination==='eu'){
+      if(customer==='business'&&vatNo.length>=6){
+        rate=0; note='0% Spanish VAT estimate for an intra-EU business supply, subject to a valid VAT number/VIES check and evidence of dispatch to another EU country.';
+      }else{
+        rate=null; note='EU consumer/destination VAT is confirmed from the delivery country on the formal quotation.';
+      }
+    }else{
+      rate=0; note='0% Spanish VAT estimate for export, subject to export evidence. Destination duties and local import taxes are not included.';
+    }
+    const tax=rate===null?null:subtotal*rate/100;
+    const total=tax===null?null:subtotal+tax;
+    return {currency,lines,subtotal,rate,tax,total,destination,customer,vatNo,note};
+  }
+
+  function specRows(snap){
+    const cfg=snap.configuration||{},projectors=cfg.projectors||[];
+    const area=(Number(cfg.diameter||0)/2)*(Number(cfg.horizontalFov||0)*Math.PI/180)*Number(cfg.viewableHeight||0);
+    const throws=projectors.map(p=>Number(p.throwRatio)).filter(Number.isFinite);
+    const lensHeight=projectors[0]?.position?.[1];
+    const room=cfg.room||{};
+    return [
+      ['Screen system','Curved projection screen & frame'],
+      ['Screen diameter / arc',metres(cfg.diameter)+' / '+Number(cfg.horizontalFov||0).toFixed(0)+'°'],
+      ['Viewable height / floor clearance',metres(cfg.viewableHeight)+' / '+metres(cfg.screenBottom)],
+      ['Active curved screen area',Number.isFinite(area)?area.toFixed(2)+' m²':'—'],
+      ['Room',metres(room.width)+' W × '+metres(room.depth)+' D × '+metres(room.height)+' H'],
+      ['Cockpit',q('led-simulatorType')?.selectedOptions?.[0]?.textContent?.trim()||cfg.simulatorType||'Configured cockpit'],
+      ['Projector quantity',String(projectors.length)],
+      ['Required throw ratio',throws.length?Math.min(...throws).toFixed(3):'—'],
+      ['Lens height',Number.isFinite(lensHeight)?metres(lensHeight):'—'],
+      ['Ceiling mount drop',Number.isFinite(room.height)&&Number.isFinite(lensHeight)?metres(Math.max(0,room.height-lensHeight)):'—'],
+      ['Mounting method',cfg.mountingStyle==='truss'?'Floor-supported truss':'Ceiling mounts'],
+      ['Coverage / shadow',(q('projection-coverage-metric')?.textContent||'—')+' / '+(q('projection-shadow-metric')?.textContent||'—')],
+      ['Warping / calibration',(snap.quote?.lineItems||[]).find(l=>l.id==='warping')?.label||'Configured package'],
+      ['Project notes',cfg.notes||'None supplied']
+    ];
+  }
+
+  function projectorRows(snap){
+    return (snap.configuration?.projectors||[]).map(p=>{
+      const pos=(p.position||[]).map(v=>Number(v).toFixed(2)+' m').join(' / ');
+      const aim=[p.yaw,p.pitch,p.roll].map(v=>Number(v||0).toFixed(1)+'°').join(' / ');
+      return '<tr><td>'+esc(p.id)+'</td><td>'+esc(pos)+'</td><td>'+esc(aim)+'</td><td>'+esc(Number(p.throwRatio||0).toFixed(3))+'</td></tr>';
+    }).join('');
+  }
+
+  function warningItems(){
+    return Array.from(q('projection-review-flags')?.querySelectorAll('li')||[]).map(li=>li.textContent.trim()).filter(Boolean);
+  }
+
+  function refreshProposal(){
+    const proposal=ensureProposal();if(!proposal)return;
+    proposal.hidden=currentStep()!==4;
+    if(currentStep()!==4)return;
+    const snap=snapshot();if(!snap)return;
+    const quote=snap.quote||{};
+    if(!reference)reference=quote.reference||('SWX-PROJ-'+new Date().toISOString().slice(0,10).replaceAll('-',''));
+    q('v37-proposal-ref').textContent='Reference: '+reference;
+    q('v37-proposal-date').textContent='Date: '+new Date(quote.date||Date.now()).toLocaleDateString('en-GB');
+    q('v37-proposal-spec').innerHTML=specRows(snap).map(row=>'<div><dt>'+esc(row[0])+'</dt><dd>'+esc(row[1])+'</dd></div>').join('');
+    q('v37-projector-rows').innerHTML=projectorRows(snap);
+    const warnings=warningItems();
+    q('v37-proposal-warnings').innerHTML=(warnings.length?warnings:['No additional technical notes.']).map(w=>'<li>'+esc(w)+'</li>').join('');
+
+    const fin=financial(snap);
+    q('v37-currency-buttons').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.currency===fin.currency)));
+    q('v37-vat-wrap').hidden=!(fin.destination==='eu'&&fin.customer==='business');
+
+    q('v37-price-lines').innerHTML=
+      fin.lines.map(line=>'<div><span>'+esc(line.label)+(line.status==='included'?' <small>· included</small>':'')+'</span><strong>'+esc(line.status==='included'?'Included':money(line.amount,fin.currency))+'</strong></div>').join('')+
+      '<div><span>Matched projectors <small>· customer sourced</small></span><strong>Excluded</strong></div>'+
+      '<div><span>Product subtotal excluding VAT</span><strong>'+esc(money(fin.subtotal,fin.currency))+'</strong></div>'+
+      '<div><span>VAT'+(fin.rate===null?'':fin.rate===0?' · 0%':' · '+fin.rate+'%')+'</span><strong>'+esc(fin.tax===null?'To confirm':money(fin.tax,fin.currency))+'</strong></div>'+
+      '<div><span>Delivery</span><strong>To be quoted</strong></div>';
+    q('v37-proposal-total').textContent=fin.total===null?'To confirm':money(fin.total,fin.currency)+' + delivery';
+    q('v37-vat-note').textContent=fin.note;
+  }
+
+  function plainText(){
+    const snap=snapshot();if(!snap)return '';
+    const fin=financial(snap);
+    const specs=specRows(snap).map(row=>row[0]+': '+row[1]).join('\\n');
+    const projectors=(snap.configuration?.projectors||[]).map(p=>p.id+': '+(p.position||[]).map(v=>Number(v).toFixed(2)+' m').join(' / ')+' · throw '+Number(p.throwRatio||0).toFixed(3)).join('\\n');
+    const prices=fin.lines.map(l=>l.label+': '+(l.status==='included'?'Included':money(l.amount,fin.currency))).join('\\n');
+    return 'SIMWORX PROJECTION SYSTEM PROPOSAL\\nReference: '+reference+'\\n\\nSPECIFICATION\\n'+specs+'\\n\\nPROJECTOR REQUIREMENT\\n'+projectors+'\\nProjectors: customer sourced / excluded from Simworx price\\n\\nCOMMERCIAL PROPOSAL\\n'+prices+'\\nProduct subtotal excluding VAT: '+money(fin.subtotal,fin.currency)+'\\nVAT: '+(fin.tax===null?'To confirm':money(fin.tax,fin.currency))+'\\nDelivery: To be quoted\\nEstimated total before delivery: '+(fin.total===null?'To confirm':money(fin.total,fin.currency))+'\\n\\n'+fin.note+'\\nFinal projector/lens suitability must be verified with the projector supplier before purchase.';
+  }
+
+  function documentHtml(){
+    const snap=snapshot(),fin=financial(snap);
+    return '<!doctype html><html><head><meta charset="utf-8"><title>Simworx Projection Proposal '+esc(reference)+'</title><style>body{font:14px Arial;max-width:980px;margin:36px auto;color:#17202a}h1{font-size:28px}h2{margin-top:28px}table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #ddd;text-align:left}.money{text-align:right}.total{font-size:18px;font-weight:bold}.note{font-size:12px;color:#59636e}</style></head><body>'+
+      '<h1>Simworx Projection System Proposal</h1><p>'+esc(reference)+' · '+new Date(snap.quote?.date||Date.now()).toLocaleDateString('en-GB')+'<br>Validity confirmed on formal quotation</p>'+
+      '<h2>System specification</h2><table>'+specRows(snap).map(row=>'<tr><th>'+esc(row[0])+'</th><td>'+esc(row[1])+'</td></tr>').join('')+'</table>'+
+      '<h2>Projector requirement</h2><table><tr><th>Projector</th><th>Lens X/Y/Z</th><th>Yaw/Pitch/Roll</th><th>Throw</th></tr>'+projectorRows(snap)+'</table><p class="note">Projectors are customer sourced and excluded from the Simworx total. Verify final projector/lens suitability with the projector supplier.</p>'+
+      '<h2>Commercial proposal</h2><table>'+fin.lines.map(l=>'<tr><td>'+esc(l.label)+'</td><td class="money">'+esc(l.status==='included'?'Included':money(l.amount,fin.currency))+'</td></tr>').join('')+'<tr><td>Matched projectors · customer sourced</td><td class="money">Excluded</td></tr><tr><th>Product subtotal excluding VAT</th><td class="money">'+esc(money(fin.subtotal,fin.currency))+'</td></tr><tr><th>VAT</th><td class="money">'+esc(fin.tax===null?'To confirm':money(fin.tax,fin.currency))+'</td></tr><tr><th>Delivery</th><td class="money">To be quoted</td></tr><tr class="total"><th>Estimated total before delivery</th><td class="money">'+esc(fin.total===null?'To confirm':money(fin.total,fin.currency))+'</td></tr></table>'+
+      '<p class="note">'+esc(fin.note)+' Outside the EU, import duties, tariffs and local import taxes remain the customer responsibility.</p>'+
+      '</body></html>';
+  }
+
+  function downloadProposal(){
+    const url=URL.createObjectURL(new Blob([documentHtml()],{type:'text/html'}));
+    const a=document.createElement('a');a.href=url;a.download='Simworx_Projection_Proposal_'+reference+'.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    q('v37-proposal-status').textContent='Configuration quote downloaded.';
+  }
+  function printProposal(){
+    const w=window.open('','simworxProjectionProposal','popup=yes,width=1000,height=800,resizable=yes,scrollbars=yes');
+    if(!w){q('v37-proposal-status').textContent='Popup blocked. Use Download configuration quote instead.';return}
+    w.document.open();w.document.write(documentHtml());w.document.close();w.focus();setTimeout(()=>w.print(),250);
+  }
+  function emailProposal(){
+    const email=(q('v37-email-address').value||'').trim();
+    if(!q('v37-email-address').reportValidity())return;
+    downloadProposal();
+    const name=(q('v37-email-name').value||'').trim();
+    const body=(name?'Hello '+name+',\\n\\n':'')+plainText();
+    q('v37-email-status').textContent='Proposal downloaded. Opening your email application with the proposal summary.';
+    window.location.href='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent('Simworx projection proposal '+reference)+'&body='+encodeURIComponent(body);
+  }
+  function requestFormalQuote(){
+    window.location.href='mailto:info@sim-worx.com?subject='+encodeURIComponent('Formal quote request · '+reference)+'&body='+encodeURIComponent(plainText()+'\\n\\nPlease confirm final pricing, delivery and tax treatment.');
+    q('v37-proposal-status').textContent='Formal quote request prepared for info@sim-worx.com.';
+  }
+
+  const timer=setInterval(()=>{if(ensureProposal()){clearInterval(timer);refreshProposal();}},50);
+  new MutationObserver(refreshProposal).observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['aria-current']});
+  document.addEventListener('change',event=>{if(event.target?.id==='projection-currency')setTimeout(refreshProposal,300)});
+})();
+</script>"""
+html=html.replace("</body>",proposal_js+"\\n</body>",1)
+
 popup_js=r"""<script id="projection-v37-projector-popup-js">
 (function(){
   const q=id=>document.getElementById(id);
@@ -206,6 +423,12 @@ checks=[
     "projection-v37-projector-popup-js",
     "simworxProjectorResults",
     "This configurator remains open.",
+    "projection-v37-proposal",
+    "projection-v37-proposal-js",
+    "Projection system proposal",
+    "Download configuration quote",
+    "Request formal quote",
+    "Projectors are customer sourced",
 ]
 missing=[x for x in checks if x not in html]
 if missing:

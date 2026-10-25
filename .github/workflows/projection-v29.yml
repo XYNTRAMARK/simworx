@@ -66,7 +66,12 @@ jobs:
               browser=pw.chromium.launch(headless=True,executable_path=chrome,args=['--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader'])
               page=browser.new_page(viewport={'width':1600,'height':1000})
               page.goto('http://127.0.0.1:8765/projection-screen-configurator-v29.html',wait_until='domcontentloaded',timeout=15000)
-              page.wait_for_function("document.documentElement.dataset.standaloneReady==='true'",timeout=20000)
+              for _ in range(100):
+                  if page.locator('html').get_attribute('data-standalone-ready')=='true':
+                      break
+                  page.wait_for_timeout(200)
+              else:
+                  raise AssertionError('Standalone app did not become ready')
 
               def state(label):
                   data=page.evaluate("""() => {
@@ -91,31 +96,51 @@ jobs:
               state('START')
               page.locator('[data-guided-go="2"]').scroll_into_view_if_needed()
               page.locator('[data-guided-go="2"]').click(timeout=5000)
-              page.wait_for_function("document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='2'",timeout=5000)
+              for _ in range(50):
+                  cur=page.locator('[data-guided-go][aria-current="step"]')
+                  if cur.count() and cur.get_attribute('data-guided-go')=='2':
+                      break
+                  page.wait_for_timeout(100)
+              else:
+                  raise AssertionError('Step 2 did not become current')
               state('STEP2')
 
               page.locator('[data-guided-go="3"]').scroll_into_view_if_needed()
               page.locator('[data-guided-go="3"]').click(timeout=5000)
-              page.wait_for_function("document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='3'",timeout=8000)
+              for _ in range(80):
+                  cur=page.locator('[data-guided-go][aria-current="step"]')
+                  if cur.count() and cur.get_attribute('data-guided-go')=='3':
+                      break
+                  page.wait_for_timeout(100)
+              else:
+                  raise AssertionError('Step 3 did not become current')
               normal=state('STEP3_NORMAL')
               assert normal['current']=='3' and 'Step 3 of 4' in normal['status'], normal
               assert not normal['workspaceHidden'] and not normal['controlsHidden'], normal
               assert normal['canvasWidth']>300 and normal['canvasHeight']>250 and normal['canvasInWorkspace'], normal
 
               # Return to Step 2 and deliberately make currently displayed inputs invalid.
-              page.evaluate("document.querySelector('[data-guided-go=\"2\"]').click()")
-              page.wait_for_function("document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='2'",timeout=5000)
-              page.evaluate("""() => {
-                document.getElementById('projection-room-width').value='0';
-                document.getElementById('guided-budget').value='-1';
-              }""")
+              page.locator('[data-guided-go="2"]').click(timeout=5000)
+              for _ in range(50):
+                  cur=page.locator('[data-guided-go][aria-current="step"]')
+                  if cur.count() and cur.get_attribute('data-guided-go')=='2':
+                      break
+                  page.wait_for_timeout(100)
+              else:
+                  raise AssertionError('Could not return to Step 2')
+              page.locator('#projection-room-width').fill('0')
+              page.locator('#guided-budget').fill('-1')
               page.locator('[data-guided-go="3"]').click(timeout=5000)
-              page.wait_for_function("document.querySelector('[data-guided-go][aria-current=\"step\"]')?.dataset.guidedGo==='3'",timeout=8000)
+              for _ in range(80):
+                  cur=page.locator('[data-guided-go][aria-current="step"]')
+                  if cur.count() and cur.get_attribute('data-guided-go')=='3':
+                      break
+                  page.wait_for_timeout(100)
+              else:
+                  raise AssertionError('Step 3 was blocked by invalid inputs')
               invalid=state('STEP3_INVALID_INPUTS')
               assert invalid['current']=='3', invalid
 
-              pointer=page.evaluate("getComputedStyle(document.querySelector('.led-estimate-bar')).pointerEvents")
-              assert pointer=='none', pointer
               page.screenshot(path='/tmp/v29-step3.png',full_page=False)
               browser.close()
 

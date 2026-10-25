@@ -25,37 +25,112 @@ jobs:
           grep -q 'projection-v25-controls' projection-screen-configurator-v29.html
           grep -q 'projection-fixed-estimate-v24' projection-screen-configurator-v29.html
 
-      - name: Remove silent Step 3 block and prevent price-card click interception
+      - name: Make Step 3 navigation lightweight and keep viewer DOM stable
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p=Path('projection-screen-configurator-v29.html')
           s=p.read_text()
 
+          # Step 3 must not be silently blocked by Step-1 validation.
           token='if(n>1){'
-          count=s.count(token)
-          if count!=1:
-              raise SystemExit(f'Expected exactly one Step navigation guard, found {count}')
+          if s.count(token)!=1:
+              raise SystemExit(f'Expected one navigation guard, found {s.count(token)}')
           s=s.replace(token,'if(n===2){',1)
 
+          # Do not run the full optical update synchronously merely to open Step 3.
           sync_nav="render();update({price:false});requestAnimationFrame(()=>$('guided-steps').scrollIntoView({block:'start',behavior:'instant'}));"
           async_nav="render();if(n!==3)update({price:false});requestAnimationFrame(()=>$('guided-steps').scrollIntoView({block:'start',behavior:'instant'}));"
-          sync_count=s.count(sync_nav)
-          if sync_count!=1:
-              raise SystemExit(f'Expected one synchronous guided navigation update, found {sync_count}')
+          if s.count(sync_nav)!=1:
+              raise SystemExit(f'Expected one synchronous guided navigation update, found {s.count(sync_nav)}')
           s=s.replace(sync_nav,async_nav,1)
 
-          css='<style id="projection-v29-navigation-fix">.led-estimate-bar{pointer-events:none!important}.led-estimate-bar select,.led-estimate-bar button,.led-estimate-bar input,.led-estimate-bar a{pointer-events:auto!important}.guided-steps{scroll-margin-top:130px}</style>'
+          # Disable the inherited V26 Step-3 auto-workspace reaction. It used to
+          # reparent the WebGL canvas and enable transform controls during the click.
+          step3_pattern=re.compile(r"function step3Active\(\)\{\s*return document\.querySelector\('\[data-guided-go=\"3\"\]'\)\?\.getAttribute\('aria-current'\)==='step';\s*\}")
+          s,count=step3_pattern.subn("function step3Active(){return false;}",s,count=1)
+          if count!=1:
+              raise SystemExit(f'Expected one V26 step3Active function, replaced {count}')
+
+          # Make V25's explicit Move/Aim buttons enable manual projector editing
+          # only when the user asks for it.
+          old_move="q('v25-move')?.addEventListener('click',()=>document.querySelector('[data-transform=\"translate\"]')?.click());"
+          new_move="q('v25-move')?.addEventListener('click',()=>{const manual=q('projection-manual-viewer');if(manual&&!manual.checked){manual.checked=true;manual.dispatchEvent(new Event('change',{bubbles:true}));}document.querySelector('[data-transform=\"translate\"]')?.click();});"
+          old_aim="q('v25-aim')?.addEventListener('click',()=>document.querySelector('[data-transform=\"rotate\"]')?.click());"
+          new_aim="q('v25-aim')?.addEventListener('click',()=>{const manual=q('projection-manual-viewer');if(manual&&!manual.checked){manual.checked=true;manual.dispatchEvent(new Event('change',{bubbles:true}));}document.querySelector('[data-transform=\"rotate\"]')?.click();});"
+          if old_move not in s or old_aim not in s:
+              raise SystemExit('V29 V25 Move/Aim event anchors missing')
+          s=s.replace(old_move,new_move,1).replace(old_aim,new_aim,1)
+
+          # Replace V28 ownership logic. The canvas is placed into one permanent row
+          # once at startup. Step changes only show/hide the controls and change CSS.
+          owner='''<script id="projection-v29-stable-viewer-owner">
+          (function(){
+            const q=id=>document.getElementById(id);
+            let row=null,timer=null;
+            function currentStep(){return Number(document.querySelector('[data-guided-go][aria-current="step"]')?.dataset?.guidedGo||1);}
+            function ensureRow(){
+              const preview=q('led-preview'),home=q('led-canvas-home'),panel=q('projection-v25-controls'),legacy=q('projection-v26-workspace');
+              if(!preview||!home||!panel)return null;
+              if(!row){
+                row=document.createElement('div');
+                row.id='projection-v29-edit-row';
+                row.className='projection-v29-edit-row';
+                const anchor=(legacy&&legacy.parentNode===preview)?legacy:preview.querySelector('.led-viewer-toolbar');
+                if(anchor)preview.insertBefore(row,anchor);else preview.appendChild(row);
+              }
+              if(home.parentNode!==row)row.appendChild(home);
+              if(panel.parentNode!==row)row.appendChild(panel);
+              if(legacy)legacy.hidden=true;
+              return {preview,home,panel};
+            }
+            function apply(){
+              const parts=ensureRow();if(!parts)return;
+              const step=currentStep(),active=step===3;
+              row.classList.toggle('is-step3',active);
+              parts.preview.classList.toggle('v29-editing',active);
+              parts.panel.hidden=!active;
+              const legacy=q('projection-v26-workspace');if(legacy)legacy.hidden=true;
+              requestAnimationFrame(()=>window.dispatchEvent(new Event('resize')));
+            }
+            function schedule(){clearTimeout(timer);timer=setTimeout(apply,0);}
+            new MutationObserver(records=>{if(records.some(r=>r.type==='attributes'&&r.attributeName==='aria-current'))schedule();})
+              .observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['aria-current']});
+            document.querySelectorAll('[data-guided-go]').forEach(button=>button.addEventListener('click',schedule));
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule);else schedule();
+          })();
+          </script>'''
+          s,count=re.subn(r'<script id="projection-v28-step-viewer-owner">.*?</script>',owner,s,count=1,flags=re.S)
+          if count!=1:
+              raise SystemExit(f'Expected one V28 owner script, replaced {count}')
+
+          css='''<style id="projection-v29-navigation-fix">
+          .led-estimate-bar{pointer-events:none!important}
+          .led-estimate-bar select,.led-estimate-bar button,.led-estimate-bar input,.led-estimate-bar a{pointer-events:auto!important}
+          .guided-steps{scroll-margin-top:130px}
+          #projection-v26-workspace{display:none!important}
+          .projection-v29-edit-row{display:block;width:100%}
+          .projection-v29-edit-row #led-canvas-home{width:100%;min-width:0}
+          .projection-v29-edit-row #projection-v25-controls{display:none}
+          .projection-v29-edit-row.is-step3{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,360px);gap:16px;align-items:start}
+          .projection-v29-edit-row.is-step3 #projection-v25-controls{display:block;margin:0!important;min-width:0}
+          .projection-v29-edit-row.is-step3 #projection-v25-controls .projection-v25-grid{grid-template-columns:1fr}
+          @media(max-width:1050px){
+            .projection-v29-edit-row.is-step3{grid-template-columns:1fr}
+            .projection-v29-edit-row.is-step3 #projection-v25-controls .projection-v25-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+          }
+          @media(max-width:650px){.projection-v29-edit-row.is-step3 #projection-v25-controls .projection-v25-grid{grid-template-columns:1fr}}
+          </style>'''
           s=s.replace('</head>',css+'\n</head>',1)
           p.write_text(s)
 
-          checks=['projection-v29-navigation-fix','projection-v28-step-viewer-owner','projection-v26-workspace','projection-v25-controls','projection-fixed-estimate-v24','"screenSystemPerM2Eur":500','Projector position, swivel &amp; throw','if(n===2){']
-          missing=[x for x in checks if x not in s]
-          if missing: raise SystemExit('V29 inheritance check failed '+repr(missing))
-          if token in s: raise SystemExit('V29 old Step navigation guard still present')
-          if sync_nav in s: raise SystemExit('V29 synchronous Step 3 update still present')
-          if async_nav not in s: raise SystemExit('V29 non-blocking Step 3 navigation patch missing')
-          print('V29 navigation patch applied on top of published V28')
+          checks=['projection-v29-navigation-fix','projection-v29-stable-viewer-owner','projection-v29-edit-row','projection-v28-step-viewer-owner','projection-v26-workspace','projection-v25-controls','projection-fixed-estimate-v24','"screenSystemPerM2Eur":500','Projector position, swivel &amp; throw','if(n===2){',async_nav]
+          missing=[x for x in checks if x not in s and x!='projection-v28-step-viewer-owner']
+          if missing:raise SystemExit('V29 inheritance/architecture check failed '+repr(missing))
+          if 'id="projection-v28-step-viewer-owner"' in s:raise SystemExit('Old V28 owner script still present')
+          if token in s:raise SystemExit('Old Step navigation guard still present')
+          print('V29 stable viewer architecture applied on top of published V28')
           PY
 
       - name: Playwright Step 3 navigation acceptance test
@@ -96,7 +171,9 @@ jobs:
                       controlsHidden:panel?.hidden??true,
                       canvasWidth:r?.width||0,
                       canvasHeight:r?.height||0,
-                      canvasInWorkspace:!!document.getElementById('led-canvas-home')?.closest('#projection-v26-workspace')
+                      canvasInWorkspace:!!document.getElementById('led-canvas-home')?.closest('#projection-v26-workspace'),
+                      canvasInStableRow:!!document.getElementById('led-canvas-home')?.closest('#projection-v29-edit-row'),
+                      stableRowActive:document.getElementById('projection-v29-edit-row')?.classList.contains('is-step3')||false
                     };
                   }""")
                   print(label,json.dumps(data))
@@ -125,8 +202,9 @@ jobs:
                   raise AssertionError('Step 3 did not become current')
               normal=state('STEP3_NORMAL')
               assert normal['current']=='3' and 'Step 3 of 4' in normal['status'], normal
-              assert not normal['workspaceHidden'] and not normal['controlsHidden'], normal
-              assert normal['canvasWidth']>300 and normal['canvasHeight']>250 and normal['canvasInWorkspace'], normal
+              assert normal['workspaceHidden'] and not normal['controlsHidden'], normal
+              assert normal['canvasWidth']>300 and normal['canvasHeight']>250 and normal['canvasInStableRow'] and normal['stableRowActive'], normal
+              assert not normal['canvasInWorkspace'], normal
 
               # Return to Step 2 and deliberately make currently displayed inputs invalid.
               page.locator('[data-guided-go="2"]').click(timeout=5000)

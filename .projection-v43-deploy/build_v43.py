@@ -63,31 +63,42 @@ if "global-header.js" not in html: shell_scripts+=header_js+"\n"
 if "global-footer.js" not in html: shell_scripts+=footer_js+"\n"
 html=html[:pos]+shell_scripts+html[pos:]
 
+# Keep the configurator bars below the actual rendered site header. The global
+# header changes height at responsive breakpoints, so measure it rather than
+# relying on a duplicated hard-coded value.
+shell_sync=r"""<script id="projection-v43-shell-sync">
+(function(){
+  const root=document.documentElement;
+  const header=document.querySelector('.global-header');
+  if(!header)return;
+  function sync(){
+    root.style.setProperty('--v43-site-header-h',Math.ceil(header.getBoundingClientRect().height)+'px');
+  }
+  const ro=new ResizeObserver(sync);ro.observe(header);
+  window.addEventListener('resize',sync,{passive:true});
+  requestAnimationFrame(()=>requestAnimationFrame(sync));
+})();
+</script>"""
+pos=html.rfind("</body>")
+html=html[:pos]+shell_sync+"\n"+html[pos:]
+
 # V40's internal fixed wizard assumed there was no real site header. Offset the
 # configurator chrome below the live sticky header without changing its workflow.
 layout_css=r"""<style id="projection-v43-site-shell">
 /* Normal SIMWORX site shell integration. */
+:root{--v43-site-header-h:var(--sw-header-h,84px)}
 body{margin:0}
+.global-header{z-index:12000!important}
 .led-estimate-bar{
-  top:calc(var(--sw-header-h,84px) + 16px)!important;
+  top:var(--v43-site-header-h)!important;
+  z-index:10000!important;
 }
 #v40-guided-header{
-  top:calc(var(--sw-header-h,84px) + 16px + var(--v40-estimate-h))!important;
+  top:calc(var(--v43-site-header-h) + var(--v40-estimate-h))!important;
+  z-index:9990!important;
 }
-#projection-app{
-  position:relative;
-}
-#sw-global-footer{
-  position:relative;
-  z-index:10;
-  margin-top:44px;
-}
-@media(max-width:1100px){
-  .led-estimate-bar{top:var(--sw-header-h,70px)!important}
-  #v40-guided-header{
-    top:calc(var(--sw-header-h,70px) + var(--v40-estimate-h))!important;
-  }
-}
+#projection-app{position:relative}
+#sw-global-footer{position:relative;z-index:10;margin-top:44px}
 </style>"""
 html=html.replace("</head>",layout_css+"\n</head>",1)
 
@@ -101,7 +112,8 @@ checks=[
     'global-header.css',
     'global-header.js',
     'global-footer.js',
-    'top:calc(var(--sw-header-h,84px) + 16px + var(--v40-estimate-h))',
+    'projection-v43-shell-sync',
+    'top:calc(var(--v43-site-header-h) + var(--v40-estimate-h))',
     'projection-v42-proposal-delivery',
 ]
 missing=[x for x in checks if x not in html]

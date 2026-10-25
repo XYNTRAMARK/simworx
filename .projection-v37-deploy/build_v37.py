@@ -396,7 +396,9 @@ proposal_js=r"""<script id="projection-v37-proposal-js">
   document.addEventListener('change',event=>{if(event.target?.id==='projection-currency')setTimeout(refreshProposal,300)});
 })();
 </script>"""
-html=html.replace("</body>",proposal_js+"\\n</body>",1)
+body_close=html.rfind("</body>")
+if body_close<0: raise SystemExit("V37 final body close missing before Proposal insertion")
+html=html[:body_close]+proposal_js+"\\n"+html[body_close:]
 # Fail the build immediately if the customer-facing Proposal JavaScript is invalid.
 proposal_source=proposal_js[proposal_js.index(">")+1:proposal_js.rindex("</script>")]
 Path("/tmp/v37-proposal.js").write_text(proposal_source)
@@ -449,7 +451,9 @@ popup_js=r"""<script id="projection-v37-projector-popup-js">
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
 </script>"""
-html=html.replace("</body>",popup_js+"\n</body>",1)
+body_close=html.rfind("</body>")
+if body_close<0: raise SystemExit("V37 final body close missing before popup insertion")
+html=html[:body_close]+popup_js+"\\n"+html[body_close:]
 
 checks=[
     "projection-v37-space-optimisation",

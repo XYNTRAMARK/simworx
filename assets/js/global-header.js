@@ -7,9 +7,9 @@
       href: '/led-screen-configurator.html'
     },
     {
-      title: 'Other visual solutions',
-      description: 'Projection, monitors & mixed reality',
-      href: '/visual-systems.html'
+      title: 'Projector Configurator',
+      description: 'Design your projection screen & projector layout',
+      href: '/projection-screen-configurator-v42.html'
     }
   ];
 

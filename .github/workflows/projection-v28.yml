@@ -164,6 +164,8 @@ jobs:
               return data
 
           measure('STEP1',False)
+          driver.execute_script("document.getElementById('led-canvas').scrollIntoView({block:'center'});")
+          time.sleep(1)
           driver.save_screenshot('/tmp/v28-step1.png')
 
           driver.find_element(By.CSS_SELECTOR,'[data-guided-go="2"]').click()

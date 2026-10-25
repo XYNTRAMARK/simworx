@@ -147,18 +147,9 @@ if old_total not in html:
     raise SystemExit("V38 Proposal total anchor missing")
 html=html.replace(old_total,new_total,1)
 
-# Plain-text and downloadable documents must also flag unpriced add-ons.
-old_plain="'Estimated total before delivery: '+(fin.total===null?'To confirm':money(fin.total,fin.currency))+'\\n\\n'+fin.note"
-new_plain="'Estimated total before delivery: '+(fin.total===null?'To confirm':money(fin.total,fin.currency))+(fin.unknown.length?' + quoted/POA items':'')+'\\n\\n'+fin.note"
-if old_plain not in html:
-    raise SystemExit("V38 plain-text total anchor missing")
-html=html.replace(old_plain,new_plain,1)
-
-old_doc="esc(fin.total===null?'To confirm':money(fin.total,fin.currency))"
-new_doc="esc(fin.total===null?'To confirm':money(fin.total,fin.currency)+(fin.unknown.length?' + quoted/POA items':''))"
-if old_doc not in html:
-    raise SystemExit("V38 document total anchor missing")
-html=html.replace(old_doc,new_doc,1)
+# Keep totals honest when POA/travel items are selected: all outputs show a known total
+# and the unpriced items remain explicit line items.
+html=html.replace("Estimated total before delivery","Known total before delivery")
 
 # Wire add-on checkboxes. Full/custom enclosure are mutually exclusive.
 listener_anchor="['v37-destination','v37-customer-type','v37-vat-number'].forEach(id=>q(id).addEventListener('input',refreshProposal));"

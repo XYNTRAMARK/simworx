@@ -1,0 +1,49 @@
+name: Publish projection configurator V22
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v22.yml'
+      - '.projection-v22-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v22
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated V22
+        run: python3 .projection-v22-deploy/build_v22.py
+      - name: Verify optical tuning controls
+        run: |
+          grep -q 'projection-manual-optics-v22' projection-screen-configurator-v22.html
+          grep -q 'planningThrowRange=\[.30,2.10\]' projection-screen-configurator-v22.html
+          grep -q 'Tilt up / down' projection-screen-configurator-v22.html
+          grep -q 'Move forward / back' projection-screen-configurator-v22.html
+          grep -q 'Apply this throw requirement to all projectors' projection-screen-configurator-v22.html
+          grep -q '"screenSystemPerM2Eur":500' projection-screen-configurator-v22.html
+      - name: Browser startup smoke test
+        run: |
+          python3 -m http.server 8765 >/tmp/server.log 2>&1 &
+          SERVER_PID=$!
+          sleep 2
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          set +e
+          timeout 45 "$CHROME"             --headless=new --no-sandbox --disable-dev-shm-usage             --use-gl=swiftshader --enable-unsafe-swiftshader             --enable-logging=stderr --v=0             --virtual-time-budget=10000             --dump-dom http://127.0.0.1:8765/projection-screen-configurator-v22.html             >/tmp/v22-dom.html 2>/tmp/v22-console.log
+          RC=$?
+          set -e
+          kill $SERVER_PID || true
+          echo "Chrome rc=$RC"
+          grep -E 'SyntaxError|TypeError|ReferenceError|CONSOLE:' /tmp/v22-console.log || true
+          if grep -Eq 'SyntaxError|TypeError|ReferenceError' /tmp/v22-console.log; then exit 5; fi
+          if ! grep -q 'data-standalone-ready="true"' /tmp/v22-dom.html; then exit 6; fi
+      - name: Publish immutable V22
+        run: python3 .projection-v22-deploy/publish_v22.py

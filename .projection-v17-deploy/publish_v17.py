@@ -5,14 +5,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 ROOT="/htdocs"; BASE_URL="https://www.sim-worx.com"
-PROTECTED=[
-"projection-screen-configurator-preview.html","projection-screen-configurator-v2.html","projection-screen-configurator-v3.html",
-"projection-screen-configurator-v4.html","projection-screen-configurator-v5.html","projection-screen-configurator-v6.html",
-"projection-screen-configurator-v7.html","projection-screen-configurator-v8.html","projection-screen-configurator-v9.html",
-"projection-screen-configurator-v10.html","projection-screen-configurator-v11.html","projection-screen-configurator-v12.html",
-"projection-screen-configurator-v13.html","projection-screen-configurator-v14.html","projection-screen-configurator-v15.html",
-"projection-screen-configurator-v16.html"
-]
+PROTECTED=["projection-screen-configurator-v15.html"]
 TARGET="projection-screen-configurator-v17.html"; LOCAL=Path(TARGET)
 def digest(data): return hashlib.sha256(data).hexdigest()
 class ReviewFTP(ftplib.FTP_TLS):

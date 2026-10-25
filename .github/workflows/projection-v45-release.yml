@@ -1,0 +1,48 @@
+name: Release projection configurator V45 LED-style shell
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v45-release.yml'
+      - '.projection-v45-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v45
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V45
+        run: python3 .projection-v45-deploy/build_v45.py
+      - name: Validate LED-style page flow
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('projection-screen-configurator-v45.html').read_text()
+          required=[
+            'class="global-header"',
+            'id="sw-global-footer"',
+            'global-header.css',
+            'global-header.js',
+            'global-footer.js',
+            'projection-v45-site-shell',
+            '.led-estimate-bar{',
+            'position:sticky!important',
+            'top:var(--sw-header-h,84px)!important',
+            '#projection-app{',
+            'padding-top:0!important',
+          ]
+          missing=[x for x in required if x not in s]
+          if missing:raise SystemExit('Missing V45 LED-style shell features: '+repr(missing))
+          print('V45 LED-style shell validation PASS')
+          PY
+      - name: Publish V45 and switch live navigation
+        run: python3 .projection-v45-deploy/publish_v45.py

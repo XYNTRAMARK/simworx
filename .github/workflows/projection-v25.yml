@@ -126,7 +126,7 @@ jobs:
           Path('projection-screen-configurator-v25.html').write_text(s)
 
           checks=[
-            'projection-v24-offset',
+            'projection-fixed-estimate-v24',
             'Projector position, swivel &amp; throw',
             'projection-v25-controls',
             'id="v25-x"',

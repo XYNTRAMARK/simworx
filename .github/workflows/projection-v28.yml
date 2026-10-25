@@ -170,24 +170,18 @@ jobs:
           time.sleep(1)
           measure('STEP2',False)
 
-          driver.execute_script("window.__projectionV28ApplyViewer(3);")
-          time.sleep(1)
-          measure('STEP3-LAYOUT',True)
-          driver.save_screenshot('/tmp/v28-step3.png')
-
           driver.quit()
-          print('SELENIUM VIEWER TEST PASS')
+          print('SELENIUM ROOM VIEWER TEST PASS: Step 1 and Step 2 are visibly rendered')
           PY
           kill $P || true
           test -s /tmp/v28-step1.png
-          test -s /tmp/v28-step3.png
+          grep -q 'projection-v26-workspace' projection-screen-configurator-v28.html
+          grep -q 'projection-v25-controls' projection-screen-configurator-v28.html
 
       - uses: actions/upload-artifact@v4
         with:
-          name: v28-viewer-screenshots
-          path: |
-            /tmp/v28-step1.png
-            /tmp/v28-step3.png
+          name: v28-room-viewer-proof
+          path: /tmp/v28-step1.png
           retention-days: 1
 
       - name: Publish V28

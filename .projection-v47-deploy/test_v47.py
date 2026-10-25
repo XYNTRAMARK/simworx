@@ -23,6 +23,8 @@ with sync_playwright() as pw:
         }""")
 
     top=metrics()
+    print("TOP_METRICS",top)
+    print("BODY_HTML_START",page.locator("body").evaluate("(el)=>el.innerHTML.slice(0,2500)"))
     assert close(top["header"]["x"],0)
     assert close(top["header"]["y"],0)
     assert close(top["header"]["width"],1680)

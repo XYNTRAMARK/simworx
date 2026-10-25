@@ -1,4 +1,5 @@
 name: Release projection configurator V48 proposal delivery
+# combined-final-gate
 on:
   push:
     branches: [main]

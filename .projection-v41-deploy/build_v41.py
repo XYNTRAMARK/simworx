@@ -73,12 +73,12 @@ css="""<style id="projection-v41-projector-priority">
   border-radius:5px!important;
 }
 #v41-throw-section{
-  order:2!important;
   padding:10px 12px!important;
 }
 #v41-throw-section .v30-throw-head strong{font-size:16px!important}
 #v41-throw-section #v30-throw{margin:7px 0 4px!important}
 #v41-throw-section .v30-mode-help{margin-top:6px!important}
+#v41-projector-compact #v35-count-lock-note{display:none!important}
 #projection-v30-control-surface{gap:10px!important}
 @media(max-width:420px){
   #v41-projector-compact > .v30-section,

@@ -1,0 +1,35 @@
+name: Validate isolated website intelligence
+
+on:
+  push:
+    branches: [codex/simworx-intelligence-20261025]
+    paths:
+      - 'website-intelligence/**'
+      - '.github/workflows/intelligence-checks.yml'
+  pull_request:
+    paths:
+      - 'website-intelligence/**'
+      - '.github/workflows/intelligence-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: website-intelligence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check reports and tracking contracts
+        run: npm test
+      - name: Check deployed reports API without creating analytics data
+        if: github.event_name == 'push'
+        env:
+          SIMWORX_REPORTS_PIN: ${{ secrets.SIMWORX_REPORTS_PIN }}
+        run: node tests/remote-smoke.mjs

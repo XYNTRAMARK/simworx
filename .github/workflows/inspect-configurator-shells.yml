@@ -16,23 +16,23 @@ jobs:
         run: |
           python3 - <<'PY'
           import urllib.request,re,json
-          pages={
-            'LED':'https://www.sim-worx.com/led-screen-configurator.html',
-            'PROJ':'https://www.sim-worx.com/projection-screen-configurator-v42.html',
-          }
-          for name,url in pages.items():
+          for name,url in [
+            ('LED','https://www.sim-worx.com/led-screen-configurator.html'),
+            ('PROJ','https://www.sim-worx.com/projection-screen-configurator-v42.html')
+          ]:
             req=urllib.request.Request(url,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-shell-inspector'})
-            with urllib.request.urlopen(req,timeout=45) as r:
-              s=r.read().decode('utf-8','replace')
+            with urllib.request.urlopen(req,timeout=45) as r:s=r.read().decode('utf-8','replace')
             print('\n###',name)
-            h=re.search(r'(<header\b[^>]*class=["\'][^"\']*global-header[^"\']*["\'][\s\S]*?</header>)',s,re.I)
-            ft=re.search(r'(<footer\b[^>]*(?:id=["\']sw-global-footer["\']|class=["\'][^"\']*sw-global-footer[^"\']*["\'])[^>]*>[\s\S]*?</footer>)',s,re.I)
-            links=re.findall(r'<link[^>]+href=["\']([^"\']*global-header\.css[^"\']*)["\'][^>]*>',s,re.I)
-            scripts=re.findall(r'<script[^>]+src=["\']([^"\']*global-header\.js[^"\']*)["\'][^>]*></script>',s,re.I)
-            print('HEADER',h.group(1) if h else 'NONE')
-            print('FOOTER',ft.group(1) if ft else 'NONE')
-            print('GLOBAL_CSS',json.dumps(links))
-            print('GLOBAL_JS',json.dumps(scripts))
-            main=re.search(r'<main\b([^>]*)>',s,re.I)
-            print('MAIN',main.group(0) if main else 'NONE')
+            for kind,pat in [
+              ('HEADER',r'(<header\b[^>]*class=["\'][^"\']*global-header[^"\']*["\'][\s\S]*?</header>)'),
+              ('FOOTER',r'(<footer\b[^>]*(?:id=["\']sw-global-footer["\']|class=["\'][^"\']*sw-global-footer[^"\']*["\'])[^>]*>[\s\S]*?</footer>)')
+            ]:
+              m=re.search(pat,s,re.I)
+              if not m: print(kind,'NONE'); continue
+              x=m.group(1)
+              x=re.sub(r'src=["\']data:image/[^"\']+["\']','src="[INLINE-LOGO]"',x,flags=re.I)
+              print(kind,x)
+            css=re.findall(r'<link[^>]+href=["\']([^"\']*global-header\.css[^"\']*)["\'][^>]*>',s,re.I)
+            js=re.findall(r'<script[^>]+src=["\']([^"\']*global-header\.js[^"\']*)["\'][^>]*></script>',s,re.I)
+            print('CSS',json.dumps(css));print('JS',json.dumps(js))
           PY

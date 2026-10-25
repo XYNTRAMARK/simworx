@@ -44,13 +44,6 @@ if old_best not in html:
     raise SystemExit("V35 best-result anchor missing")
 html=html.replace(old_best,new_best,1)
 
-# Make the no-result status explicit rather than implying it may silently choose something else.
-old_progress="$('guided-progress').textContent=answer.examined.toLocaleString()+' arrangements tested. '+(best?'The best achievable arrangement is shown. Adjust the cockpit, screen or projector and compare the result.':'Correct the physical room/screen inputs and calculate again.');"
-new_progress="$('guided-progress').textContent=answer.examined.toLocaleString()+' arrangements tested. '+(best?'The best achievable '+requestedCount+'-projector arrangement is shown. Adjust the cockpit, screen or throw and compare the result.':'No valid '+requestedCount+'-projector layout was found. The planner will not substitute a different projector count.');"
-if old_progress not in html:
-    raise SystemExit("V35 calculation status anchor missing")
-html=html.replace(old_progress,new_progress,1)
-
 css="""<style id="projection-v35-count-lock">
 #v35-count-lock-note{margin:7px 0 0;font-size:11px;line-height:1.4;color:#475569}
 </style>"""
@@ -84,7 +77,7 @@ checks=[
     "requestedCount=Number(s.projectorCount)",
     "count:String(requestedCount)",
     "answer.best.projectors?.length===requestedCount",
-    "will not substitute a different projector count",
+    "will never substitute another quantity",
     "projection-v35-count-lock",
     "Hard requirement: the planner will calculate exactly",
     "projection-v34-height-control",

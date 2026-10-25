@@ -1,0 +1,87 @@
+name: Diagnose V28 Step 3 navigation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-v28-step3.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Diagnose published V28
+        run: |
+          python3 -m pip install --quiet selenium
+          python3 - <<'PY'
+          import json, shutil, time
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+
+          chrome=shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
+          options=webdriver.ChromeOptions()
+          options.binary_location=chrome
+          options.page_load_strategy='none'
+          for arg in ['--headless=new','--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader','--window-size=1600,1000']:
+              options.add_argument(arg)
+          d=webdriver.Chrome(options=options)
+          d.get('https://www.sim-worx.com/projection-screen-configurator-v28.html')
+          WebDriverWait(d,20).until(lambda x:x.execute_script("return document.documentElement.dataset.standaloneReady==='true'"))
+          time.sleep(2)
+
+          def state(label):
+              x=d.execute_script("""
+                const b2=document.querySelector('[data-guided-go="2"]');
+                const b3=document.querySelector('[data-guided-go="3"]');
+                const r3=b3.getBoundingClientRect();
+                const top=document.elementFromPoint(r3.left+r3.width/2,r3.top+r3.height/2);
+                const rooms=[...document.querySelectorAll('[data-room]')].map(e=>({id:e.id,value:e.value,min:e.min,max:e.max,valid:e.checkValidity(),message:e.validationMessage,hidden:!!e.closest('[hidden]')}));
+                return {
+                  status:document.getElementById('guided-step-status')?.textContent,
+                  current:document.querySelector('[data-guided-go][aria-current="step"]')?.dataset?.guidedGo,
+                  b2Disabled:b2.disabled,b3Disabled:b3.disabled,
+                  b3Rect:{x:r3.x,y:r3.y,w:r3.width,h:r3.height},
+                  elementAtB3:top?.id||top?.className||top?.tagName,
+                  roomInputs:rooms,
+                  errors:document.getElementById('projection-error')?.textContent||''
+                };
+              """)
+              print(label,json.dumps(x))
+              return x
+
+          state('START')
+          b2=d.find_element(By.CSS_SELECTOR,'[data-guided-go="2"]')
+          d.execute_script("arguments[0].scrollIntoView({block:'center'});",b2)
+          time.sleep(.2)
+          try:
+              b2.click()
+              print('STEP2 PHYSICAL CLICK OK')
+          except Exception as e:
+              print('STEP2 PHYSICAL CLICK ERROR',type(e).__name__,str(e)[:300])
+              d.execute_script("arguments[0].click();",b2)
+              print('STEP2 JS CLICK USED')
+          time.sleep(1)
+          state('AFTER_STEP2')
+
+          b3=d.find_element(By.CSS_SELECTOR,'[data-guided-go="3"]')
+          d.execute_script("arguments[0].scrollIntoView({block:'center'});",b3)
+          time.sleep(.2)
+          try:
+              b3.click()
+              print('STEP3 PHYSICAL CLICK OK')
+          except Exception as e:
+              print('STEP3 PHYSICAL CLICK ERROR',type(e).__name__,str(e)[:300])
+          time.sleep(2)
+          after=state('AFTER_STEP3_PHYSICAL')
+
+          if after['current']!='3':
+              d.execute_script("arguments[0].click();",b3)
+              print('STEP3 JS CLICK USED')
+              time.sleep(2)
+              state('AFTER_STEP3_JS')
+
+          d.quit()
+          PY

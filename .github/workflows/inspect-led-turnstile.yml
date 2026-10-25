@@ -20,6 +20,7 @@ jobs:
           u='https://www.sim-worx.com/led-screen-configurator.html'
           req=urllib.request.Request(u,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-led-turnstile-inspector'})
           with urllib.request.urlopen(req,timeout=45) as r:s=r.read().decode('utf-8','replace')
+          print('SCRIPT_SRCS',re.findall(r'<script[^>]+src=["\\\']([^"\\\']+)["\\\'][^>]*>',s,re.I))
           needles=['cf-turnstile-response','turnstile','led-quote-submit.php','quote_action','verification']
           needle='Loading spam protection'
           i=s.find(needle)

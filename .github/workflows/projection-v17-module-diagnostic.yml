@@ -1,0 +1,38 @@
+name: Check embedded V17 modules
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v17-module-diagnostic.yml'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V17
+        run: python3 .projection-v17-deploy/build_v17.py
+      - name: Extract and syntax-check embedded modules
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json,subprocess,tempfile,os
+          s=Path('projection-screen-configurator-v17.html').read_text()
+          m=re.search(r'<script id="projection-standalone-data" type="application/json">(.*?)</script>',s,re.S)
+          if not m: raise SystemExit('standalone data not found')
+          data=json.loads(m.group(1))
+          failed=[]
+          root=Path('/tmp/v17mods');root.mkdir(exist_ok=True)
+          for name,src in data['modules'].items():
+              p=root/(name.strip('/').replace('/','__'))
+              p.write_text(src)
+              r=subprocess.run(['node','--check',str(p)],capture_output=True,text=True)
+              print(name, 'OK' if r.returncode==0 else 'FAIL')
+              if r.returncode:
+                  print(r.stderr)
+                  failed.append(name)
+          if failed:
+              print('FAILED MODULES:',failed)
+              raise SystemExit(2)
+          PY

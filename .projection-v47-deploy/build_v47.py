@@ -175,7 +175,7 @@ html=html[:head_close]+preamble+"\n"+html[head_close:]
 # Remove standalone-only content between the live website header and the
 # configurator main. Runtime inspection proved the only visible inherited node
 # in this gap is the standalone preview strip.
-html,n_preview=re.subn(r'(</header>)[\s\S]*?(?=<main\b)',r'\1\n',html,count=1,flags=re.I)
+html,n_preview=re.subn(r'(</header>)[\s\S]*?(?=<main\b)',r'\1',html,count=1,flags=re.I)
 if n_preview!=1: raise SystemExit("V47 could not normalise header-to-main structure")
 
 # Chromium repairs some inherited metadata markup by placing style/link nodes
@@ -183,16 +183,18 @@ if n_preview!=1: raise SystemExit("V47 could not normalise header-to-main struct
 # first rendered body element is the website header, exactly as on LED.
 normalizer=r'''<script id="projection-v47-dom-normalizer">(function(){
   const self=document.currentScript;
+  const metadata=[];
   let node=self.previousSibling;
   while(node){
     const previous=node.previousSibling;
     if(node.nodeType===3){
-      if(!node.textContent.trim())node.remove();
+      if(!node.textContent.trim()||node.textContent==='\\\\n')node.remove();
     }else if(node.nodeType===1 && (node.tagName==='STYLE'||node.tagName==='LINK')){
-      document.head.appendChild(node);
+      metadata.unshift(node);
     }
     node=previous;
   }
+  metadata.forEach(node=>document.head.appendChild(node));
   self.remove();
 })();</script>'''
 body_token='<body class="led-page">'

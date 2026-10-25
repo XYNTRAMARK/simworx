@@ -20,8 +20,8 @@ try{
  socket.onmessage=event=>{const message=JSON.parse(event.data);if(message.id){const waiter=pending.get(message.id);pending.delete(message.id);if(message.error)waiter?.reject(new Error(message.error.message));else waiter?.resolve(message.result);}else if(message.method==='Runtime.exceptionThrown')exceptions.push(message.params.exceptionDetails.text);};
  const send=(method,params={})=>new Promise((resolve,reject)=>{const id=++seq;pending.set(id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));});
  const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.text);return r.result?.value;};
- const waitFor=async expression=>{for(let i=0;i<90;i++){if(await evaluate(expression))return;await pause(500);}throw new Error('Live browser condition timed out: '+expression);};
- await send('Runtime.enable');await send('Page.enable');await send('Page.navigate',{url:base+'/reports/'});
+ const waitFor=async expression=>{for(let i=0;i<60;i++){if(await evaluate(expression))return;await pause(500);}const diagnostics=await evaluate("JSON.stringify({url:location.href,title:document.title,ready:document.readyState,text:document.body?.innerText.slice(0,600)})");throw new Error('Live browser condition timed out: '+expression+'; '+diagnostics);};
+ await send('Runtime.enable');await send('Page.enable');const navigation=await send('Page.navigate',{url:base+'/reports/'});console.log('Chrome navigation:',JSON.stringify(navigation));
  await waitFor("document.readyState==='complete'&&Boolean(document.querySelector('#pin'))");
  const pin=process.env.SIMWORX_REPORTS_PIN||'260873';
  await evaluate("document.querySelector('#pin').value="+JSON.stringify(pin)+";document.querySelector('#login-form').requestSubmit();true");

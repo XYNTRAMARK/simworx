@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/verify-intelligence-reports.yml'
       - 'website-intelligence/deploy/verify_live.py'
+      - 'website-intelligence/tests/live-browser.mjs'
 permissions:
   contents: read
 jobs:

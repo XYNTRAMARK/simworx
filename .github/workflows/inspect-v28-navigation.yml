@@ -1,0 +1,32 @@
+name: Inspect V28 navigation source
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-v28-navigation.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect live V28
+        run: |
+          curl -fsSL https://www.sim-worx.com/projection-screen-configurator-v28.html -o /tmp/v28.html
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/v28.html').read_text()
+          for term in ['function go(', 'reportValidity', 'guided-go', 'guidedStep=Math', 'projection-v28-step-viewer-owner']:
+              print('\n===',term,'===')
+              pos=0
+              n=0
+              while True:
+                  i=s.find(term,pos)
+                  if i<0: break
+                  print(s[max(0,i-700):i+1800])
+                  n+=1
+                  pos=i+len(term)
+                  if n>=5: break
+              print('COUNT',n)
+          PY

@@ -23,13 +23,13 @@ with sync_playwright() as p:
 
     # Put the inherited proposal controller into Step 4 so it initialises the
     # canonical proposal reference/state exactly as the live UI does.
-    page.wait_for_function("document.getElementById('v37-proposal')?.dataset.bound === 'true'",timeout=20000)
-    page.evaluate("""
-      document.querySelectorAll('[data-guided-go]').forEach(b=>b.removeAttribute('aria-current'));
-      const proposalStep=document.querySelector('[data-guided-go="4"]');
-      if(proposalStep)proposalStep.setAttribute('aria-current','step');
-    """)
-    page.wait_for_function("document.getElementById('v37-proposal') && !document.getElementById('v37-proposal').hidden",timeout=5000)
+    page.wait_for_timeout(1200)
+    assert page.locator("#v37-proposal").get_attribute("data-bound")=="true"
+    for button in page.locator("[data-guided-go]").all():
+        button.remove_attribute("aria-current")
+    page.locator('[data-guided-go="4"]').set_attribute("aria-current","step")
+    page.wait_for_timeout(800)
+    assert not page.locator("#v37-proposal").is_hidden()
 
     assert page.locator("#v37-print-proposal").inner_text()=="Save proposal as PDF"
     assert page.locator("#v37-download-proposal").is_hidden()
@@ -42,9 +42,10 @@ with sync_playwright() as p:
 
     # Ensure proposal state exists before submit. If Step 4 is not current, direct
     # handler still uses the canonical snapshot exposed by the configurator.
-    page.wait_for_function("document.querySelector('#v42-projection-turnstile')?.dataset.fake === 'ready'",timeout=5000)
+    page.wait_for_timeout(300)
+    assert page.locator("#v42-projection-turnstile").get_attribute("data-fake")=="ready"
     page.locator("#v37-email-send").click()
-    page.wait_for_function("document.getElementById('v37-proposal-status').textContent.toLowerCase().includes('sent successfully')",timeout=5000)
+    page.wait_for_timeout(900)
     status=page.locator("#v37-proposal-status").inner_text()
     assert "sent successfully" in status.lower()
 

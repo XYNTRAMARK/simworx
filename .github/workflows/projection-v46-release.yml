@@ -1,0 +1,49 @@
+name: Release projection configurator V46 LED-layout clone
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v46-release.yml'
+      - '.projection-v46-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v46
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V46
+        run: python3 .projection-v46-deploy/build_v46.py
+      - name: Validate exact LED layout rules
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('projection-screen-configurator-v46.html').read_text()
+          required=[
+            'class="global-header"',
+            'id="sw-global-footer"',
+            'global-header.css',
+            'global-header.js',
+            'global-footer.js',
+            'projection-v46-site-shell',
+            'body{margin:0;padding:0 14px 14px}',
+            'width:min(1180px,calc(100% - 54px))',
+            'position:sticky!important',
+            'top:var(--sw-header-h)!important',
+            'margin:0 0 24px!important',
+            'padding-top:0!important',
+          ]
+          missing=[x for x in required if x not in s]
+          if missing:raise SystemExit('Missing V46 LED layout rules: '+repr(missing))
+          print('V46 exact LED-layout validation PASS')
+          PY
+      - name: Publish V46 and switch live navigation
+        run: python3 .projection-v46-deploy/publish_v46.py

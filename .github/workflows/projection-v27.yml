@@ -1,0 +1,127 @@
+name: Publish projection configurator V27
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v27.yml'
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start from published V26 exactly
+        run: |
+          curl -fsSL https://www.sim-worx.com/projection-screen-configurator-v26.html -o projection-screen-configurator-v27.html
+          grep -q 'projection-v26-workspace' projection-screen-configurator-v27.html
+          grep -q 'projection-v25-controls' projection-screen-configurator-v27.html
+          grep -q 'projection-fixed-estimate-v24' projection-screen-configurator-v27.html
+
+      - name: Restore normal viewer outside Step 3
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('projection-screen-configurator-v27.html')
+          s=p.read_text()
+
+          js='''<script id="projection-v27-step-viewer-restore">
+          (function(){
+            const q=id=>document.getElementById(id);
+            let homeParent=null,homeNext=null,panelParent=null,panelNext=null;
+
+            function step(){
+              const current=document.querySelector('[data-guided-go][aria-current="step"]');
+              return Number(current?.dataset?.guidedGo||1);
+            }
+
+            function captureOrigins(){
+              const home=q('led-canvas-home');
+              const panel=q('projection-v25-controls');
+              if(home&&!homeParent){homeParent=home.parentNode;homeNext=home.nextSibling;}
+              if(panel&&!panelParent){panelParent=panel.parentNode;panelNext=panel.nextSibling;}
+            }
+
+            function restore(node,parent,next){
+              if(!node||!parent)return;
+              if(next&&next.parentNode===parent)parent.insertBefore(node,next);
+              else parent.appendChild(node);
+            }
+
+            function apply(){
+              captureOrigins();
+              const st=step();
+              const workspace=q('projection-v26-workspace');
+              const home=q('led-canvas-home');
+              const panel=q('projection-v25-controls');
+              const preview=q('led-preview');
+
+              if(st===3){
+                if(workspace)workspace.hidden=false;
+                if(preview)preview.classList.add('v26-editing');
+              }else{
+                if(preview)preview.classList.remove('v26-editing');
+                if(home&&homeParent&&home.parentNode!==homeParent)restore(home,homeParent,homeNext);
+                if(panel&&panelParent&&panel.parentNode!==panelParent)restore(panel,panelParent,panelNext);
+                if(panel)panel.hidden=true;
+                if(workspace)workspace.hidden=true;
+              }
+            }
+
+            const obs=new MutationObserver(apply);
+            obs.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['aria-current'],childList:true});
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(apply,0));
+            else setTimeout(apply,0);
+          })();
+          </script>'''
+
+          s=s.replace('</body>',js+'\n</body>',1)
+          p.write_text(s)
+
+          checks=[
+            'projection-v26-workspace',
+            'projection-v27-step-viewer-restore',
+            'id="led-canvas-home"',
+            'id="projection-room-enabled"',
+            'projection-fixed-estimate-v24',
+            'Projector position, swivel &amp; throw',
+            '"screenSystemPerM2Eur":500'
+          ]
+          missing=[x for x in checks if x not in s]
+          if missing: raise SystemExit('V27 inheritance/viewer check failed '+repr(missing))
+          print('V27 restores normal room/screen viewer outside Step 3')
+          PY
+
+      - name: Browser startup test
+        run: |
+          python3 -m http.server 8765 >/tmp/server.log 2>&1 &
+          P=$!
+          sleep 2
+          C="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          set +e
+          timeout 45 "$C" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=14000 --dump-dom http://127.0.0.1:8765/projection-screen-configurator-v27.html >/tmp/v27-dom.html 2>/tmp/v27-console.log
+          set -e
+          kill $P || true
+          grep -E 'SyntaxError|TypeError|ReferenceError' /tmp/v27-console.log && exit 5 || true
+          grep -q 'data-standalone-ready="true"' /tmp/v27-dom.html
+          grep -q 'projection-v27-step-viewer-restore' /tmp/v27-dom.html
+
+      - name: Publish V27
+        run: |
+          cp .projection-v23-deploy/publish_v23.py /tmp/publish_v27.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/publish_v27.py')
+          s=p.read_text()
+          s=s.replace('projection-screen-configurator-v23.html','projection-screen-configurator-v27.html')
+          s=s.replace('projection-screen-configurator-v22.html','projection-screen-configurator-v27-old.html')
+          s=s.replace('Published immutable V23 and removed public V22','Published immutable V27')
+          p.write_text(s)
+          PY
+          python3 /tmp/publish_v27.py

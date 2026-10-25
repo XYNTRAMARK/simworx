@@ -142,6 +142,11 @@ new_object="""  function onObjectChange() {
       if (dragging) update();
     }, 180);
   }"""
+if old_object not in html and old_object.replace("\n","\\n") not in html:
+    for marker in ["function onObjectChange()","emitTransform(false);","scheduledCoarse"]:
+        idx=html.find(marker)
+        if idx<0: idx=html.find(marker.replace("\n","\\n"))
+        print("V39 DEBUG",marker,idx,html[max(0,idx-1200):idx+3200] if idx>=0 else "missing")
 html=replace_fragment(html,old_object,new_object,"object change")
 
 # Cancel the new timers on destroy.

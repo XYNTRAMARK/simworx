@@ -15,6 +15,17 @@ def fetch(name,agent):
 html=fetch(SOURCE,"Simworx-V48-builder")
 led=fetch(LED,"Simworx-V48-led-reference")
 
+# Repair a V38 output-formatting typo inherited by V47. The browser-visible
+# proposal used the correct helper, but documentHtml() had lost the esc(...)
+# call's parentheses and therefore threw when PDF/email serialization ran.
+bad_token="escproposalLineValue(l,fin.currency)"
+good_token="esc(proposalLineValue(l,fin.currency))"
+if bad_token not in html:
+    raise SystemExit("V48 expected inherited proposal serialization typo was not found")
+html=html.replace(bad_token,good_token)
+if "escproposalLineValue" in html:
+    raise SystemExit("V48 malformed proposal serializer token remains")
+
 required=[
     "projection-v47-site-shell",
     "projection-v42-proposal-delivery",
@@ -232,6 +243,7 @@ missing=[x for x in checks if x not in html]
 if missing: raise SystemExit("V48 delivery checks failed "+repr(missing))
 if 'id="projection-v42-turnstile-js"' in html: raise SystemExit("V48 old custom Turnstile script remains")
 if "frame.srcdoc=documentHtml()" in html: raise SystemExit("V48 old blank iframe print path remains")
+if "escproposalLineValue" in html: raise SystemExit("V48 malformed proposal serializer token remains")
 
 # Validate the modified customer-facing proposal JS and extracted protection JS.
 for sid,out in [

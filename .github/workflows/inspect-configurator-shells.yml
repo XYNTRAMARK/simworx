@@ -1,0 +1,35 @@
+name: Inspect configurator page shells
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-configurator-shells.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare LED and Projection page shells
+        run: |
+          python3 - <<'PY'
+          import urllib.request,re
+          pages={
+            'LED':'https://www.sim-worx.com/led-screen-configurator.html',
+            'PROJ':'https://www.sim-worx.com/projection-screen-configurator-v42.html',
+          }
+          for name,url in pages.items():
+            req=urllib.request.Request(url,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-shell-inspector'})
+            with urllib.request.urlopen(req,timeout=45) as r:
+              s=r.read().decode('utf-8','replace')
+            print('\n###',name,'LEN',len(s))
+            for marker in ['global-header','global-footer','sw-global-footer','global-nav-shell','global-brand','global-nav','global-talk','<main','</main>','<footer','global-header.css','global-header.js']:
+              print(marker, s.find(marker))
+            print('\nHEAD_SNIP')
+            h=s.find('<body')
+            print(s[h:h+12000])
+            print('\nTAIL_SNIP')
+            print(s[-16000:])
+          PY

@@ -43,20 +43,7 @@ with sync_playwright() as pw:
       };
     """)
 
-    captured={"requests":[],"errors":[]}
-    def route_handler(route):
-        req=route.request
-        captured["hit"]=True
-        item={"url":req.url,"method":req.method,"headers":req.headers}
-        try:
-            item["post_data"]=req.post_data or ""
-            captured["body"]=item["post_data"]
-        except Exception as e:
-            item["post_data_error"]=repr(e)
-            captured["body"]=""
-        captured["requests"].append(item)
-        route.fulfill(status=200,content_type="application/json",body='{"ok":true,"message":"Proposal sent successfully.","reference":"SWX-PROJ-V48-TEST"}')
-    page.route("**/projection-quote-submit.php",route_handler)
+    captured={"errors":[]}
 
     page.on("console",lambda msg: captured["errors"].append("console "+msg.type+": "+msg.text) if msg.type in ["error","warning"] else None)
     page.on("pageerror",lambda exc: captured["errors"].append("pageerror: "+str(exc)))
@@ -66,18 +53,25 @@ with sync_playwright() as pw:
     assert page.locator('meta[http-equiv="Content-Security-Policy"]').count()==0
     page.evaluate("""() => {
       window.__v48FetchTrace=[];
-      const original=window.fetch.bind(window);
-      window.fetch=async function(...args){
-        const item={url:String(args[0]),started:true};
-        window.__v48FetchTrace.push(item);
-        try{
-          const response=await original(...args);
-          item.status=response.status; item.ok=response.ok;
-          return response;
-        }catch(error){
-          item.error=String(error?.message||error);
-          throw error;
+      window.__v48CapturedPayload={};
+      const nativeFetch=window.fetch.bind(window);
+      window.fetch=async function(input,init={}){
+        const url=String(input);
+        if(url.includes('projection-quote-submit.php')){
+          const entries={};
+          if(init.body instanceof FormData){
+            for(const [key,value] of init.body.entries()){
+              entries[key]=typeof value==='string'?value:'[blob]';
+            }
+          }
+          window.__v48CapturedPayload=entries;
+          window.__v48FetchTrace.push({url,started:true,status:200,ok:true,keys:Object.keys(entries)});
+          return new Response(JSON.stringify({ok:true,message:'Proposal sent successfully.',reference:'SWX-PROJ-V48-TEST'}),{
+            status:200,
+            headers:{'Content-Type':'application/json'}
+          });
         }
+        return nativeFetch(input,init);
       };
       const form=document.getElementById('v48-email-form');
       window.__v48SubmitTrace=[];
@@ -134,12 +128,16 @@ with sync_playwright() as pw:
 
     status=page.locator("#v37-proposal-status").text_content() or ""
     email_status=page.locator("#v37-email-status").text_content() or ""
-    trace=page.evaluate("({fetch:window.__v48FetchTrace,submit:window.__v48SubmitTrace})")
-    print("EMAIL_AFTER_SUBMIT",{"proposal_status":status,"email_status":email_status,"hit":captured.get("hit",False),"requests":captured.get("requests"),"trace":trace,"errors":captured.get("errors"),"url":page.url})
-    assert "sent successfully" in status.lower(), (status,email_status,captured.get("requests"),trace,captured.get("errors"),page.url)
-    body=captured.get('body','')
-    assert 'test-turnstile-token' in body
-    assert 'proposal_html' in body and 'proposal_text' in body and 'proposal_reference' in body
+    trace=page.evaluate("({fetch:window.__v48FetchTrace,submit:window.__v48SubmitTrace,payload:window.__v48CapturedPayload})")
+    print("EMAIL_AFTER_SUBMIT",{"proposal_status":status,"email_status":email_status,"trace":trace,"errors":captured.get("errors"),"url":page.url})
+    assert "sent successfully" in status.lower(), (status,email_status,trace,captured.get("errors"),page.url)
+    payload=trace["payload"]
+    assert payload.get("cf-turnstile-response")=="test-turnstile-token", payload
+    assert payload.get("proposal_reference")=="SWX-PROJ-V48-TEST", payload
+    assert "System specification" in payload.get("proposal_html","")
+    assert "Commercial proposal" in payload.get("proposal_html","")
+    assert "SPECIFICATION" in payload.get("proposal_text","")
+    assert payload.get("email")=="mark@sim-worx.com"
     print("EMAIL_DELIVERY_PASS",status)
 
     browser.close()

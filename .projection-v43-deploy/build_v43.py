@@ -33,7 +33,7 @@ header=one(r'<header\b[^>]*class=["\'][^"\']*global-header[^"\']*["\'][^>]*>[\s\
 footer=one(r'<footer\b[^>]*(?:id=["\']sw-global-footer["\']|class=["\'][^"\']*sw-global-footer[^"\']*["\'])[^>]*>[\s\S]*?</footer>',led,"footer")
 header_css=one(r'<link[^>]+href=["\'][^"\']*global-header\.css[^"\']*["\'][^>]*>',led,"global header stylesheet")
 header_js=one(r'<script[^>]+src=["\'][^"\']*global-header\.js[^"\']*["\'][^>]*></script>',led,"global header script")
-footer_js=one(r'<script[^>]+src=["\'][^"\']*global-footer\.js[^"\']*["\'][^>]*></script>',led,"global footer script")
+footer_js='<script src="/assets/js/global-footer.js"></script>'
 
 footer_style=None
 for m in re.finditer(r'<style[^>]*>[\s\S]*?</style>',led,re.I):

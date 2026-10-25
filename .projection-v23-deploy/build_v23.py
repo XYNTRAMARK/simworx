@@ -78,12 +78,11 @@ if old_event not in html: raise SystemExit('V23 V21 throw event anchor missing')
 html=html.replace(old_event,new_event,1)
 
 # ---- V21 embedded projection layer: user planning range overrides sample model limits. ----
-old_limits="""  const throwMin = valueAt(profile, ['throwRatio.min', 'throwRatioMin']);
-  const throwMax = valueAt(profile, ['throwRatio.max', 'throwRatioMax']);"""
 new_limits="""  const throwMin = instance.planningThrowRange?.[0] ?? valueAt(profile, ['throwRatio.min', 'throwRatioMin']);
   const throwMax = instance.planningThrowRange?.[1] ?? valueAt(profile, ['throwRatio.max', 'throwRatioMax']);"""
-if old_limits not in html: raise SystemExit('V23 V21 projection-layer throw anchor missing')
-html=html.replace(old_limits,new_limits,1)
+pattern=re.compile(r"  const throwMin = valueAt\(profile, \['throwRatio\.min', 'throwRatioMin'\]\);\\n  const throwMax = valueAt\(profile, \['throwRatio\.max', 'throwRatioMax'\]\);")
+html,count=pattern.subn(lambda m:new_limits.replace('\n','\\n'),html,count=1)
+if count!=1: raise SystemExit(f'V23 V21 projection-layer throw regex replaced {count}')
 
 # ---- Result specification follows the live manual throw requirement. ----
 old_target="  const targetThrow=finite(summary.requiredThrowRatio)?summary.requiredThrowRatio:currentThrow;"

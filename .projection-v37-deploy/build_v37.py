@@ -29,14 +29,8 @@ if '<button type="button" data-guided-go="4"><b>4</b> Review</button>' not in ht
     raise SystemExit("V37 Step 4 Review nav anchor missing")
 html=html.replace('<button type="button" data-guided-go="4"><b>4</b> Review</button>','<button type="button" data-guided-go="4"><b>4</b> Proposal</button>',1)
 
-# Replace the passive Review card with a real Step-4 Proposal surface at build time.
-review_start=html.find('<section class="led-review" id="led-review" data-guided-step="4">')
-if review_start<0:
-    raise SystemExit("V37 Review section anchor missing")
-review_end=html.find('</section>',review_start)
-if review_end<0:
-    raise SystemExit("V37 Review section end missing")
-review_end+=len('</section>')
+# Keep the original Step-4 DOM for application wiring, but insert the customer-facing
+# Proposal as a separate surface and hide the legacy Step-4 UI visually.
 proposal_markup='''<section id="v37-proposal" data-guided-step="4" hidden>
 <div class="v37-proposal-head"><div><span class="led-step">COMMERCIAL PROPOSAL</span><h2>Projection system proposal</h2><p class="led-help">Final technical configuration and Simworx commercial estimate.</p></div><a class="led-text-link" href="#led-controls">Change configuration ↑</a></div>
 <div class="v37-proposal-meta"><span id="v37-proposal-ref">Reference —</span><span id="v37-proposal-date">Date —</span><span>Validity: confirmed on formal quotation</span></div>
@@ -56,9 +50,13 @@ proposal_markup='''<section id="v37-proposal" data-guided-step="4" hidden>
 <div class="v37-proposal-actions"><button type="button" class="led-button v37-primary" id="v37-print-proposal">Print / save PDF</button><button type="button" class="led-button led-outline" id="v37-download-proposal">Download configuration quote</button><button type="button" class="led-button led-outline" id="v37-email-proposal">Email proposal</button><button type="button" class="led-button led-outline" id="v37-request-quote">Request formal quote</button></div>
 <p class="led-action-result" id="v37-proposal-status" role="status"></p>
 </aside></div></section>'''
-html=html[:review_start]+proposal_markup+html[review_end:]
+proposal_anchor='<div class="guided-navigation">'
+if proposal_anchor not in html:
+    raise SystemExit("V37 guided navigation anchor missing")
+html=html.replace(proposal_anchor,proposal_markup+proposal_anchor,1)
+
 # Hide the two legacy step-4 setup sections; Proposal replaces them.
-proposal_hide_css='<style id="projection-v37-hide-legacy-step4">#led-options[data-guided-step="4"],.led-custom[data-guided-step="4"]{display:none!important}</style>'
+proposal_hide_css='<style id="projection-v37-hide-legacy-step4">#led-options[data-guided-step="4"],.led-custom[data-guided-step="4"],#led-review[data-guided-step="4"]{display:none!important}</style>'
 html=html.replace('</head>',proposal_hide_css+'\\n</head>',1)
 
 # Static email dialog used by the Proposal actions.

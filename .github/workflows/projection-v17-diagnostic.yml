@@ -1,0 +1,39 @@
+name: Diagnose projection V17 runtime
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/projection-v17-diagnostic.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V17 workspace
+        run: python3 .projection-v17-deploy/build_v17.py
+      - name: Audit DOM ids referenced by JS
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('projection/main.html').read_text()
+          ids=set(re.findall(r'id="([^"]+)"',html))
+          refs=set()
+          for p in Path('projection/src').glob('*.js'):
+              s=p.read_text()
+              refs.update(re.findall(r"$('([^']+)')",s))
+              refs.update(re.findall(r'$("([^"]+)")',s))
+              refs.update(re.findall(r"getElementById('([^']+)')",s))
+              refs.update(re.findall(r'getElementById("([^"]+)")',s))
+          missing=sorted(refs-ids)
+          print("HTML IDs:",len(ids))
+          print("JS direct ID refs:",len(refs))
+          print("MISSING DIRECT IDS:")
+          for x in missing: print(x)
+          if missing:
+              raise SystemExit(2)
+          PY

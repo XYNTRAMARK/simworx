@@ -110,6 +110,13 @@ with sync_playwright() as pw:
 
     assert (page.locator('[data-guided-go="4"]').text_content() or '').strip().endswith('Proposal')
     assert 'Proposal' in (page.locator('#guided-step-status').text_content() or '')
+    proposal_debug=page.evaluate("""() => ({
+      scriptCount:document.querySelectorAll('#projection-v37-proposal-js').length,
+      scriptState:window.__v37ProposalScriptRan||null,
+      specText:document.getElementById('v37-proposal-spec')?.textContent||'',
+      proposalHidden:document.getElementById('v37-proposal')?.hidden
+    })""")
+    print('PROPOSAL_RUNTIME_DEBUG',proposal_debug)
     assert page.locator('#v37-proposal-spec').is_visible()
     assert page.locator('#v37-projector-rows tr').count()==3
     assert page.locator('#v37-price-lines').is_visible()

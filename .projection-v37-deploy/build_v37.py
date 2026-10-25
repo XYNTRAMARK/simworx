@@ -29,6 +29,42 @@ if '<button type="button" data-guided-go="4"><b>4</b> Review</button>' not in ht
     raise SystemExit("V37 Step 4 Review nav anchor missing")
 html=html.replace('<button type="button" data-guided-go="4"><b>4</b> Review</button>','<button type="button" data-guided-go="4"><b>4</b> Proposal</button>',1)
 
+# Replace the passive Review card with a real Step-4 Proposal surface at build time.
+review_start=html.find('<section class="led-review" id="led-review" data-guided-step="4">')
+if review_start<0:
+    raise SystemExit("V37 Review section anchor missing")
+review_end=html.find('</section>',review_start)
+if review_end<0:
+    raise SystemExit("V37 Review section end missing")
+review_end+=len('</section>')
+proposal_markup='''<section id="v37-proposal" data-guided-step="4" hidden>
+<div class="v37-proposal-head"><div><span class="led-step">COMMERCIAL PROPOSAL</span><h2>Projection system proposal</h2><p class="led-help">Final technical configuration and Simworx commercial estimate.</p></div><a class="led-text-link" href="#led-controls">Change configuration ↑</a></div>
+<div class="v37-proposal-meta"><span id="v37-proposal-ref">Reference —</span><span id="v37-proposal-date">Date —</span><span>Validity: confirmed on formal quotation</span></div>
+<div class="v37-proposal-grid">
+<div style="display:grid;gap:16px">
+<section class="v37-proposal-card"><h3>System specification</h3><dl class="v37-proposal-spec" id="v37-proposal-spec"></dl></section>
+<section class="v37-proposal-card"><h3>Projector requirement</h3><table class="v37-projector-table"><thead><tr><th>Projector</th><th>Lens position</th><th>Aim</th><th>Throw</th></tr></thead><tbody id="v37-projector-rows"></tbody></table><p class="v37-finance-note">Projectors are customer sourced and are not included in the Simworx commercial total. Final projector/lens suitability must be confirmed with the projector supplier before purchase.</p></section>
+<details class="v37-proposal-card"><summary><strong>Technical assumptions &amp; review notes</strong></summary><ul id="v37-proposal-warnings"></ul></details>
+</div>
+<aside class="v37-proposal-card"><h3>Commercial proposal</h3>
+<span class="led-help">Quote currency</span><div class="v37-currency-buttons" id="v37-currency-buttons"><button type="button" data-currency="EUR">EUR</button><button type="button" data-currency="GBP">GBP</button><button type="button" data-currency="USD">USD</button></div>
+<div class="v37-finance-grid" style="margin-top:12px"><label>Delivery destination<select id="v37-destination"><option value="spain">Spain</option><option value="eu">European Union</option><option value="uk">United Kingdom</option><option value="usa">United States</option><option value="middle-east">Middle East</option><option value="rest">Rest of world</option></select></label><label>Customer type<select id="v37-customer-type"><option value="personal">Personal</option><option value="business">Business</option></select></label><label id="v37-vat-wrap" hidden>EU VAT number<input id="v37-vat-number" maxlength="32" placeholder="e.g. FR12345678901"></label></div>
+<div class="v37-proposal-lines" id="v37-price-lines"></div>
+<div class="v37-total-row"><span>Estimated total before delivery</span><strong id="v37-proposal-total">—</strong></div>
+<p class="v37-finance-note" id="v37-vat-note"></p>
+<p class="v37-finance-note"><strong>Delivery:</strong> To be quoted for the completed screen system. Outside the EU, import duties, tariffs and local import taxes remain the customer responsibility.</p>
+<div class="v37-proposal-actions"><button type="button" class="led-button v37-primary" id="v37-print-proposal">Print / save PDF</button><button type="button" class="led-button led-outline" id="v37-download-proposal">Download configuration quote</button><button type="button" class="led-button led-outline" id="v37-email-proposal">Email proposal</button><button type="button" class="led-button led-outline" id="v37-request-quote">Request formal quote</button></div>
+<p class="led-action-result" id="v37-proposal-status" role="status"></p>
+</aside></div></section>'''
+html=html[:review_start]+proposal_markup+html[review_end:]
+# Hide the two legacy step-4 setup sections; Proposal replaces them.
+proposal_hide_css='<style id="projection-v37-hide-legacy-step4">#led-options[data-guided-step="4"],.led-custom[data-guided-step="4"]{display:none!important}</style>'
+html=html.replace('</head>',proposal_hide_css+'\\n</head>',1)
+
+# Static email dialog used by the Proposal actions.
+email_dialog='''<dialog id="v37-email-dialog"><div class="v37-email-body"><h3>Email proposal</h3><p class="led-help">The proposal file will download and your email application will open with the proposal summary.</p><div class="v37-email-fields"><label>Recipient email<input id="v37-email-address" type="email" required placeholder="name@example.com"></label><label>Recipient name<input id="v37-email-name" maxlength="100"></label></div><div class="v37-proposal-actions"><button type="button" class="led-button v37-primary" id="v37-email-send">Prepare email</button><button type="button" class="led-button led-outline" id="v37-email-close">Cancel</button></div><p id="v37-email-status" class="led-help"></p></div></dialog>'''
+html=html.replace('</main>',email_dialog+'\\n</main>',1)
+
 # Proposal uses the current live/manual projector state. Do not block Step 4 merely because
 # manual edits mark the optimiser result dirty; only block when no layout exists at all.
 proposal_guard="if(n===4&&(!s.layoutReady||s.layoutDirty)){"
@@ -171,52 +207,9 @@ proposal_js=r"""<script id="projection-v37-proposal-js">
   function currentStep(){return Number(document.querySelector('[data-guided-go][aria-current="step"]')?.dataset?.guidedGo||1)}
 
   function ensureProposal(){
-    let proposal=q('v37-proposal');
-    if(proposal)return proposal;
-
-    document.querySelectorAll('[data-guided-step="4"]').forEach(el=>el.classList.add('v37-old-step4'));
-    const nav=document.querySelector('.guided-navigation');
-    if(!nav)return null;
-
-    proposal=document.createElement('section');
-    proposal.id='v37-proposal';
-    proposal.dataset.guidedStep='4';
-    proposal.hidden=true;
-    proposal.innerHTML=
-      '<div class="v37-proposal-head"><div><span class="led-step">COMMERCIAL PROPOSAL</span><h2>Projection system proposal</h2><p class="led-help">Final technical configuration and Simworx commercial estimate.</p></div><a class="led-text-link" href="#led-controls">Change configuration ↑</a></div>'+
-      '<div class="v37-proposal-meta"><span id="v37-proposal-ref">Reference —</span><span id="v37-proposal-date">Date —</span><span>Validity: confirmed on formal quotation</span></div>'+
-      '<div class="v37-proposal-grid">'+
-        '<div style="display:grid;gap:16px">'+
-          '<section class="v37-proposal-card"><h3>System specification</h3><dl class="v37-proposal-spec" id="v37-proposal-spec"></dl></section>'+
-          '<section class="v37-proposal-card"><h3>Projector requirement</h3><table class="v37-projector-table"><thead><tr><th>Projector</th><th>Lens position</th><th>Aim</th><th>Throw</th></tr></thead><tbody id="v37-projector-rows"></tbody></table><p class="v37-finance-note">Projectors are customer sourced and are not included in the Simworx commercial total. Final projector/lens suitability must be confirmed with the projector supplier before purchase.</p></section>'+
-          '<details class="v37-proposal-card"><summary><strong>Technical assumptions &amp; review notes</strong></summary><ul id="v37-proposal-warnings"></ul></details>'+
-        '</div>'+
-        '<aside class="v37-proposal-card"><h3>Commercial proposal</h3>'+
-          '<span class="led-help">Quote currency</span><div class="v37-currency-buttons" id="v37-currency-buttons"><button type="button" data-currency="EUR">EUR</button><button type="button" data-currency="GBP">GBP</button><button type="button" data-currency="USD">USD</button></div>'+
-          '<div class="v37-finance-grid" style="margin-top:12px">'+
-            '<label>Delivery destination<select id="v37-destination"><option value="spain">Spain</option><option value="eu">European Union</option><option value="uk">United Kingdom</option><option value="usa">United States</option><option value="middle-east">Middle East</option><option value="rest">Rest of world</option></select></label>'+
-            '<label>Customer type<select id="v37-customer-type"><option value="personal">Personal</option><option value="business">Business</option></select></label>'+
-            '<label id="v37-vat-wrap" hidden>EU VAT number<input id="v37-vat-number" maxlength="32" placeholder="e.g. FR12345678901"></label>'+
-          '</div>'+
-          '<div class="v37-proposal-lines" id="v37-price-lines"></div>'+
-          '<div class="v37-total-row"><span>Estimated total before delivery</span><strong id="v37-proposal-total">—</strong></div>'+
-          '<p class="v37-finance-note" id="v37-vat-note"></p>'+
-          '<p class="v37-finance-note"><strong>Delivery:</strong> To be quoted for the completed screen system. Outside the EU, import duties, tariffs and local import taxes remain the customer responsibility.</p>'+
-          '<div class="v37-proposal-actions">'+
-            '<button type="button" class="led-button v37-primary" id="v37-print-proposal">Print / save PDF</button>'+
-            '<button type="button" class="led-button led-outline" id="v37-download-proposal">Download configuration quote</button>'+
-            '<button type="button" class="led-button led-outline" id="v37-email-proposal">Email proposal</button>'+
-            '<button type="button" class="led-button led-outline" id="v37-request-quote">Request formal quote</button>'+
-          '</div><p class="led-action-result" id="v37-proposal-status" role="status"></p>'+
-        '</aside>'+
-      '</div>';
-    nav.parentNode.insertBefore(proposal,nav);
-
-    const dialog=document.createElement('dialog');
-    dialog.id='v37-email-dialog';
-    dialog.innerHTML='<div class="v37-email-body"><h3>Email proposal</h3><p class="led-help">The proposal file will download and your email application will open with the proposal summary.</p><div class="v37-email-fields"><label>Recipient email<input id="v37-email-address" type="email" required placeholder="name@example.com"></label><label>Recipient name<input id="v37-email-name" maxlength="100"></label></div><div class="v37-proposal-actions"><button type="button" class="led-button v37-primary" id="v37-email-send">Prepare email</button><button type="button" class="led-button led-outline" id="v37-email-close">Cancel</button></div><p id="v37-email-status" class="led-help"></p></div>';
-    document.body.appendChild(dialog);
-
+    const proposal=q('v37-proposal');
+    if(!proposal||proposal.dataset.bound==='true')return proposal;
+    proposal.dataset.bound='true';
     q('v37-currency-buttons').addEventListener('click',event=>{
       const b=event.target.closest('button[data-currency]');if(!b)return;
       const select=q('projection-currency');

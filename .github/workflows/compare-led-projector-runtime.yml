@@ -1,0 +1,60 @@
+name: Compare live LED and projector layout runtime
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/compare-led-projector-runtime.yml'
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Measure live pages at top and scroll
+        run: |
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          import json
+          pages={
+            'LED':'https://www.sim-worx.com/led-screen-configurator.html',
+            'PROJECTOR':'https://www.sim-worx.com/projection-screen-configurator-v46.html',
+          }
+          def snap(page,label):
+            return page.evaluate("""label => {
+              const h=document.querySelector('.global-header');
+              const m=document.querySelector('.led-shell');
+              const p=document.querySelector('.led-estimate-bar');
+              const g=document.querySelector('#v40-guided-header');
+              const cs=e=>e?getComputedStyle(e):null;
+              const rect=e=>e?(()=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom,right:r.right}})():null;
+              return {
+                label, scrollY:window.scrollY, viewport:{w:innerWidth,h:innerHeight},
+                body:{paddingLeft:cs(document.body).paddingLeft,paddingRight:cs(document.body).paddingRight,width:rect(document.body)?.width},
+                header:{rect:rect(h),position:cs(h)?.position,top:cs(h)?.top,z:cs(h)?.zIndex},
+                main:{rect:rect(m),paddingLeft:cs(m)?.paddingLeft,paddingRight:cs(m)?.paddingRight,marginLeft:cs(m)?.marginLeft,marginRight:cs(m)?.marginRight},
+                price:{rect:rect(p),position:cs(p)?.position,top:cs(p)?.top,right:cs(p)?.right,left:cs(p)?.left,width:cs(p)?.width,maxWidth:cs(p)?.maxWidth,margin:cs(p)?.margin,z:cs(p)?.zIndex,boxShadow:cs(p)?.boxShadow},
+                guide:{rect:rect(g),position:cs(g)?.position,top:cs(g)?.top,z:cs(g)?.zIndex}
+              };
+            }""",label)
+          with sync_playwright() as pw:
+            browser=pw.chromium.launch(headless=True)
+            for name,url in pages.items():
+              page=browser.new_page(viewport={'width':1680,'height':900})
+              page.goto(url,wait_until='domcontentloaded',timeout=60000)
+              page.wait_for_timeout(2500)
+              print('\n###',name,'TOP')
+              print(json.dumps(snap(page,'top'),indent=2))
+              page.evaluate("window.scrollTo(0,700)")
+              page.wait_for_timeout(500)
+              print('\n###',name,'SCROLLED')
+              print(json.dumps(snap(page,'scrolled'),indent=2))
+              page.screenshot(path=f'/tmp/{name.lower()}-scrolled.png',full_page=False)
+              page.close()
+            browser.close()
+          PY

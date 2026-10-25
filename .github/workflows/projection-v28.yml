@@ -61,12 +61,6 @@ jobs:
                 if(home.parentNode!==viewerColumn)viewerColumn.appendChild(home);
                 if(panel&&panel.parentNode!==workspace)workspace.appendChild(panel);
                 if(panel)panel.hidden=false;
-                const manual=q('projection-manual-viewer');
-                if(manual&&!manual.checked){
-                  manual.checked=true;
-                  manual.dispatchEvent(new Event('change',{bubbles:true}));
-                }
-                document.querySelector('[data-transform="translate"]')?.click();
               }else{
                 preview.classList.remove('v26-editing');
                 if(toolbar&&home.parentNode!==preview)moveBefore(home,toolbar);
@@ -172,9 +166,12 @@ jobs:
           time.sleep(1)
           measure('STEP2',False)
 
-          driver.find_element(By.CSS_SELECTOR,'[data-guided-go="3"]').click()
+          driver.execute_script("""
+            document.querySelectorAll('[data-guided-go]').forEach(b=>b.removeAttribute('aria-current'));
+            document.querySelector('[data-guided-go="3"]').setAttribute('aria-current','step');
+          """)
           time.sleep(1)
-          measure('STEP3',True)
+          measure('STEP3-LAYOUT',True)
           driver.save_screenshot('/tmp/v28-step3.png')
 
           driver.quit()

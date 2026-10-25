@@ -36,7 +36,7 @@ jobs:
             'projection-v45-site-shell',
             '.led-estimate-bar{',
             'position:sticky!important',
-            'top:var(--sw-header-h,84px)!important',
+            'top:var(--sw-header-h)!important',
             '#projection-app{',
             'padding-top:0!important',
           ]

@@ -1,0 +1,38 @@
+name: Locate V17 guided planner browser syntax
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v17-guided-line.yml'
+permissions:
+  contents: read
+jobs:
+  locate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V17
+        run: python3 .projection-v17-deploy/build_v17.py
+      - name: Create direct-module diagnostic page
+        run: |
+          cat > guided-diagnostic.html <<'HTML'
+          <!doctype html><meta charset="utf-8">
+          <script type="importmap">
+          {"imports":{"projection:/":"http://127.0.0.1:8765/projection/"}}
+          </script>
+          <script type="module">
+          import './projection/src/guided-planner.js';
+          console.log('GUIDED_DIRECT_OK');
+          </script>
+          HTML
+      - name: Run Chrome
+        run: |
+          python3 -m http.server 8765 >/tmp/server.log 2>&1 &
+          SERVER_PID=$!
+          sleep 2
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          set +e
+          timeout 30 "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --enable-logging=stderr --v=0 --virtual-time-budget=5000 --dump-dom http://127.0.0.1:8765/guided-diagnostic.html >/tmp/dom.html 2>/tmp/console.log
+          set -e
+          kill $SERVER_PID || true
+          grep -E 'SyntaxError|GUIDED_DIRECT_OK|CONSOLE:' /tmp/console.log || true

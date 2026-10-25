@@ -173,9 +173,11 @@ if head_close<0 or body_start<0 or head_close>body_start:
     raise SystemExit("V47 could not resolve the real document head")
 html=html[:head_close]+preamble+"\n"+html[head_close:]
 
-# Remove the remaining standalone preview strip after the website header.
-html,n_preview=re.subn(r'<div\s+class=["\']projection-preview-banner["\'][^>]*>[\s\S]*?</div>','',html,count=1,flags=re.I)
-if n_preview not in {0,1}: raise SystemExit("V47 preview strip removal was ambiguous")
+# Remove standalone-only content between the live website header and the
+# configurator main. Runtime inspection proved the only visible inherited node
+# in this gap is the standalone preview strip.
+html,n_preview=re.subn(r'(</header>)[\s\S]*?(?=<main\b)',r'\1\n',html,count=1,flags=re.I)
+if n_preview!=1: raise SystemExit("V47 could not normalise header-to-main structure")
 
 # Existing critical scripts must remain syntactically valid.
 for sid,out in [

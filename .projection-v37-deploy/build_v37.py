@@ -27,10 +27,6 @@ if missing:
 if '<button type="button" data-guided-go="4"><b>4</b> Review</button>' not in html:
     raise SystemExit("V37 Step 4 Review nav anchor missing")
 html=html.replace('<button type="button" data-guided-go="4"><b>4</b> Review</button>','<button type="button" data-guided-go="4"><b>4</b> Proposal</button>',1)
-if "const names=['Room & budget','Screen & cockpit','Projectors','Review'];" not in html:
-    raise SystemExit("V37 guided names anchor missing")
-html=html.replace("const names=['Room & budget','Screen & cockpit','Projectors','Review'];","const names=['Room & budget','Screen & cockpit','Projectors','Proposal'];",1)
-
 
 css="""<style id="projection-v37-space-optimisation">
 .projection-v29-edit-row.is-step3{
@@ -284,8 +280,13 @@ proposal_js=r"""<script id="projection-v37-proposal-js">
 
   function refreshProposal(){
     const proposal=ensureProposal();if(!proposal)return;
-    proposal.hidden=currentStep()!==4;
-    if(currentStep()!==4)return;
+    const step=currentStep();
+    proposal.hidden=step!==4;
+    const stepButton=document.querySelector('[data-guided-go="4"]');
+    if(stepButton)stepButton.innerHTML='<b>4</b> Proposal';
+    if(step===3&&q('guided-next')&&!q('guided-next').hidden)q('guided-next').textContent='Continue to proposal';
+    if(step===4&&q('guided-step-status'))q('guided-step-status').textContent='Step 4 of 4 · Proposal';
+    if(step!==4)return;
     const snap=snapshot();if(!snap)return;
     const quote=snap.quote||{};
     if(!reference)reference=quote.reference||('SWX-PROJ-'+new Date().toISOString().slice(0,10).replaceAll('-',''));

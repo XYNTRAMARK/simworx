@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: simworx-projection-v16
+  group: simworx-projection-v17
   cancel-in-progress: false
 jobs:
   publish:

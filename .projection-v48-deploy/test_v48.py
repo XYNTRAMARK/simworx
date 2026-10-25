@@ -89,11 +89,20 @@ with sync_playwright() as pw:
     assert page.locator('#v48-email-form [name="cf-turnstile-response"]').input_value()=="test-turnstile-token"
     page.locator("#v37-email-address").fill("mark@sim-worx.com")
     page.locator("#v37-email-name").fill("Mark")
+    print("EMAIL_BEFORE_SUBMIT",page.evaluate("""() => ({
+      status:document.getElementById('v37-email-status')?.textContent||'',
+      buttonDisabled:document.getElementById('v37-email-send')?.disabled,
+      token:document.querySelector('#v48-email-form [name="cf-turnstile-response"]')?.value||'',
+      formAction:document.getElementById('v48-email-form')?.action,
+      dialogOpen:document.getElementById('v37-email-dialog')?.open
+    })"""))
     page.locator("#v37-email-send").click()
-    page.wait_for_timeout(500)
+    page.wait_for_timeout(1000)
 
-    status=page.locator("#v37-proposal-status").inner_text()
-    assert "sent successfully" in status.lower(), status
+    status=page.locator("#v37-proposal-status").text_content() or ""
+    email_status=page.locator("#v37-email-status").text_content() or ""
+    print("EMAIL_AFTER_SUBMIT",{"proposal_status":status,"email_status":email_status,"captured":bool(captured.get('body')),"url":page.url})
+    assert "sent successfully" in status.lower(), (status,email_status,captured.get('body','')[:500],page.url)
     body=captured.get('body','')
     assert 'test-turnstile-token' in body
     assert 'proposal_html' in body and 'proposal_text' in body and 'proposal_reference' in body

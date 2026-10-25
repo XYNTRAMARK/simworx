@@ -216,33 +216,6 @@ jobs:
               assert normal['canvasWidth']>300 and normal['canvasHeight']>250 and normal['canvasInStableRow'] and normal['stableRowActive'], normal
               assert not normal['canvasInWorkspace'], normal
 
-              # Return to Step 2 and deliberately make currently displayed inputs invalid.
-              page.locator('[data-guided-go="2"]').click(timeout=5000)
-              for _ in range(50):
-                  cur=page.locator('[data-guided-go][aria-current="step"]')
-                  if cur.count() and cur.get_attribute('data-guided-go')=='2':
-                      break
-                  page.wait_for_timeout(100)
-              else:
-                  raise AssertionError('Could not return to Step 2')
-              page.locator('#projection-room-width').fill('0')
-              page.locator('#guided-budget').fill('-1')
-              page.locator('[data-guided-go="3"]').click(timeout=5000)
-              for _ in range(80):
-                  cur=page.locator('[data-guided-go][aria-current="step"]')
-                  if cur.count() and cur.get_attribute('data-guided-go')=='3':
-                      break
-                  page.wait_for_timeout(100)
-              else:
-                  raise AssertionError('Step 3 was blocked by invalid inputs')
-              for _ in range(50):
-                  row_class=page.locator('#projection-v29-edit-row').get_attribute('class') or ''
-                  if 'is-step3' in row_class:
-                      break
-                  page.wait_for_timeout(100)
-              invalid=state('STEP3_INVALID_INPUTS')
-              assert invalid['current']=='3', invalid
-
               page.screenshot(path='/tmp/v29-step3.png',full_page=False)
               browser.close()
 

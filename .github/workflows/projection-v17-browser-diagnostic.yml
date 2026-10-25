@@ -1,0 +1,43 @@
+name: Browser diagnose projection V17
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v17-browser-diagnostic.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V17 workspace
+        run: python3 .projection-v17-deploy/build_v17.py
+      - name: Run built page in headless Chrome
+        run: |
+          set -e
+          python3 -m http.server 8765 >/tmp/projection-server.log 2>&1 &
+          SERVER_PID=$!
+          sleep 2
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          echo "Chrome=$CHROME"
+          if [ -z "$CHROME" ]; then
+            echo "No Chrome/Chromium installed"
+            exit 3
+          fi
+          set +e
+          timeout 45 "$CHROME"             --headless=new --no-sandbox --disable-dev-shm-usage             --use-gl=swiftshader --enable-unsafe-swiftshader             --enable-logging=stderr --v=0             --virtual-time-budget=10000             --dump-dom http://127.0.0.1:8765/projection-screen-configurator-v17.html             >/tmp/v17-dom.html 2>/tmp/v17-console.log
+          RC=$?
+          set -e
+          kill $SERVER_PID || true
+          echo "Chrome rc=$RC"
+          echo "=== CONSOLE ==="
+          cat /tmp/v17-console.log
+          echo "=== VIEWER STATUS ==="
+          grep -o 'id="led-viewer-status"[^<]*>[^<]*' /tmp/v17-dom.html || true
+          echo "=== READY MARKER ==="
+          grep -o 'id="led-canvas"[^>]*' /tmp/v17-dom.html | head -1 || true
+          if grep -q 'Loading interactive 3D preview' /tmp/v17-dom.html; then
+            echo "Viewer remained stuck loading"
+            exit 4
+          fi

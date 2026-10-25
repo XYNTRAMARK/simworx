@@ -1,0 +1,39 @@
+name: Release projection configurator V48 proposal delivery
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v48-release.yml'
+      - '.projection-v48-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v48
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V48 from live V47
+        run: python3 .projection-v48-deploy/build_v48.py
+      - name: Validate proposal endpoint
+        run: php -l .projection-v42-deploy/projection-quote-submit.php
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Test PDF and protected email end-to-end in browser
+        run: |
+          python3 -m http.server 8765 >/tmp/v48-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v48-deploy/test_v48.py
+          kill $P || true
+      - name: Publish V48 and switch live navigation
+        run: python3 .projection-v48-deploy/publish_v48.py

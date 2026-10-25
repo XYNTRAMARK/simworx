@@ -1,0 +1,379 @@
+name: Publish projection configurator V30
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v30.yml'
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start from published V29 exactly
+        run: |
+          curl -fsSL https://www.sim-worx.com/projection-screen-configurator-v29.html -o projection-screen-configurator-v30.html
+          grep -q 'projection-v29-stable-viewer-owner' projection-screen-configurator-v30.html
+          grep -q 'projection-v29-navigation-fix' projection-screen-configurator-v30.html
+          grep -q 'projection-fixed-estimate-v24' projection-screen-configurator-v30.html
+          grep -q 'projection-v25-controls' projection-screen-configurator-v30.html
+          grep -q 'id="projection-channel-tabs"' projection-screen-configurator-v30.html
+          grep -q 'id="projection-manual-slide"' projection-screen-configurator-v30.html
+          grep -q '"screenSystemPerM2Eur":500' projection-screen-configurator-v30.html
+
+      - name: Build direct projector manipulation controls
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p=Path('projection-screen-configurator-v30.html')
+          s=p.read_text()
+
+          # Make the selected projector beam/frustum much easier to see while tuning throw.
+          selected_mesh="opacity: record.id === state.selectedProjector ? 0.09 : 0.035"
+          selected_lines="opacity: record.id === state.selectedProjector ? 0.52 : 0.25"
+          if selected_mesh not in s or selected_lines not in s:
+              raise SystemExit('V30 beam visibility anchors missing')
+          s=s.replace(selected_mesh,"opacity: record.id === state.selectedProjector ? 0.20 : 0.025",1)
+          s=s.replace(selected_lines,"opacity: record.id === state.selectedProjector ? 0.92 : 0.20",1)
+
+          css="""<style id="projection-v30-direct-controls">
+          #projection-v25-controls.v30-replaced > :not(#projection-v30-control-surface){display:none!important}
+          #projection-v30-control-surface{display:grid;gap:16px}
+          .v30-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+          .v30-head h3{margin:2px 0 0;font-size:20px;line-height:1.15}
+          .v30-section{border:1px solid #d9e0e7;border-radius:8px;padding:12px;background:#fff}
+          .v30-projector-selector{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:9px}
+          .v30-projector-selector button{min-height:42px;border:1px solid #bfc8d2;background:#fff;border-radius:6px;font-weight:800;cursor:pointer}
+          .v30-projector-selector button[aria-pressed="true"]{border-color:#d52b1e;background:#fff2f1;color:#991b1b}
+          .v30-mode-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+          .v30-mode-buttons button{min-height:48px}
+          .v30-mode-buttons button[aria-pressed="true"]{border-color:#d52b1e!important;background:#fff2f1!important;color:#991b1b!important}
+          .v30-mode-help{margin:8px 0 0;font-size:11px;color:#64748b;line-height:1.45}
+          .v30-throw-head{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+          .v30-throw-head strong{font-size:18px}
+          #v30-throw{width:100%;margin:10px 0 6px}
+          .v30-throw-scale{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#64748b}
+          .v30-throw-class{font-weight:800;color:#334155}
+          .v30-check{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:12px}
+          .v30-fit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:9px}
+          .v30-fit-grid div{border:1px solid #e1e6ea;border-radius:6px;padding:9px}
+          .v30-fit-grid span{display:block;font-size:10px;color:#64748b}
+          .v30-fit-grid strong{display:block;margin-top:3px;font-size:14px}
+          #projection-manual-viewer-tools,.projection-manual-toggle{display:none!important}
+          #projection-v25-controls.v30-replaced{border-left:4px solid #e11d2e}
+          @media(max-width:650px){.v30-mode-buttons,.v30-fit-grid{grid-template-columns:1fr}.v30-projector-selector{grid-template-columns:repeat(3,1fr)}}
+          </style>"""
+          s=s.replace('</head>',css+'\n</head>',1)
+
+          js="""<script id="projection-v30-direct-controls-js">
+          (function(){
+            const q=id=>document.getElementById(id);
+            let throwFrame=0;
+            let selectorObserver=null;
+
+            function enableManual(){
+              const manual=q('projection-manual-viewer');
+              if(manual&&!manual.checked){
+                manual.checked=true;
+                manual.dispatchEvent(new Event('change',{bubbles:true}));
+              }
+            }
+
+            function originalTabs(){
+              return Array.from(q('projection-channel-tabs')?.querySelectorAll('button')||[]);
+            }
+
+            function selectedIndex(){
+              const tabs=originalTabs();
+              let index=tabs.findIndex(b=>b.getAttribute('aria-pressed')==='true'||b.getAttribute('aria-selected')==='true');
+              if(index<0){
+                const text=q('projection-manual-selected')?.textContent||'P1';
+                const match=text.match(/P\\s*(\\d+)/i);
+                index=match?Math.max(0,Number(match[1])-1):0;
+              }
+              return index;
+            }
+
+            function classifyThrow(r){
+              return r<0.45?'Ultra-short throw':r<1?'Short throw':'Standard / zoom';
+            }
+
+            function syncSelector(){
+              const wrap=q('v30-projector-selector');
+              if(!wrap)return;
+              const tabs=originalTabs();
+              const count=Math.max(1,tabs.length||3);
+              if(wrap.children.length!==count){
+                const buttons=[];
+                for(let i=0;i<count;i++){
+                  const b=document.createElement('button');
+                  b.type='button';
+                  b.id='v30-projector-'+(i+1);
+                  b.textContent='P'+(i+1);
+                  b.addEventListener('click',()=>{
+                    const source=originalTabs()[i];
+                    if(source)source.click();
+                    setTimeout(syncAll,0);
+                  });
+                  buttons.push(b);
+                }
+                wrap.replaceChildren(...buttons);
+              }
+              const active=selectedIndex();
+              Array.from(wrap.children).forEach((b,i)=>b.setAttribute('aria-pressed',String(i===active)));
+              const title=q('v30-selected-label');
+              if(title)title.textContent='P'+(active+1);
+            }
+
+            function syncThrow(){
+              const original=q('projection-throw'),slider=q('v30-throw'),value=q('v30-throw-value'),klass=q('v30-throw-class');
+              if(!original||!slider)return;
+              if(document.activeElement!==slider)slider.value=original.value||0.72;
+              const r=Number(slider.value||0.72);
+              if(value)value.textContent=r.toFixed(3);
+              if(klass)klass.textContent=classifyThrow(r);
+            }
+
+            function syncMetrics(){
+              const pairs=[['projection-coverage-metric','v30-coverage'],['projection-shadow-metric','v30-shadow'],['projection-overlap-metric','v30-overlap']];
+              for(const pair of pairs){
+                const source=q(pair[0]),target=q(pair[1]);
+                if(source&&target)target.textContent=source.textContent||'—';
+              }
+            }
+
+            function syncAll(){
+              syncSelector();
+              syncThrow();
+              syncMetrics();
+            }
+
+            function setMode(mode){
+              enableManual();
+              if(mode==='move'){
+                q('projection-manual-slide')?.click();
+              }else{
+                document.querySelector('[data-transform="rotate"]')?.click();
+              }
+              q('v30-move')?.setAttribute('aria-pressed',String(mode==='move'));
+              q('v30-aim')?.setAttribute('aria-pressed',String(mode==='aim'));
+              const help=q('v30-mode-help');
+              if(help)help.textContent=mode==='move'
+                ?'Drag the horizontal X/Z handles on the selected projector. Gantry lens height stays locked.'
+                :'Use the rotation rings around the selected projector to yaw, pitch and roll it freely.';
+            }
+
+            function install(){
+              const shell=q('projection-v25-controls');
+              if(!shell||q('projection-v30-control-surface'))return;
+              shell.classList.add('v30-replaced');
+
+              const surface=document.createElement('div');
+              surface.id='projection-v30-control-surface';
+              surface.innerHTML=[
+                '<div class="v30-head"><div><span class="led-step">PROJECTOR TUNING</span><h3><span id="v30-selected-label">P1</span> · Position, aim &amp; throw</h3></div><span class="led-model-badge">Live optical fit</span></div>',
+                '<div class="v30-section"><strong>Select projector</strong><div class="v30-projector-selector" id="v30-projector-selector" role="group" aria-label="Select projector"></div></div>',
+                '<div class="v30-section"><strong>Move &amp; aim</strong><div class="v30-mode-buttons"><button type="button" class="led-button led-outline" id="v30-move" aria-pressed="false">Move on gantry</button><button type="button" class="led-button led-outline" id="v30-aim" aria-pressed="false">Tilt / rotate globe</button></div><p class="v30-mode-help" id="v30-mode-help">Choose a mode, then manipulate the selected projector directly in the 3D viewer.</p><button type="button" class="led-button led-outline" id="v30-undo" style="margin-top:8px">Undo last move</button></div>',
+                '<div class="v30-section"><div class="v30-throw-head"><div><strong>Throw ratio</strong><div class="v30-throw-class" id="v30-throw-class">Short throw</div></div><strong id="v30-throw-value">0.720</strong></div><input id="v30-throw" type="range" min="0.30" max="2.10" step="0.005" value="0.720" aria-label="Throw ratio for selected projector"><div class="v30-throw-scale"><span>0.30 · UST</span><span>0.45</span><span>1.00</span><span>2.10 · zoom</span></div><label class="v30-check"><input id="v30-throw-all" type="checkbox"> Apply this throw ratio to all projectors</label><p class="v30-mode-help">Lower ratio widens the projected image from the same mounting position. The selected beam should visibly grow or shrink as you move this control.</p></div>',
+                '<div class="v30-section"><strong>Live fit</strong><div class="v30-fit-grid"><div><span>Light reaches</span><strong id="v30-coverage">—</strong></div><div><span>Fully blocked</span><strong id="v30-shadow">—</strong></div><div><span>Overlap</span><strong id="v30-overlap">—</strong></div></div></div>'
+              ].join('');
+              shell.appendChild(surface);
+
+              q('v30-move').addEventListener('click',()=>setMode('move'));
+              q('v30-aim').addEventListener('click',()=>setMode('aim'));
+              q('v30-undo').addEventListener('click',()=>q('projection-undo')?.click());
+
+              q('v30-throw-all').addEventListener('change',e=>{
+                const original=q('projection-throw-all');
+                if(original)original.checked=e.target.checked;
+              });
+
+              q('v30-throw').addEventListener('input',e=>{
+                const ratio=Number(e.target.value);
+                q('v30-throw-value').textContent=ratio.toFixed(3);
+                q('v30-throw-class').textContent=classifyThrow(ratio);
+                const originalAll=q('projection-throw-all');
+                if(originalAll)originalAll.checked=!!q('v30-throw-all').checked;
+                cancelAnimationFrame(throwFrame);
+                throwFrame=requestAnimationFrame(()=>{
+                  const original=q('projection-throw');
+                  if(!original)return;
+                  original.value=String(ratio);
+                  original.dispatchEvent(new Event('input',{bubbles:true}));
+                  setTimeout(syncMetrics,50);
+                });
+              });
+
+              const originalAll=q('projection-throw-all');
+              if(originalAll)originalAll.checked=false;
+              q('v30-throw-all').checked=false;
+
+              const frusta=q('projection-frusta');
+              if(frusta&&!frusta.checked){
+                frusta.checked=true;
+                frusta.dispatchEvent(new Event('change',{bubbles:true}));
+              }
+
+              const tabs=q('projection-channel-tabs');
+              if(tabs){
+                selectorObserver=new MutationObserver(()=>setTimeout(syncAll,0));
+                selectorObserver.observe(tabs,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-pressed','aria-selected']});
+              }
+              for(const id of ['projection-coverage-metric','projection-shadow-metric','projection-overlap-metric']){
+                const node=q(id);
+                if(node)new MutationObserver(syncMetrics).observe(node,{subtree:true,childList:true,characterData:true});
+              }
+              syncAll();
+            }
+
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,0));
+            else setTimeout(install,0);
+          })();
+          </script>"""
+          s=s.replace('</body>',js+'\n</body>',1)
+          p.write_text(s)
+
+          checks=[
+              'projection-v30-direct-controls',
+              'projection-v30-direct-controls-js',
+              'id="v30-projector-selector"',
+              'Move on gantry',
+              'Tilt / rotate globe',
+              'id="v30-throw"',
+              'projection-v29-stable-viewer-owner',
+              'projection-v29-navigation-fix',
+              'projection-fixed-estimate-v24',
+              '"screenSystemPerM2Eur":500'
+          ]
+          missing=[x for x in checks if x not in s]
+          if missing:raise SystemExit('V30 inheritance/control check failed '+repr(missing))
+          print('V30 direct projector controls built on published V29')
+          PY
+
+      - name: Playwright interaction and throw-beam acceptance test
+        run: |
+          python3 -m pip install --quiet playwright pillow
+          python3 -m http.server 8765 >/tmp/server.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 - <<'PY'
+          import io, shutil
+          from PIL import Image, ImageChops
+          from playwright.sync_api import sync_playwright
+
+          chrome=shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
+          if not chrome:raise SystemExit('Chrome not found')
+
+          with sync_playwright() as pw:
+              browser=pw.chromium.launch(headless=True,executable_path=chrome,args=['--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader'])
+              page=browser.new_page(viewport={'width':1600,'height':1000})
+              page.goto('http://127.0.0.1:8765/projection-screen-configurator-v30.html',wait_until='domcontentloaded',timeout=15000)
+
+              for _ in range(100):
+                  if page.locator('html').get_attribute('data-standalone-ready')=='true':break
+                  page.wait_for_timeout(200)
+              else:raise AssertionError('App not ready')
+
+              page.locator('[data-guided-go="2"]').click(timeout=5000)
+              for _ in range(50):
+                  cur=page.locator('[data-guided-go][aria-current="step"]')
+                  if cur.count() and cur.get_attribute('data-guided-go')=='2':break
+                  page.wait_for_timeout(100)
+              else:raise AssertionError('Step 2 failed')
+
+              page.locator('[data-guided-go="3"]').click(timeout=5000)
+              for _ in range(80):
+                  cur=page.locator('[data-guided-go][aria-current="step"]')
+                  panel=page.locator('#projection-v30-control-surface')
+                  if cur.count() and cur.get_attribute('data-guided-go')=='3' and panel.count() and panel.is_visible():break
+                  page.wait_for_timeout(100)
+              else:raise AssertionError('Step 3 controls failed to appear')
+
+              visible_ranges=page.locator('#projection-v25-controls input[type="range"]:visible').count()
+              print('VISIBLE_RANGES',visible_ranges)
+              assert visible_ranges==1, visible_ranges
+
+              buttons=page.locator('#v30-projector-selector button')
+              print('SELECTOR_BUTTONS',buttons.count())
+              assert buttons.count()>=3
+              buttons.nth(1).click()
+              page.wait_for_timeout(250)
+              assert buttons.nth(1).get_attribute('aria-pressed')=='true'
+              print('P2_SELECTED')
+
+              page.locator('#v30-move').click()
+              page.wait_for_timeout(150)
+              assert page.locator('#v30-move').get_attribute('aria-pressed')=='true'
+              assert page.locator('#projection-manual-viewer').is_checked()
+              print('GANTRY_MOVE_MODE_ACTIVE')
+
+              page.locator('#v30-aim').click()
+              page.wait_for_timeout(150)
+              assert page.locator('#v30-aim').get_attribute('aria-pressed')=='true'
+              assert page.locator('#projection-manual-viewer').is_checked()
+              print('ROTATION_GLOBE_MODE_ACTIVE')
+
+              buttons.nth(0).click()
+              page.wait_for_timeout(250)
+
+              canvas=page.locator('#led-canvas')
+              page.locator('#v30-throw').evaluate("el=>{el.value='1.60';el.dispatchEvent(new Event('input',{bubbles:true}));}")
+              page.wait_for_timeout(1000)
+              before=Image.open(io.BytesIO(canvas.screenshot())).convert('RGB')
+
+              page.locator('#v30-throw').evaluate("el=>{el.value='0.40';el.dispatchEvent(new Event('input',{bubbles:true}));}")
+              page.wait_for_timeout(1200)
+              after=Image.open(io.BytesIO(canvas.screenshot())).convert('RGB')
+
+              original_throw=page.locator('#projection-throw').input_value()
+              shown_throw=page.locator('#v30-throw-value').text_content()
+              print('THROW_VALUES',original_throw,shown_throw)
+              assert abs(float(original_throw)-0.40)<0.01
+              assert shown_throw.startswith('0.400')
+
+              diff=ImageChops.difference(before,after)
+              bbox=diff.getbbox()
+              changed=0
+              if bbox:
+                  hist=diff.histogram()
+                  changed=sum(v for i,v in enumerate(hist) if i%256>8)
+              total=before.width*before.height*3
+              ratio=changed/total
+              print('BEAM_SCREENSHOT_CHANGE_RATIO',ratio)
+              assert bbox is not None and ratio>0.003, ratio
+
+              page.screenshot(path='/tmp/v30-projector-controls.png',full_page=False)
+              browser.close()
+
+          print('V30 PROJECTOR CONTROL ACCEPTANCE PASS')
+          PY
+          kill $P || true
+          test -s /tmp/v30-projector-controls.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v30-projector-controls-proof
+          path: /tmp/v30-projector-controls.png
+          retention-days: 1
+
+      - name: Publish V30
+        run: |
+          cp .projection-v23-deploy/publish_v23.py /tmp/publish_v30.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/publish_v30.py')
+          s=p.read_text()
+          s=s.replace('projection-screen-configurator-v23.html','projection-screen-configurator-v30.html')
+          s=s.replace('projection-screen-configurator-v22.html','projection-screen-configurator-v30-old.html')
+          s=s.replace('Published immutable V23 and removed public V22','Published immutable V30')
+          p.write_text(s)
+          PY
+          python3 /tmp/publish_v30.py

@@ -201,6 +201,23 @@ body_token='<body class="led-page">'
 if body_token not in html: raise SystemExit("V47 body token missing for DOM normalizer")
 html=html.replace(body_token,body_token+normalizer,1)
 
+# Remove any parser-created text nodes immediately before the website header.
+# A final body script is used because nodes following the early normalizer do not
+# exist yet while that parser-blocking script is executing.
+post_parse_cleanup=r'''<script id="projection-v47-preheader-cleanup">(function(){
+  const header=document.querySelector('.global-header');
+  if(!header)return;
+  let node=header.previousSibling;
+  while(node&&node.nodeType===3){
+    const previous=node.previousSibling;
+    node.remove();
+    node=previous;
+  }
+})();</script>'''
+body_close=html.rfind("</body>")
+if body_close<0: raise SystemExit("V47 body close missing for preheader cleanup")
+html=html[:body_close]+post_parse_cleanup+"\n"+html[body_close:]
+
 # Existing critical scripts must remain syntactically valid.
 for sid,out in [
     ("projection-v37-proposal-js","/tmp/v47-proposal.js"),

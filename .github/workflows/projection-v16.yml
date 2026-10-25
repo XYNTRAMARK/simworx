@@ -1,0 +1,36 @@
+name: Publish projection configurator V16
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/projection-v16.yml'
+      - '.projection-v16-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v16
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated V16
+        run: python3 .projection-v16-deploy/build_v16.py
+      - name: Check JavaScript syntax
+        run: |
+          for file in projection/src/*.js; do node --check "$file"; done
+      - name: Verify brand-neutral workflow
+        run: |
+          grep -q 'Projector specification required' projection/main.html
+          grep -q 'projection-mounting-style' projection/main.html
+          grep -q 'projector-truss-beam' projection/src/projection-layer.js
+          grep -q 'generic-ceiling-projector-drop' projection/src/projection-layer.js
+      - name: Publish immutable V16
+        run: python3 .projection-v16-deploy/publish_v16.py

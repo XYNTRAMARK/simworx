@@ -1,0 +1,109 @@
+name: Publish Visual Systems V42 navigation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/visual-systems-v42-live.yml'
+      - 'assets/js/global-header.js'
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate dropdown targets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('assets/js/global-header.js').read_text()
+          required=[
+            "title: 'LED screens'",
+            "href: '/led-screen-configurator.html'",
+            "title: 'Projector Configurator'",
+            "href: '/projection-screen-configurator-v42.html'",
+          ]
+          missing=[x for x in required if x not in s]
+          if missing: raise SystemExit('Missing live visual navigation entries: '+repr(missing))
+          if "title: 'Other visual solutions'" in s:
+              raise SystemExit('Legacy generic visual-solutions dropdown entry still present')
+          print('Visual dropdown validation PASS')
+          PY
+      - name: Publish shared header with archive copy
+        run: |
+          python3 - <<'PY'
+          import ftplib,os,ssl,hashlib,io,posixpath
+          from urllib.parse import urlsplit
+          from urllib.request import Request,urlopen
+          from pathlib import Path
+
+          ROOT='/htdocs'; BASE='https://www.sim-worx.com'
+          target='/htdocs/assets/js/global-header.js'
+          archive_dir='/htdocs/archive'
+          archive_page='/htdocs/archive/visual-systems-20261025.html'
+          data=Path('assets/js/global-header.js').read_bytes()
+
+          def sha(b): return hashlib.sha256(b).hexdigest()
+          class F(ftplib.FTP_TLS):
+              prefer_epsv=False
+              def makepasv(self):
+                  if self.prefer_epsv:
+                      try:return ftplib.parse229(self.sendcmd('EPSV'),self.sock.getpeername())
+                      except ftplib.error_perm:pass
+                  return super().makepasv()
+              def ntransfercmd(self,c,rest=None):
+                  try:return super().ntransfercmd(c,rest)
+                  except ftplib.error_temp as e:
+                      if str(e).startswith('425') and not self.prefer_epsv:
+                          self.prefer_epsv=True; return super().ntransfercmd(c,rest)
+                      raise
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=F(context=ssl.create_default_context(),timeout=45);f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+
+          def read(path):
+              chunks=[];f.retrbinary('RETR '+path,chunks.append);return b''.join(chunks)
+          def exists(path):
+              folder,name=posixpath.split(path)
+              try:return name in {n for n,_ in f.mlsd(folder)}
+              except Exception:return False
+
+          old_header=read(target)
+          visual=read('/htdocs/visual-systems.html')
+
+          # Preserve the old generic Visual Systems page as an archive copy.
+          if not exists(archive_dir):
+              try:f.mkd(archive_dir)
+              except ftplib.error_perm as e:
+                  if not str(e).startswith('550'):raise
+          if not exists(archive_page):
+              f.storbinary('STOR '+archive_page,io.BytesIO(visual))
+              if sha(read(archive_page))!=sha(visual):raise RuntimeError('Visual Systems archive checksum failed')
+
+          # Atomic-ish staged replacement of only the shared header script.
+          staged='/htdocs/assets/js/.global-header-v42-upload.js'
+          f.storbinary('STOR '+staged,io.BytesIO(data))
+          if sha(read(staged))!=sha(data):raise RuntimeError('Staged header checksum failed')
+          try:f.rename(staged,target)
+          except Exception:
+              try:
+                  if exists(staged):f.delete(staged)
+              finally:raise
+          if sha(read(target))!=sha(data):raise RuntimeError('Published header checksum failed')
+          f.quit()
+
+          req=Request(BASE+'/assets/js/global-header.js?visual-v42=1',headers={'Cache-Control':'no-cache','User-Agent':'Simworx-visual-nav-verifier'})
+          with urlopen(req,timeout=45) as r: live=r.read()
+          if sha(live)!=sha(data):raise RuntimeError('Public shared header differs from published file')
+
+          for path in ['/led-screen-configurator.html','/projection-screen-configurator-v42.html','/visual-systems.html']:
+              req=Request(BASE+path,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-visual-nav-verifier'})
+              with urlopen(req,timeout=45) as r:
+                  if r.status!=200:raise RuntimeError(path+' did not return HTTP 200')
+          print('Published Visual Systems dropdown: LED + Projector Configurator V42')
+          print('Archived existing generic overview at /archive/visual-systems-20261025.html')
+          PY

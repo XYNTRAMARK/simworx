@@ -1,0 +1,52 @@
+name: Release projection configurator V42
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v42-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v42-release
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V42
+        run: python3 .projection-v42-deploy/build_v42.py
+      - name: Validate endpoint
+        run: php -l .projection-v42-deploy/projection-quote-submit.php
+      - name: Validate generated proposal delivery UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('projection-screen-configurator-v42.html')
+          s=p.read_text()
+          required=[
+            'Save proposal as PDF',
+            'Send proposal',
+            'projection-quote-submit.php',
+            'projection-v42-turnstile-js',
+            'cf-turnstile-response',
+            'System specification',
+            'Commercial proposal',
+            'Preparing the complete proposal',
+            'Proposal sent successfully to ',
+          ]
+          missing=[x for x in required if x not in s]
+          if missing: raise SystemExit('Missing V42 delivery features: '+repr(missing))
+          if 'id="v37-download-proposal"' not in s: raise SystemExit('Inherited download action missing from DOM safety contract')
+          if '#v37-download-proposal{display:none!important}' not in s: raise SystemExit('Redundant download action is not hidden')
+          if "window.location.href='mailto:'" in s[s.find('function emailProposal'):s.find('function requestFormalQuote')]:
+              raise SystemExit('Email proposal still contains mailto flow')
+          print('V42 static delivery acceptance PASS')
+          PY
+      - name: Publish and verify live capabilities
+        run: python3 .projection-v42-deploy/publish_v42.py

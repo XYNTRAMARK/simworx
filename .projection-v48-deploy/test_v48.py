@@ -64,14 +64,22 @@ with sync_playwright() as pw:
     # PDF path: populate the real print document and call normal window.print.
     page.locator("#v37-print-proposal").click()
     page.wait_for_timeout(250)
-    print_text=page.locator("#projection-print-document").inner_text()
-    assert "Simworx Projection System Proposal" in print_text
+    print_text=page.locator("#projection-print-document").text_content() or ""
+    print_status=page.locator("#v37-proposal-status").text_content() or ""
+    print("PRINT_STATUS",print_status)
+    print("PRINT_TEXT_START",print_text[:1200])
+    assert "Simworx Projection System Proposal" in print_text, (print_status,print_text[:500])
     assert "System specification" in print_text
     assert "Projector requirement" in print_text
     assert "Commercial proposal" in print_text
     assert page.evaluate("window.__printCalled===true")
     assert page.locator("#v42-print-frame").count()==0
-    print("PDF_DELIVERY_PASS",len(print_text))
+    page.emulate_media(media="print")
+    print_box=page.locator("#projection-print-document").bounding_box()
+    assert print_box and print_box["width"]>500 and print_box["height"]>300, print_box
+    assert page.locator("#projection-print-document").is_visible()
+    page.emulate_media(media="screen")
+    print("PDF_DELIVERY_PASS",len(print_text),print_box)
 
     # Email path: exact LED protection controller must have populated the form.
     page.locator("#v37-email-proposal").click()

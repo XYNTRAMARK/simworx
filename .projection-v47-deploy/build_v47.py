@@ -145,6 +145,7 @@ checks=[
     'right:auto!important',
     'top:calc(var(--sw-header-h) + var(--v40-estimate-h))!important',
     'projection-v42-proposal-delivery',
+    'projection-v47-dom-normalizer',
 ]
 missing=[x for x in checks if x not in html]
 if missing: raise SystemExit("V47 shell checks failed "+repr(missing))
@@ -177,6 +178,27 @@ html=html[:head_close]+preamble+"\n"+html[head_close:]
 # in this gap is the standalone preview strip.
 html,n_preview=re.subn(r'(</header>)[\s\S]*?(?=<main\b)',r'\1\n',html,count=1,flags=re.I)
 if n_preview!=1: raise SystemExit("V47 could not normalise header-to-main structure")
+
+# Chromium repairs some inherited metadata markup by placing style/link nodes
+# before the explicit body header. Normalize those nodes during parsing so the
+# first rendered body element is the website header, exactly as on LED.
+normalizer=r'''<script id="projection-v47-dom-normalizer">(function(){
+  const self=document.currentScript;
+  let node=self.previousSibling;
+  while(node){
+    const previous=node.previousSibling;
+    if(node.nodeType===3){
+      if(!node.textContent.trim())node.remove();
+    }else if(node.nodeType===1 && (node.tagName==='STYLE'||node.tagName==='LINK')){
+      document.head.appendChild(node);
+    }
+    node=previous;
+  }
+  self.remove();
+})();</script>'''
+body_token='<body class="led-page">'
+if body_token not in html: raise SystemExit("V47 body token missing for DOM normalizer")
+html=html.replace(body_token,body_token+normalizer,1)
 
 # Existing critical scripts must remain syntactically valid.
 for sid,out in [

@@ -16,7 +16,7 @@ jobs:
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect LED server mail transport safely
+      - name: Inspect LED handler integration safely
         run: |
           python3 - <<'PY'
           import ftplib,os,ssl,re
@@ -36,25 +36,24 @@ jobs:
                       raise
           raw=os.environ["FTP_HOST"].strip();p=urlsplit(raw if "://" in raw else "ftp://"+raw)
           f=F(context=ssl.create_default_context(),timeout=45);f.connect(p.hostname,p.port or 21);f.login(os.environ["FTP_USERNAME"],os.environ["FTP_PASSWORD"]);f.prot_p()
-          chunks=[];f.retrbinary("RETR /htdocs/led-quote-submit.php",chunks.append);f.quit()
-          text=b"".join(chunks).decode("utf-8","replace")
-          print("BYTES",len(text))
-          pats=[
-            r'\b(?:include|include_once|require|require_once)\s*\(?\s*[^;]+',
-            r'\bmail\s*\(',
-            r'PHPMailer',
-            r'\bSMTP\b',
-            r'\bwp_mail\b',
-            r'function\s+[A-Za-z0-9_]+\s*\(',
-            r'quote_action',
-            r'led_configuration',
-            r'json_encode\s*\(',
-          ]
-          for pat in pats:
-              print("\nPATTERN",pat)
-              for m in list(re.finditer(pat,text,re.I))[:60]:
-                  a=max(0,m.start()-220);b=min(len(text),m.end()+420)
-                  frag=text[a:b].replace("\n"," ")
+          def read(path):
+              c=[];f.retrbinary("RETR "+path,c.append);return b"".join(c).decode("utf-8","replace")
+          led=read("/htdocs/led-quote-submit.php")
+          anti=read("/htdocs/forms/anti-spam.php")
+          f.quit()
+          for name,text,needle in [
+              ("LED",led,"function simworxLedQuoteActionHandler"),
+              ("LED",led,"$send="),
+              ("LED",led,"function_exists('mail')"),
+              ("ANTI",anti,"function "),
+          ]:
+              i=text.find(needle)
+              print("\n###",name,needle,"AT",i)
+              if i>=0:
+                  frag=text[max(0,i-2500):min(len(text),i+14000)]
                   frag=re.sub(r'(?i)(password|passwd|secret|token|api[_-]?key)\s*([=:>]+)\s*[^,;\s]+',r'\\1\\2[REDACTED]',frag)
                   print(frag)
+          print("\nANTI_FUNCTIONS")
+          for m in re.finditer(r'function\s+([A-Za-z0-9_]+)\s*\(([^)]*)\)',anti):
+              print(m.group(1),m.group(2)[:400])
           PY

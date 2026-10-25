@@ -61,7 +61,7 @@ jobs:
             /tmp/simworx-reports-deploy/live-htdocs.tar.gz.enc.sha256
           if-no-files-found: error
           retention-days: 30
-      - name: Upload only reports and verify every existing live file unchanged
+      - name: Upload only reports and verify homepage and existing-file inventory
         env:
           REPORTS_BACKUP_RETAINED: 'true'
           RETAINED_BACKUP_ARTIFACT_ID: ${{ steps.retained_backup.outputs.artifact-id }}

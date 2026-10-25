@@ -19,10 +19,10 @@ The backend uses the existing Simworx Supabase project `euttubfvsrgkeiescsdm`. A
 ## HTML application
 
 1. Use `.github/workflows/deploy-intelligence-reports.yml`, which reads the existing FTP secrets through GitHub Actions. It records the live homepage checksum and confirms the live `/reports/` folder does not already contain another application.
-2. Download and verify a complete backup of `/htdocs/`; preserve a manifest and archive before writing anything.
+2. Download and verify a complete backup of `/htdocs/`; preserve a manifest and archive before writing anything. The backup refreshes changed files through bounded passes until the inventory is stable, and verifies every archived file against its downloaded checksum.
 3. Upload the files inside `reports/` to the new `/htdocs/reports/` directory, without modifying any pre-existing remote file. For later updates, explicitly scope the upload to reports files and preserve the prior reports version.
 4. Check `https://www.sim-worx.com/reports/` and enter PIN `260873`. Verify all navigation, mobile layout, dates, CSV exports and Logout.
-5. Verify the homepage checksum and existing public file manifest are unchanged.
+5. Verify the homepage checksum and every existing public file's inventory metadata are unchanged. Upload paths remain restricted to the new reports directory.
 
 Do not add a public navigation link, sitemap entry or internal search result. The application includes robots meta tags and Apache `X-Robots-Tag` settings. Its own `robots.txt` applies when hosted as a standalone preview; on a subdirectory, search engines use the domain-root robots file, so the HTML and response tags provide the reports-page indexing instruction without editing the existing root file.
 

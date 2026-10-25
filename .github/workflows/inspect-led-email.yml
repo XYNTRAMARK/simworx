@@ -1,0 +1,53 @@
+name: Inspect live LED email implementation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-led-email.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect live LED email code
+        run: |
+          python3 - <<'PY'
+          import re, urllib.request, urllib.parse
+          base='https://www.sim-worx.com/'
+          start=urllib.parse.urljoin(base,'led-screen-configurator.html')
+          def get(url):
+              req=urllib.request.Request(url,headers={'User-Agent':'Simworx-email-inspector','Cache-Control':'no-cache'})
+              with urllib.request.urlopen(req,timeout=30) as r:
+                  return r.read().decode('utf-8','replace')
+          html=get(start)
+          sources=[('PAGE',start,html)]
+          for src in re.findall(r'<script[^>]+src=["\']([^"\']+)["\']',html,re.I):
+              try:
+                  url=urllib.parse.urljoin(start,src)
+                  sources.append(('SCRIPT',url,get(url)))
+              except Exception as e:
+                  print('SCRIPT_FETCH_FAILED',src,repr(e))
+          keys=('fetch(','email','mail','send','proposal','.php','resend','smtp','api/')
+          for typ,url,text in sources:
+              hits=[]
+              lower=text.lower()
+              for key in keys:
+                  pos=0
+                  while True:
+                      i=lower.find(key.lower(),pos)
+                      if i<0: break
+                      hits.append((i,key))
+                      pos=i+len(key)
+              if not hits: continue
+              print('\n===',typ,url,'===')
+              shown=[]
+              for i,key in sorted(hits)[:120]:
+                  a=max(0,i-500); b=min(len(text),i+1200)
+                  frag=text[a:b].replace('\n',' ')
+                  if frag in shown: continue
+                  shown.append(frag)
+                  print('\n--- HIT',key,'AT',i,'---\n',frag)
+          PY

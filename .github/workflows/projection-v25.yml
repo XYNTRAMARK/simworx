@@ -1,0 +1,176 @@
+name: Publish projection configurator V25
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v25.yml'
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rebuild finished V24
+        run: |
+          curl -sL https://api.github.com/repos/XYNTRAMARK/simworx/git/blobs/306c174db88c2622c3c2cfb8ce0992d1b707da94 | jq -r .content | tr -d '\n' | base64 -d > /tmp/build_v24.py
+          python3 /tmp/build_v24.py
+
+      - name: Add visible Step 3 projector controls
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('projection-screen-configurator-v24.html')
+          s=p.read_text()
+
+          anchor='<details id="guided-manual" class="projection-placement guided-manual" open>'
+          if anchor not in s:
+              raise SystemExit('V25 could not find V24 manual projector section')
+
+          panel='''<section id="projection-v25-controls" class="projection-v25-controls">
+          <div class="led-panel-head"><div><span class="led-step">PROJECTOR CONTROLS</span><h3>Position, swivel &amp; throw</h3></div><span class="led-model-badge">Live optical fit</span></div>
+          <p class="led-help">Select a projector, position it, swivel/tilt it and adjust throw. The beam and visible coverage update using the existing V24 optics engine.</p>
+          <div id="projection-v25-tabs" class="projection-projector-tabs"></div>
+          <div class="projection-v25-grid">
+            <label>Left / right <span data-position-unit>m</span><input id="v25-x" type="range" min="-10" max="10" step="0.05"></label>
+            <label>Up / down <span data-position-unit>m</span><input id="v25-y" type="range" min="0" max="10" step="0.05"></label>
+            <label>Forward / back <span data-position-unit>m</span><input id="v25-z" type="range" min="-10" max="10" step="0.05"></label>
+            <label>Yaw / swivel °<input id="v25-yaw" type="range" min="-180" max="180" step="1"></label>
+            <label>Pitch / tilt °<input id="v25-pitch" type="range" min="-60" max="60" step="1"></label>
+            <label>Roll °<input id="v25-roll" type="range" min="-45" max="45" step="1"></label>
+          </div>
+          <div class="projection-v25-throw">
+            <div class="led-control-head"><label for="v25-throw">Throw ratio</label><output id="v25-throw-value">0.720</output></div>
+            <input id="v25-throw" type="range" min="0.30" max="2.10" step="0.005">
+            <div class="projection-v25-scale"><span>0.30 · UST</span><span>0.45 · ST starts</span><span>1.00</span><span>2.10 · standard/zoom</span></div>
+            <label class="projection-check"><input id="v25-throw-all" type="checkbox" checked> Apply throw to all projectors</label>
+          </div>
+          <div class="projection-inline-actions">
+            <button type="button" class="led-button led-outline" id="v25-move">Move in 3D</button>
+            <button type="button" class="led-button led-outline" id="v25-aim">Aim / rotate in 3D</button>
+            <button type="button" class="led-button led-outline" id="v25-undo">Undo move</button>
+          </div>
+          <p class="led-help">If the required throw becomes unrealistic, move the projector, cockpit or screen before quoting the installation.</p>
+          </section>'''
+
+          s=s.replace(anchor,panel+'\n'+anchor,1)
+
+          css='''<style id="projection-v25-controls-css">
+          .projection-v25-controls{margin:18px 0;padding:18px;border:1px solid #d9e0e7;border-left:4px solid #e11d2e;border-radius:8px;background:#fff}
+          .projection-v25-controls h3{margin:2px 0 0}
+          .projection-v25-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+          .projection-v25-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;border:1px solid #e1e6ea;border-radius:6px;padding:10px}
+          .projection-v25-grid input[type=range],.projection-v25-throw input[type=range]{width:100%}
+          .projection-v25-throw{padding:12px;border:1px solid #e1e6ea;border-radius:6px;margin:12px 0}
+          .projection-v25-scale{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#64748b;margin-top:4px}
+          @media(max-width:720px){.projection-v25-grid{grid-template-columns:1fr}.projection-v25-scale span:nth-child(2),.projection-v25-scale span:nth-child(3){display:none}}
+          </style>'''
+          s=s.replace('</head>',css+'\n</head>',1)
+
+          js='''<script id="projection-v25-controls-js">
+          (function(){
+            const q=id=>document.getElementById(id);
+            const map={v25-x:'projection-x',v25-y:'projection-y',v25-z:'projection-z',v25-yaw:'projection-yaw',v25-pitch:'projection-pitch',v25-roll:'projection-roll'};
+            function trigger(target,type){target.dispatchEvent(new Event(type,{bubbles:true}));}
+            function sync(){
+              for(const [proxyId,targetId] of Object.entries(map)){
+                const proxy=q(proxyId),target=q(targetId);
+                if(proxy&&target&&document.activeElement!==proxy) proxy.value=target.value||0;
+              }
+              const tr=q('projection-throw'),v=q('v25-throw'),out=q('v25-throw-value');
+              if(tr&&v&&document.activeElement!==v) v.value=tr.value||0.72;
+              if(out&&v) out.textContent=Number(v.value||0.72).toFixed(3);
+              const oldAll=q('projection-throw-all'),newAll=q('v25-throw-all');
+              if(oldAll&&newAll) oldAll.checked=newAll.checked;
+              const src=q('projection-channel-tabs'),dst=q('projection-v25-tabs');
+              if(src&&dst){
+                dst.replaceChildren(...Array.from(src.querySelectorAll('button')).map(b=>{
+                  const n=document.createElement('button');
+                  n.type='button'; n.textContent=b.textContent;
+                  n.setAttribute('aria-pressed',b.getAttribute('aria-pressed')||'false');
+                  n.addEventListener('click',()=>{b.click();setTimeout(sync,0);});
+                  return n;
+                }));
+              }
+            }
+            for(const [proxyId,targetId] of Object.entries(map)){
+              q(proxyId)?.addEventListener('input',e=>{
+                const target=q(targetId); if(!target)return;
+                target.value=e.target.value; trigger(target,'change'); setTimeout(sync,0);
+              });
+            }
+            q('v25-throw')?.addEventListener('input',e=>{
+              const target=q('projection-throw'); if(!target)return;
+              const oldAll=q('projection-throw-all');
+              if(oldAll) oldAll.checked=!!q('v25-throw-all')?.checked;
+              target.value=e.target.value; trigger(target,'input');
+              q('v25-throw-value').textContent=Number(e.target.value).toFixed(3);
+              setTimeout(sync,0);
+            });
+            q('v25-throw-all')?.addEventListener('change',e=>{const oldAll=q('projection-throw-all');if(oldAll)oldAll.checked=e.target.checked;});
+            q('v25-move')?.addEventListener('click',()=>document.querySelector('[data-transform="translate"]')?.click());
+            q('v25-aim')?.addEventListener('click',()=>document.querySelector('[data-transform="rotate"]')?.click());
+            q('v25-undo')?.addEventListener('click',()=>q('projection-undo')?.click());
+            document.addEventListener('change',e=>{if(e.target?.closest?.('#guided-manual'))setTimeout(sync,0);});
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(sync,50));else setTimeout(sync,50);
+          })();
+          </script>'''
+          s=s.replace('</body>',js+'\n</body>',1)
+
+          Path('projection-screen-configurator-v25.html').write_text(s)
+
+          checks=[
+            'projection-v24-offset',
+            'Projector position, swivel &amp; throw',
+            'projection-v25-controls',
+            'id="v25-x"',
+            'id="v25-y"',
+            'id="v25-z"',
+            'id="v25-yaw"',
+            'id="v25-pitch"',
+            'id="v25-roll"',
+            'id="v25-throw"',
+            'id="v25-move"',
+            'id="v25-aim"',
+            'projection-hide-enclosure-options-v20',
+            '"screenSystemPerM2Eur":500'
+          ]
+          missing=[x for x in checks if x not in s]
+          if missing: raise SystemExit('V25 inheritance/control check failed '+repr(missing))
+          print('V25 visible projector controls added directly on top of V24')
+          PY
+
+      - name: Browser startup smoke test
+        run: |
+          python3 -m http.server 8765 >/tmp/server.log 2>&1 &
+          P=$!
+          sleep 2
+          C="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          set +e
+          timeout 45 "$C" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=12000 --dump-dom http://127.0.0.1:8765/projection-screen-configurator-v25.html >/tmp/v25-dom.html 2>/tmp/v25-console.log
+          set -e
+          kill $P || true
+          grep -E 'SyntaxError|TypeError|ReferenceError' /tmp/v25-console.log && exit 5 || true
+          grep -q 'data-standalone-ready="true"' /tmp/v25-dom.html
+          grep -q 'projection-v25-controls' /tmp/v25-dom.html
+          grep -q 'id="v25-throw"' /tmp/v25-dom.html
+
+      - name: Publish V25
+        run: |
+          cp .projection-v23-deploy/publish_v23.py /tmp/publish_v25.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/publish_v25.py')
+          s=p.read_text()
+          s=s.replace('projection-screen-configurator-v23.html','projection-screen-configurator-v25.html')
+          s=s.replace('projection-screen-configurator-v22.html','projection-screen-configurator-v25-old.html')
+          s=s.replace('Published immutable V23 and removed public V22','Published immutable V25')
+          p.write_text(s)
+          PY
+          python3 /tmp/publish_v25.py

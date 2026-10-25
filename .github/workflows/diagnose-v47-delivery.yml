@@ -1,0 +1,77 @@
+name: Diagnose V47 proposal delivery
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-v47-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Inspect live PDF and email paths
+        run: |
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          import json
+          pages={
+            'PROJECTOR':'https://www.sim-worx.com/projection-screen-configurator-v47.html',
+            'LED':'https://www.sim-worx.com/led-screen-configurator.html',
+          }
+          with sync_playwright() as pw:
+            b=pw.chromium.launch(headless=True)
+            for name,url in pages.items():
+              p=b.new_page(viewport={'width':1440,'height':950})
+              console=[]
+              p.on('console',lambda msg: console.append(msg.type+': '+msg.text))
+              p.goto(url,wait_until='domcontentloaded',timeout=60000)
+              p.wait_for_timeout(2500)
+              print('\n###',name)
+              if name=='PROJECTOR':
+                p.locator('[data-guided-go="4"]').click()
+                p.wait_for_timeout(500)
+                print('PROPOSAL_SCRIPT',p.evaluate("window.__v37ProposalScriptRan"))
+                print('PROPOSAL_VISIBLE',p.locator('#v37-proposal').is_visible())
+                print('PRINT_BUTTON',p.locator('#v37-print-proposal').inner_text())
+                print('EMAIL_BUTTON',p.locator('#v37-email-proposal').inner_text())
+                # Capture canonical proposal HTML by instrumenting iframe srcdoc.
+                p.locator('#v37-print-proposal').click()
+                p.wait_for_timeout(500)
+                frame=p.locator('#v42-print-frame')
+                print('PRINT_FRAME_COUNT',frame.count())
+                if frame.count():
+                  print('PRINT_FRAME_STYLE',frame.get_attribute('style'))
+                  try:
+                    body=p.frame_locator('#v42-print-frame').locator('body')
+                    print('PRINT_FRAME_BODY_TEXT',body.inner_text(timeout=3000)[:1500])
+                    print('PRINT_FRAME_BODY_BOX',body.bounding_box())
+                  except Exception as e:
+                    print('PRINT_FRAME_ERROR',repr(e))
+                p.locator('#v37-email-proposal').click()
+                p.wait_for_timeout(2500)
+                print('EMAIL_DIALOG_VISIBLE',p.locator('#v37-email-dialog').is_visible())
+                print('TURNSTILE_HOLDER',p.locator('#v42-projection-turnstile').count())
+                print('TURNSTILE_STATE',p.evaluate("""() => ({
+                  hasApi:!!window.turnstile,
+                  token:window.__v42ProjectionTurnstileToken?.()||'',
+                  holderHtml:document.getElementById('v42-projection-turnstile')?.innerHTML||'',
+                  status:document.getElementById('v37-email-status')?.textContent||''
+                })"""))
+              else:
+                # Report any Turnstile/form integration markers on the known-good LED page.
+                print('LED_TURNSTILE',p.evaluate("""() => ({
+                  api:!!window.turnstile,
+                  turnstileEls:Array.from(document.querySelectorAll('[class*="turnstile"],[id*="turnstile"],[name="cf-turnstile-response"]')).map(el=>({tag:el.tagName,id:el.id,cls:el.className,name:el.getAttribute('name'),html:el.outerHTML.slice(0,500)})),
+                  forms:Array.from(document.forms).map(f=>({id:f.id,action:f.getAttribute('action'),method:f.method,html:f.outerHTML.slice(0,1000)}))
+                })"""))
+              print('CONSOLE',json.dumps(console[-20:],indent=2))
+              p.close()
+            b.close()
+          PY

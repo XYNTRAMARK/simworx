@@ -148,8 +148,34 @@ checks=[
 ]
 missing=[x for x in checks if x not in html]
 if missing: raise SystemExit("V47 shell checks failed "+repr(missing))
+if 'projection-preview-banner' in html: raise SystemExit("V47 preview banner still present")
+body_pos=html.lower().find('<body')
+header_pos=html.find('<header class="global-header">',body_pos)
+between=html[html.find('>',body_pos)+1:header_pos]
+if re.search(r'<(?:style|link)\\b',between,re.I): raise SystemExit("V47 presentation assets still precede header in body")
 if 'href="#" data-reference-link' in header:
     raise SystemExit("V47 inherited placeholder header instead of live header")
+
+# The inherited standalone file accumulated later-version style/link nodes at
+# the start of <body>. The live LED page keeps presentation assets in <head>,
+# with the visible body beginning at the website header. Restore that structure.
+body_header=re.search(r'(<body[^>]*>)([\s\S]*?)(<header\b[^>]*class=["\'][^"\']*global-header[^"\']*["\'][^>]*>)',html,re.I)
+if not body_header: raise SystemExit("V47 could not locate pre-header body assets")
+preamble=body_header.group(2)
+remainder=re.sub(r'<style\b[^>]*>[\s\S]*?</style>','',preamble,flags=re.I)
+remainder=re.sub(r'<link\b[^>]*>','',remainder,flags=re.I)
+if remainder.strip():
+    raise SystemExit("V47 found unexpected visible content before website header: "+repr(remainder.strip()[:160]))
+html=html[:body_header.start(2)]+html[body_header.end(2):]
+head_close=html.lower().find('</head>')
+body_start=html.lower().find('<body')
+if head_close<0 or body_start<0 or head_close>body_start:
+    raise SystemExit("V47 could not resolve the real document head")
+html=html[:head_close]+preamble+"\n"+html[head_close:]
+
+# Remove the remaining standalone preview strip after the website header.
+html,n_preview=re.subn(r'<div\s+class=["\']projection-preview-banner["\'][^>]*>[\s\S]*?</div>','',html,count=1,flags=re.I)
+if n_preview not in {0,1}: raise SystemExit("V47 preview strip removal was ambiguous")
 
 # Existing critical scripts must remain syntactically valid.
 for sid,out in [

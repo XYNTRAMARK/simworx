@@ -38,12 +38,18 @@ with sync_playwright() as pw:
     # PERFORMANCE: rapid throw inputs should be cheap because only the beam preview
     # updates immediately; engineering metrics settle after the debounce.
     slider=page.locator('#v30-throw')
-    start=time.perf_counter()
-    for value in ['0.42','0.48','0.55','0.63','0.72','0.82','0.94','1.05','0.88','0.70','0.58','0.50']:
-        slider.evaluate("(el,v)=>{el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));}",value)
-    dispatch_ms=(time.perf_counter()-start)*1000
-    print('RAPID_THROW_DISPATCH_MS',dispatch_ms)
-    assert dispatch_ms<800, dispatch_ms
+    dispatch_ms=page.evaluate("""() => {
+      const el=document.getElementById('v30-throw');
+      const values=['0.42','0.48','0.55','0.63','0.72','0.82','0.94','1.05','0.88','0.70','0.58','0.50'];
+      const start=performance.now();
+      for(const value of values){
+        el.value=value;
+        el.dispatchEvent(new Event('input',{bubbles:true}));
+      }
+      return performance.now()-start;
+    }""")
+    print('RAPID_THROW_BROWSER_MS',dispatch_ms)
+    assert dispatch_ms<250, dispatch_ms
     page.wait_for_timeout(650)
     assert abs(float(page.locator('#projection-throw').input_value())-0.50)<0.01
     coverage=page.locator('#projection-coverage-metric').text_content() or ''

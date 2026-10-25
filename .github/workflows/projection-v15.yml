@@ -1,0 +1,34 @@
+name: Publish projection configurator V15
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/projection-v15.yml'
+      - '.projection-v15-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v15
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated V15
+        run: python3 .projection-v15-deploy/build_v15.py
+      - name: Check JavaScript syntax
+        run: |
+          for file in projection/src/*.js; do node --check "$file"; done
+      - name: Verify persistent room handle logic
+        run: |
+          grep -q 'roomMoveMode = guidedStep<=2;' projection/src/projection-layer.js
+          grep -q 'transform.attach(roomGroup);' projection/src/projection-layer.js
+      - name: Publish immutable V15
+        run: python3 .projection-v15-deploy/publish_v15.py

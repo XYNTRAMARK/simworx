@@ -1,0 +1,63 @@
+name: Measure V47 Step3 layout
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/measure-v47-step3.yml'
+permissions:
+  contents: read
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Measure live Step 3
+        run: |
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          import json
+          url='https://www.sim-worx.com/projection-screen-configurator-v47.html'
+          with sync_playwright() as pw:
+            b=pw.chromium.launch(headless=True)
+            p=b.new_page(viewport={'width':1680,'height':1050})
+            p.goto(url,wait_until='domcontentloaded',timeout=60000)
+            p.wait_for_timeout(2500)
+            step=p.locator('[data-guided-go="3"]')
+            step.click()
+            p.wait_for_timeout(800)
+            sels={
+              'row':'#projection-v29-edit-row',
+              'left':'#v37-left-column',
+              'viewer':'#led-canvas-home',
+              'below':'#v37-left-below',
+              'coverage':'#v30-coverage',
+              'lookup':'#v31-projector-lookup',
+              'controls':'#projection-v25-controls',
+              'throw':'#projection-throw',
+            }
+            data={}
+            for name,sel in sels.items():
+              loc=p.locator(sel)
+              if not loc.count():
+                data[name]=None;continue
+              data[name]=loc.evaluate("""el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {
+                tag:el.tagName,id:el.id,cls:el.className,
+                x:r.x,y:r.y,w:r.width,h:r.height,
+                display:s.display,position:s.position,
+                gridTemplateColumns:s.gridTemplateColumns,
+                gridTemplateRows:s.gridTemplateRows,
+                gap:s.gap,padding:s.padding,margin:s.margin,
+                minWidth:s.minWidth,maxWidth:s.maxWidth,width:s.width
+              }}""")
+            data['rowChildren']=p.locator('#projection-v29-edit-row').evaluate("""el=>Array.from(el.children).map(c=>({tag:c.tagName,id:c.id,cls:c.className}))""")
+            data['leftChildren']=p.locator('#v37-left-column').evaluate("""el=>Array.from(el.children).map(c=>({tag:c.tagName,id:c.id,cls:c.className}))""")
+            data['belowChildren']=p.locator('#v37-left-below').evaluate("""el=>Array.from(el.children).map(c=>({tag:c.tagName,id:c.id,cls:c.className}))""")
+            print(json.dumps(data,indent=2))
+            p.screenshot(path='/tmp/v47-step3.png',full_page=False)
+            b.close()
+          PY

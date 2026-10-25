@@ -1,0 +1,28 @@
+name: Inspect V47 document boundary
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-v47-boundary.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and inspect raw head-body boundary
+        run: |
+          python3 .projection-v47-deploy/build_v47.py
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('projection-screen-configurator-v47.html').read_text()
+          low=s.lower()
+          keys=['<head','</head>','<body','projection-v37-space-optimisation','<header class="global-header"','<main class="led-shell"']
+          print({k:low.find(k.lower()) for k in keys})
+          bp=low.find('<body')
+          hp=low.find('<header class="global-header"',bp)
+          print('BEFORE_BODY',s[max(0,bp-1000):bp+300])
+          print('BODY_TO_HEADER',s[bp:hp+80])
+          PY

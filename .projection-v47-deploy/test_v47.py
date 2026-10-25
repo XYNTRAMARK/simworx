@@ -16,21 +16,29 @@ with sync_playwright() as pw:
 
     def metrics():
         return page.evaluate("""() => {
-          const q=s=>document.querySelector(s), r=e=>{const b=e.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,height:b.height,bottom:b.bottom}};
+          const q=s=>document.querySelector(s);
+          const r=e=>{if(!e)return null;const b=e.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,height:b.height,bottom:b.bottom}};
+          const css=e=>{if(!e)return null;const s=getComputedStyle(e);return {position:s.position,top:s.top,left:s.left,right:s.right,width:s.width,margin:s.margin,padding:s.padding,lineHeight:s.lineHeight,overflowX:s.overflowX,overflowY:s.overflowY,zIndex:s.zIndex}};
           const h=q('.global-header'),m=q('#projection-app'),p=q('.led-estimate-bar'),g=q('#v40-guided-header');
           return {header:r(h),main:r(m),price:r(p),guide:r(g),
-            hs:getComputedStyle(h), ps:getComputedStyle(p), ms:getComputedStyle(m)};
+            headerStyle:css(h),priceStyle:css(p),mainStyle:css(m),guideStyle:css(g),
+            guideParent:g?{tag:g.parentElement?.tagName,id:g.parentElement?.id,cls:g.parentElement?.className}:null};
         }""")
 
     top=metrics()
     print("TOP_METRICS",top)
-    print("BODY_HTML_START",page.locator("body").evaluate("(el)=>el.innerHTML.slice(0,2500)"))
-    print("DOC_STATE",page.evaluate("""() => ({
-      scrollY:window.scrollY,
-      html:{margin:getComputedStyle(document.documentElement).margin,padding:getComputedStyle(document.documentElement).padding,overflowX:getComputedStyle(document.documentElement).overflowX,overflowY:getComputedStyle(document.documentElement).overflowY},
-      body:{margin:getComputedStyle(document.body).margin,padding:getComputedStyle(document.body).padding,overflowX:getComputedStyle(document.body).overflowX,overflowY:getComputedStyle(document.body).overflowY},
-      children:Array.from(document.body.children).slice(0,30).map((el,i)=>{const r=el.getBoundingClientRect();const s=getComputedStyle(el);return {i,tag:el.tagName,id:el.id,cls:el.className,display:s.display,position:s.position,marginTop:s.marginTop,marginBottom:s.marginBottom,x:r.x,y:r.y,w:r.width,h:r.height}})
-    })"""))
+    print("DOM_DIAGNOSTIC",page.evaluate("""() => {
+      const textRect=n=>{try{const range=document.createRange();range.selectNodeContents(n);const r=range.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}}catch(_){return null}};
+      const node=n=>({type:n.nodeType,name:n.nodeName,text:n.nodeType===3?JSON.stringify(n.textContent):null,rect:n.nodeType===3?textRect(n):(n.getBoundingClientRect?(()=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})():null)});
+      const before=getComputedStyle(document.body,'::before'),after=getComputedStyle(document.body,'::after');
+      return {
+        body:{lineHeight:getComputedStyle(document.body).lineHeight,fontSize:getComputedStyle(document.body).fontSize,display:getComputedStyle(document.body).display},
+        bodyBefore:{content:before.content,display:before.display,height:before.height,margin:before.margin,padding:before.padding},
+        bodyAfter:{content:after.content,display:after.display,height:after.height},
+        childNodes:Array.from(document.body.childNodes).slice(0,12).map(node),
+        headerPrevious:{type:document.querySelector('.global-header')?.previousSibling?.nodeType,name:document.querySelector('.global-header')?.previousSibling?.nodeName,text:document.querySelector('.global-header')?.previousSibling?.textContent}
+      };
+    }"""))
     assert close(top["header"]["x"],0)
     assert close(top["header"]["y"],0)
     assert close(top["header"]["width"],1680)

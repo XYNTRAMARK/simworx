@@ -1,0 +1,1 @@
+V24 inherits V23 and changes only the configuration estimate bar from sticky to fixed viewport positioning.

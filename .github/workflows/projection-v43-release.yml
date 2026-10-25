@@ -1,0 +1,50 @@
+name: Release projection configurator V43 website shell
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v43-release.yml'
+      - '.projection-v43-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v43
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V43 from live V42 and live LED shell
+        run: python3 .projection-v43-deploy/build_v43.py
+      - name: Validate complete website shell
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('projection-screen-configurator-v43.html').read_text()
+          required=[
+            'class="global-header"',
+            'href="simulators.html"',
+            'href="mission-systems.html"',
+            'href="frames.html"',
+            'href="visual-systems.html"',
+            'href="contact.html"',
+            'id="sw-global-footer"',
+            'global-header.css',
+            'global-header.js',
+            'global-footer.js',
+            'projection-v43-site-shell',
+            'projection-v42-proposal-delivery',
+          ]
+          missing=[x for x in required if x not in s]
+          if missing:raise SystemExit('Missing V43 website shell features: '+repr(missing))
+          if 'href="#" data-reference-link' in s:raise SystemExit('Placeholder navigation links remain')
+          print('V43 website-shell validation PASS')
+          PY
+      - name: Publish V43 and switch live navigation
+        run: python3 .projection-v43-deploy/publish_v43.py

@@ -1,0 +1,28 @@
+name: Diagnose live Simworx mail path
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-live-mail-path.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect live form actions and mail endpoints
+        run: |
+          python3 - <<'PY'
+          import urllib.request,re
+          def get(url):
+              req=urllib.request.Request(url,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-live-mail-diagnostic'})
+              with urllib.request.urlopen(req,timeout=45) as r:return r.read().decode('utf-8','replace')
+          for url in ['https://www.sim-worx.com/contact.html','https://www.sim-worx.com/led-screen-configurator.html','https://www.sim-worx.com/projection-screen-configurator.html']:
+              s=get(url)
+              print('\nURL',url)
+              print('FORMS',re.findall(r'<form[^>]*>',s,re.I)[:20])
+              print('FETCH_TARGETS',sorted(set(re.findall(r'fetch\([\'\"]([^\'\"]+)',s)))[:50])
+              print('PHP_REFS',sorted(set(re.findall(r'[A-Za-z0-9_./-]+\.php',s)))[:100])
+          PY

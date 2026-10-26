@@ -1,0 +1,34 @@
+name: Inspect LED handler action boundary
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-led-handler-boundary.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read LED handler boundary only
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os,re
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          out=[];f.retrbinary('RETR /htdocs/led-quote-submit.php',out.append);s=b''.join(out).decode('utf-8','replace');f.quit()
+          start=s.find('function simworxLedQuoteActionHandler(')
+          end=s.find('// Standalone route',start)
+          if end<0:end=min(len(s),start+20000)
+          frag=s[start:end]
+          frag=re.sub(r'(?i)(password|passwd|secret|token|api[_-]?key)\s*([=:>]+)\s*[^,;\s]+',r'\\1\\2[REDACTED]',frag)
+          print(frag)
+          PY

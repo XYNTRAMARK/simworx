@@ -1,0 +1,38 @@
+name: Release projector configurator V56 restore controls
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-v56-deploy/**'
+      - '.github/workflows/projection-v56-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projector-v56
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V56 from live V55
+        run: python3 .projection-v56-deploy/build_v56.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify only projector-control regression repair
+        run: |
+          python3 -m http.server 8765 >/tmp/v56-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v56-deploy/test_v56_controls.py
+          python3 .projection-v56-deploy/test_v56_delivery.py
+          kill $P || true
+      - name: Publish V56 and promote to stable live projector page
+        run: python3 .projection-v56-deploy/publish_v56.py

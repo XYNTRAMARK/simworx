@@ -1,0 +1,38 @@
+name: Release projection configurator V51 simplified Step 3
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v51-release.yml'
+      - '.projection-v51-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v51
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V51 strictly from live V50
+        run: python3 .projection-v51-deploy/build_v51.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify simplified Step 3 and inherited delivery
+        run: |
+          python3 -m http.server 8765 >/tmp/v51-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v51-deploy/test_v51_layout.py
+          python3 .projection-v51-deploy/test_v51_delivery.py
+          kill $P || true
+      - name: Publish V51 and switch live navigation
+        run: python3 .projection-v51-deploy/publish_v51.py

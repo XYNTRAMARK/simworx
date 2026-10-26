@@ -9,7 +9,7 @@
     {
       title: 'Projector Configurator',
       description: 'Design your projection screen & projector layout',
-      href: '/projection-screen-configurator-v50.html'
+      href: '/projection-screen-configurator-v51.html'
     }
   ];
 

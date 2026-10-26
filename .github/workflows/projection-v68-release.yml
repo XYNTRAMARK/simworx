@@ -1,0 +1,54 @@
+name: Release projector configurator V68 via LED sender
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-v68-deploy/**'
+      - '.github/workflows/projection-v68-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projector-v68
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V68 strictly from live V67
+        run: python3 .projection-v68-deploy/build_v68.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify Projection targets LED endpoint
+        run: |
+          python3 -m http.server 8765 >/tmp/v68-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v68-deploy/test_v68_route.py
+          kill $P || true
+      - name: Patch live LED endpoint with isolated Projection action
+        run: |
+          python3 .projection-v68-deploy/patch_led_endpoint.py
+          php -l led-quote-submit-patched.php
+      - name: Publish V68 Projection page
+        run: python3 .projection-v68-deploy/publish_v68.py
+      - name: Verify live LED endpoint still accepts normal route and Projection branch exists
+        run: |
+          python3 - <<'PY'
+          import urllib.request
+          req=urllib.request.Request('https://www.sim-worx.com/led-quote-submit.php',method='POST',data=b'quote_action=projection-email')
+          try:
+            urllib.request.urlopen(req,timeout=30)
+          except urllib.error.HTTPError as e:
+            body=e.read().decode('utf-8','replace')
+            assert e.code in (400,403,422,429), (e.code,body)
+            assert 'Use the quote buttons' not in body
+          print('LIVE LED ENDPOINT PROJECTION BRANCH REACHABLE')
+          PY

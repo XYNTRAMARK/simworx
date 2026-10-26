@@ -103,8 +103,7 @@ replacement=r'''  async function emailProposal(event){
       form.dispatchEvent(new Event('simworx:submission-complete'));
     }
   }
-
-  function requestFormalQuote'''
+'''
 html=html[:start]+replacement+html[end:]
 
 checks=[

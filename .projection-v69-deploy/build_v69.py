@@ -28,22 +28,34 @@ html=html.replace("<head>","<head>\n"+early,1)
 late=r'''<script id="projection-v69-fetch-router">
 (function(){
   const nativeFetch=window.__simworxProjectionNativeFetch;
-  const offlineFetch=window.fetch.bind(window);
-  if(typeof nativeFetch!=='function'||typeof offlineFetch!=='function')return;
-  window.__simworxProjectionOfflineFetch=offlineFetch;
-  window.fetch=function(input,init){
-    try{
-      const raw=typeof input==='string'?input:input?.url;
-      const url=new URL(raw,location.href);
-      if(url.origin===location.origin &&
-         (url.pathname.endsWith('/led-quote-submit.php') ||
-          url.pathname.includes('/led-quote-submit-') ||
-          url.pathname.endsWith('/projection-quote-submit.php'))){
-        return nativeFetch(input,init);
-      }
-    }catch(_){}
-    return offlineFetch(input,init);
+  if(typeof nativeFetch!=='function')return;
+  let attempts=0;
+  const install=()=>{
+    attempts++;
+    const current=window.fetch;
+    const currentText=String(current);
+    if(currentText.includes('INVALID_JSON')||currentText.includes('OFFLINE_RESOURCE_UNAVAILABLE')){
+      const offlineFetch=current.bind(window);
+      window.__simworxProjectionOfflineFetch=offlineFetch;
+      window.fetch=function(input,init){
+        try{
+          const raw=typeof input==='string'?input:input?.url;
+          const url=new URL(raw,location.href);
+          if(url.origin===location.origin &&
+             (url.pathname.endsWith('/led-quote-submit.php') ||
+              url.pathname.includes('/led-quote-submit-') ||
+              url.pathname.endsWith('/projection-quote-submit.php'))){
+            return nativeFetch(input,init);
+          }
+        }catch(_){}
+        return offlineFetch(input,init);
+      };
+      window.__simworxProjectionFetchRouterReady=true;
+      return;
+    }
+    if(attempts<500)setTimeout(install,20);
   };
+  install();
 })();
 </script>'''
 body_close=html.rfind("</body>")

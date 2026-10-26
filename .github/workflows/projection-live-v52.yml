@@ -1,0 +1,31 @@
+name: Activate V52 as live projector page
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-live-v52/**'
+      - '.github/workflows/projection-live-v52.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projector-live
+  cancel-in-progress: true
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Activate tested V52 at stable public URL
+        run: python3 .projection-live-v52/publish.py
+      - name: Retain previous V50 public entry for rollback evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: projector-v50-before-v52-live-switch-${{ github.sha }}
+          path: /tmp/projector-v50-before-live-switch.html
+          if-no-files-found: error
+          retention-days: 14

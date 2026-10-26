@@ -1,0 +1,140 @@
+name: End-to-end Projection browser mail test
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-browser-mail-e2e.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Create isolated live LED delivery test endpoint
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os,io,re,secrets
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          parts=[];f.retrbinary('RETR /htdocs/led-quote-submit.php',parts.append)
+          s=b''.join(parts).decode('utf-8','replace')
+          token=secrets.token_hex(32)
+          open('/tmp/projection_test_token','w').write(token)
+          anchor="$action=$_POST['quote_action']??'';"
+          if anchor not in s: raise SystemExit('LED action anchor missing')
+          branch=r'''
+          if($action==='projection-email-e2e'){
+              $expected='__TOKEN__';
+              if(!hash_equals($expected,(string)($_POST['projection_test_token']??''))){
+                  http_response_code(403);echo json_encode(['ok'=>false,'message'=>'Test authorization failed.']);exit;
+              }
+              $email=strtolower(trim((string)($_POST['email']??'')));
+              $reference=trim((string)($_POST['proposal_reference']??''));
+              $html=(string)($_POST['proposal_html']??'');
+              $plain=(string)($_POST['proposal_text']??'');
+              $rawImages=(string)($_POST['projection_images']??'[]');
+              if(!filter_var($email,FILTER_VALIDATE_EMAIL))throw new InvalidArgumentException('Invalid email');
+              if(!preg_match('/^[A-Za-z0-9._-]{3,90}$/D',$reference))throw new InvalidArgumentException('Invalid reference');
+              if(strlen($html)<100||strlen($html)>750000||strlen($plain)<50||strlen($plain)>70000)throw new InvalidArgumentException('Invalid document size');
+              $submitted=json_decode($rawImages,true);
+              if(!is_array($submitted)||count($submitted)>4)throw new InvalidArgumentException('Invalid image payload');
+              $images=[];
+              foreach($submitted as $index=>$image){
+                  if(!is_array($image)||!is_string($image['data']??null)||!preg_match('#^data:image/jpeg;base64,([A-Za-z0-9+/=]+)$#D',$image['data'],$match))throw new InvalidArgumentException('Invalid image');
+                  $bytes=base64_decode($match[1],true);$size=$bytes===false?false:@getimagesizefromstring($bytes);
+                  if(!$size||$size[2]!==IMAGETYPE_JPEG||strlen($bytes)>250000)throw new InvalidArgumentException('Invalid image bytes');
+                  $images[]=['data'=>$image['data'],'bytes'=>$bytes,'cid'=>'projection-view-'.($index+1).'@sim-worx.com'];
+              }
+              $quote=['action'=>'email','email'=>$email,'reference'=>$reference,'created'=>gmdate('Y-m-d'),'html'=>$html,'plain'=>$plain,'images'=>$images,'total'=>0,'currency'=>'EUR'];
+              $result=SimworxLedQuoteActions::deliver($quote,$_POST,static fn(string $to,string $subject,string $body,string $headers):bool=>@mail($to,$subject,$body,$headers),static function(array $quote,array $post):void{});
+              $result['message']='Projection browser E2E test sent.';
+              http_response_code(200);echo json_encode($result,JSON_UNESCAPED_SLASHES);exit;
+          }
+          '''.replace('__TOKEN__',token)
+          s=s.replace(anchor,anchor+"\n"+branch,1)
+          f.storbinary('STOR /htdocs/led-quote-submit-e2e.php',io.BytesIO(s.encode()))
+          f.quit()
+          PY
+      - name: Exercise actual live Projection client code and send real email
+        run: |
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          token=open('/tmp/projection_test_token').read().strip()
+          with sync_playwright() as pw:
+              b=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader'])
+              p=b.new_page(viewport={'width':1600,'height':1000})
+              responses=[]
+              def on_resp(r):
+                  if 'led-quote-submit-e2e.php' in r.url:
+                      try: body=r.text()
+                      except: body='[unreadable]'
+                      responses.append((r.status,body[:3000]))
+              p.on('response',on_resp)
+              p.goto('https://www.sim-worx.com/projection-screen-configurator.html?e2e-mail=1',wait_until='domcontentloaded',timeout=60000)
+              p.wait_for_timeout(2500)
+              p.locator('[data-guided-go="2"]').click();p.wait_for_timeout(500)
+              p.locator('[data-guided-go="3"]').click();p.wait_for_timeout(650)
+              calc=p.locator('#guided-calculate');calc.click()
+              for _ in range(300):
+                  if p.locator('#guided-result').is_visible() and not calc.is_disabled(): break
+                  p.wait_for_timeout(100)
+              p.wait_for_timeout(700)
+              p.locator('[data-guided-go="4"]').click();p.wait_for_timeout(1200)
+              if p.locator('#v39-country').count():p.locator('#v39-country').select_option('GB')
+              if p.locator('#v37-customer-type').count():p.locator('#v37-customer-type').select_option('business')
+              p.wait_for_timeout(250)
+              p.locator('#v37-email-proposal').click();p.wait_for_timeout(300)
+              p.locator('#v37-email-address').fill('mark@sim-worx.com')
+              p.locator('#v37-email-name').fill('Mark')
+              p.evaluate("""({token})=>{
+                const form=document.getElementById('v48-email-form');
+                form.action='led-quote-submit-e2e.php';
+                let t=form.querySelector('[name="cf-turnstile-response"]');
+                if(!t){t=document.createElement('input');t.type='hidden';t.name='cf-turnstile-response';form.appendChild(t)}
+                t.value='e2e-bypass-token';
+                let x=form.querySelector('[name="projection_test_token"]');
+                if(!x){x=document.createElement('input');x.type='hidden';x.name='projection_test_token';form.appendChild(x)}
+                x.value=token;
+                const script=document.getElementById('projection-v37-proposal-js');
+                // The existing handler sets projection-email. Intercept FormData.set only for the action field.
+                const orig=FormData.prototype.set;
+                FormData.prototype.set=function(k,v,...rest){
+                  if(k==='quote_action'&&v==='projection-email')v='projection-email-e2e';
+                  return orig.call(this,k,v,...rest);
+                };
+              }""",{"token":token})
+              p.locator('#v37-email-send').click()
+              p.wait_for_timeout(5000)
+              status=p.locator('#v37-email-status').text_content() or ''
+              print('CLIENT_STATUS',status)
+              print('RESPONSES',responses)
+              if not responses: raise SystemExit('No E2E request reached endpoint')
+              code,body=responses[-1]
+              if code!=200 or '"ok":true' not in body: raise SystemExit(f'E2E failed HTTP {code}: {body}')
+              b.close()
+          PY
+      - name: Remove isolated endpoint
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          try:f.delete('/htdocs/led-quote-submit-e2e.php')
+          except:pass
+          f.quit()
+          PY

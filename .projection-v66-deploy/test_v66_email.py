@@ -17,22 +17,20 @@ with sync_playwright() as pw:
     """)
     p.goto(URL,wait_until="domcontentloaded",timeout=60000)
     p.wait_for_timeout(1200)
-    p.evaluate("""snap=>{
-      window.SimworxProjection={snapshot:()=>snap};
-      document.querySelectorAll('[data-guided-go]').forEach(b=>b.removeAttribute('aria-current'));
-      document.querySelector('[data-guided-go="4"]').setAttribute('aria-current','step');
-      const c=document.createElement('canvas');c.width=640;c.height=400;
-      const x=c.getContext('2d');x.fillStyle='#ddd';x.fillRect(0,0,640,400);
-      const d=c.toDataURL('image/jpeg',0.55);
-      window.__projectionProposalViews=[
-        {view:'perspective',label:'3D perspective',data:d},
-        {view:'front',label:'Front elevation',data:d},
-        {view:'top',label:'Top plan',data:d},
-        {view:'side',label:'Side elevation',data:d}
-      ];
-    }""")
-    p.wait_for_timeout(500)
-    p.locator('#v37-email-proposal').click();p.wait_for_timeout(200)
+    # Exercise the real configurator flow so the private proposalViews state is populated.
+    p.locator('[data-guided-go="2"]').click();p.wait_for_timeout(500)
+    p.locator('[data-guided-go="3"]').click();p.wait_for_timeout(600)
+    calc=p.locator('#guided-calculate')
+    calc.click()
+    for _ in range(300):
+        if p.locator('#guided-result').is_visible() and not calc.is_disabled(): break
+        p.wait_for_timeout(100)
+    p.wait_for_timeout(700)
+    p.locator('[data-guided-go="4"]').click();p.wait_for_timeout(1200)
+    if p.locator('#v39-country').count(): p.locator('#v39-country').select_option('GB')
+    if p.locator('#v37-customer-type').count(): p.locator('#v37-customer-type').select_option('business')
+    p.wait_for_timeout(250)
+    p.locator('#v37-email-proposal').click();p.wait_for_timeout(300)
     p.locator('#v37-email-address').fill('test@example.com')
     p.locator('#v37-email-name').fill('LED Pattern Test')
 
@@ -51,7 +49,14 @@ with sync_playwright() as pw:
     }""")
     p.locator('#v37-email-send').click();p.wait_for_timeout(1000)
     payload=p.evaluate("window.__v66")
-    assert payload,payload
+    if not payload:
+        state=p.evaluate("""() => ({
+          token:document.querySelector('#v48-email-form [name="cf-turnstile-response"]')?.value||'',
+          status:document.getElementById('v37-email-status')?.textContent||'',
+          proposal:document.getElementById('v37-proposal-status')?.textContent||'',
+          views:(window.__projectionProposalViews||[]).map(v=>({view:v.view,len:v.data?.length||0}))
+        })""")
+        raise AssertionError(state)
     assert payload.get('quote_action')=='email',payload
     assert payload.get('cf-turnstile-response')=='token',payload
     assert 'projection_images' in payload

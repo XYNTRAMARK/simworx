@@ -1,0 +1,44 @@
+name: Repair projection proposal email size limit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-email-fix/**'
+      - '.github/workflows/projection-email-fix.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-email-endpoint
+  cancel-in-progress: true
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate endpoint only
+        run: |
+          php -l .projection-email-fix/projection-quote-submit.php
+          grep -q "2500000" .projection-email-fix/projection-quote-submit.php
+          grep -q "1800000" .projection-email-fix/projection-quote-submit.php
+          grep -q "SimworxFormProtection('contact')" .projection-email-fix/projection-quote-submit.php
+          grep -q "@mail" .projection-email-fix/projection-quote-submit.php
+      - name: Publish endpoint-only repair
+        run: python3 .projection-email-fix/publish.py
+      - name: Verify 400 KB request is no longer rejected by old 300 KB gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          BODY="$RUNNER_TEMP/large-proposal.txt"
+          python3 - <<'PY'
+          import os
+          p=os.environ['RUNNER_TEMP']+'/large-proposal.txt'
+          open(p,'w').write('x'*400000)
+          PY
+          CODE=$(curl -sS -o "$RUNNER_TEMP/large-response.json" -w "%{http_code}"             -X POST https://www.sim-worx.com/projection-quote-submit.php             -H 'Accept: application/json'             --data-urlencode "email=test@example.com"             --data-urlencode "name=Size Test"             --data-urlencode "proposal_reference=SIZE-TEST-001"             --data-urlencode "proposal_html@$BODY"             --data-urlencode "proposal_text=This is a diagnostic request without a Turnstile token and must be rejected by anti-spam, not by the old 300 KB request-size gate.")
+          cat "$RUNNER_TEMP/large-response.json"
+          test "$CODE" != "413"

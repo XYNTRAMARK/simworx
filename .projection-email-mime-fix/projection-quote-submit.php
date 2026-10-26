@@ -78,10 +78,11 @@ try{
     // The working LED quote endpoint uses the same multipart/related approach.
     $inlineImages=[];
     $imageIndex=0;
+    $imagePattern="~src=([\\\"'])data:image/(?:jpeg|jpg);base64,([A-Za-z0-9+/=]+)\\\\1~i";
     $html=preg_replace_callback(
-        '#src=(["\\'])data:image/(jpeg|jpg);base64,([A-Za-z0-9+/=]+)\\1#i',
+        $imagePattern,
         static function(array $m)use(&$inlineImages,&$imageIndex):string{
-            $bytes=base64_decode($m[3],true);
+            $bytes=base64_decode($m[2],true);
             if($bytes===false||strlen($bytes)<100)return $m[0];
             if(strlen($bytes)>700000)throw new RuntimeException('One proposal image is too large to email. Please try again.');
             $cid='projection-view-'.(++$imageIndex).'@sim-worx.com';

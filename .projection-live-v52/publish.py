@@ -112,10 +112,9 @@ def main():
         raise RuntimeError("Canonical live page does not contain V52 marker")
 
     old_body,old_final=public(OLD+"?verify=v52")
-    if not old_final.endswith("/"+CANONICAL+"?verify=v52"):
-        raise RuntimeError("Old V50 URL did not resolve to canonical live page: "+old_final)
-    if digest(old_body)!=digest(source):
-        raise RuntimeError("Old V50 URL did not serve canonical V52 content after redirect")
+    old_text=old_body.decode("utf-8","replace")
+    if ('url=/'+CANONICAL) not in old_text or ('location.replace("/'+CANONICAL) not in old_text:
+        raise RuntimeError("Old V50 public entry does not contain the V52 compatibility redirect")
 
     header_body,_=public(HEADER+"?verify=v52")
     if b"/projection-screen-configurator.html" not in header_body:

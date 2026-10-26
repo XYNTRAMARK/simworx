@@ -35,6 +35,14 @@ css=r"""<style id="projection-v56-restore-projector-controls">
 .led-workbench.v53-step3 #projection-v25-controls #projection-v30-control-surface{
   display:grid!important;
 }
+/* Restore the existing right-hand throw controls hidden by V53's broad suppression. */
+.led-workbench.v53-step3 #projection-v25-controls #v30-throw,
+.led-workbench.v53-step3 #projection-v25-controls #v30-throw-all{
+  display:block!important;
+}
+.led-workbench.v53-step3 #projection-v25-controls .v30-throw-scale{
+  display:flex!important;
+}
 /* Projector controls belong only to the right-hand preview, never the left stack. */
 .led-workbench.v53-step3 #v53-left-stack #projection-v25-controls{
   display:none!important;

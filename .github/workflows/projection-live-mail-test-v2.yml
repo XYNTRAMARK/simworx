@@ -1,0 +1,106 @@
+name: Send real Projection email via exact LED deliver class
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-live-mail-test-v2.yml'
+permissions:
+  contents: read
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build one-time test from exact live LED class
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os,io,re
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          parts=[];f.retrbinary('RETR /htdocs/led-quote-submit.php',parts.append)
+          src=b''.join(parts).decode('utf-8','replace')
+          marker='final class SimworxLedQuoteActions'
+          start=src.find(marker)
+          if start<0: raise SystemExit('LED action class not found')
+          brace=src.find('{',start)
+          if brace<0: raise SystemExit('LED action class brace not found')
+          depth=0;end=None
+          i=brace
+          in_s=in_d=False;esc=False
+          while i<len(src):
+              ch=src[i]
+              if esc:
+                  esc=False
+              elif ch=='\\':
+                  esc=True
+              elif in_s:
+                  if ch=="'": in_s=False
+              elif in_d:
+                  if ch=='"': in_d=False
+              else:
+                  if ch=="'": in_s=True
+                  elif ch=='"': in_d=True
+                  elif ch=='{': depth+=1
+                  elif ch=='}':
+                      depth-=1
+                      if depth==0:
+                          end=i+1;break
+              i+=1
+          if end is None: raise SystemExit('LED action class end not found')
+          cls=src[start:end]
+          test=r'''<?php
+          declare(strict_types=1);
+          header('Content-Type: application/json; charset=utf-8');
+          __CLASS_CODE__
+          $reference='SWX-PROJ-LIVE-EMAIL-TEST-'.gmdate('Ymd-His');
+          $quote=[
+            'action'=>'email',
+            'email'=>'mark@sim-worx.com',
+            'reference'=>$reference,
+            'created'=>gmdate('Y-m-d'),
+            'html'=>'<article><h1>Simworx Projection System Proposal</h1><p><strong>LIVE DELIVERY TEST</strong></p><h2>System specification</h2><p>This message was sent through the exact live LED delivery class.</p><h2>Commercial proposal</h2><p>No commercial value. Test only.</p></article>',
+            'plain'=>"SIMWORX PROJECTION SYSTEM PROPOSAL\r\nLIVE DELIVERY TEST\r\nReference: $reference\r\n\r\nSystem specification\r\nExact live LED delivery class test.\r\n\r\nCommercial proposal\r\nNo commercial value. Test only.",
+            'images'=>[],
+            'total'=>0,
+            'currency'=>'EUR'
+          ];
+          try{
+            $result=SimworxLedQuoteActions::deliver(
+              $quote,[],
+              static fn(string $to,string $subject,string $body,string $headers):bool=>@mail($to,$subject,$body,$headers),
+              static function(array $quote,array $post):void{}
+            );
+            echo json_encode(['ok'=>true,'reference'=>$reference,'result'=>$result],JSON_UNESCAPED_SLASHES);
+          }catch(Throwable $e){
+            http_response_code(500);
+            echo json_encode(['ok'=>false,'reference'=>$reference,'message'=>$e->getMessage()],JSON_UNESCAPED_SLASHES);
+          }
+          ?>'''
+          test=test.replace('__CLASS_CODE__',cls)
+          body=test.encode()
+          f.storbinary('STOR /htdocs/projection-live-mail-test-v2.php',io.BytesIO(body))
+          f.quit()
+          PY
+      - name: Syntax-check and send real test
+        run: |
+          curl -fsS https://www.sim-worx.com/projection-live-mail-test-v2.php
+      - name: Remove one-time endpoint
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          try:f.delete('/htdocs/projection-live-mail-test-v2.php')
+          except:pass
+          f.quit()
+          PY

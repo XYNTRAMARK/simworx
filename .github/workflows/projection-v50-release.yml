@@ -1,0 +1,38 @@
+name: Release projection configurator V50 consistent viewer
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v50-release.yml'
+      - '.projection-v50-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v50
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V50 strictly from live V49
+        run: python3 .projection-v50-deploy/build_v50.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify Step 2 and Step 3 viewer geometry and inherited delivery
+        run: |
+          python3 -m http.server 8765 >/tmp/v50-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v50-deploy/test_v50_layout.py
+          python3 .projection-v50-deploy/test_v50_delivery.py
+          kill $P || true
+      - name: Publish V50 and switch live navigation
+        run: python3 .projection-v50-deploy/publish_v50.py

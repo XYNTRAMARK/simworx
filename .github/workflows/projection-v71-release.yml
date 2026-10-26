@@ -1,0 +1,37 @@
+name: Release projector configurator V71 headline
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-v71-deploy/**'
+      - '.github/workflows/projection-v71-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projector-v71
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V71 strictly from live V70
+        run: python3 .projection-v71-deploy/build_v71.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify headline only
+        run: |
+          python3 -m http.server 8765 >/tmp/v71-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v71-deploy/test_v71_heading.py
+          kill $P || true
+      - name: Publish V71 and promote stable page
+        run: python3 .projection-v71-deploy/publish_v71.py

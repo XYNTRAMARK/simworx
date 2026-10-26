@@ -88,7 +88,8 @@ js=r"""<script id="projection-v50-consistent-viewer-js">
   }
   function sync(){
     if(step()===3){
-      captureNormalGeometry();
+      /* Keep the geometry captured from the normal viewer state.
+         Do not recalculate here: legacy Step-3 CSS deliberately changes canvas height. */
       work.classList.add('v50-step3');
       requestAnimationFrame(()=>window.dispatchEvent(new Event('resize')));
     }else{

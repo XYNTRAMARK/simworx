@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Simworx analytics consent example</title>
+<style>body{font:16px/1.6 system-ui,sans-serif;max-width:680px;margin:60px auto;padding:24px;background:#10181f;color:#edf3f6}button{font:inherit;margin:6px 8px 6px 0;padding:10px 18px;border:0;border-radius:6px;cursor:pointer}#allow{background:#e9b94f;color:#171d23}p{color:#b9c8d2}</style></head>
+<body><h1>Analytics consent example</h1><p>This standalone example is for reviewing the SDK API. Analytics begins only when you choose Allow. Newsletter permission is separate.</p>
+<button id="allow">Allow analytics</button><button id="deny">Decline / withdraw</button><p id="status" role="status">Analytics is off.</p>
+<script src="./tracker.js"></script><script>
+document.getElementById('allow').addEventListener('click',function(){window.SimworxIntelligence.setConsent({analytics:true});document.getElementById('status').textContent='Analytics is on for this example page.';});
+document.getElementById('deny').addEventListener('click',function(){window.SimworxIntelligence.setConsent({analytics:false});document.getElementById('status').textContent='Analytics is off. Its browser tracking state has been cleared.';});
+</script></body></html>

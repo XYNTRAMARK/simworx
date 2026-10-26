@@ -1,0 +1,23 @@
+name: Stage projector email failures
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-email-stage/**'
+      - '.github/workflows/projection-email-stage.yml'
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate endpoint only
+        run: php -l .projection-email-stage/projection-quote-submit.php
+      - name: Publish endpoint only
+        run: python3 .projection-email-stage/publish.py

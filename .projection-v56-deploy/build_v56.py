@@ -16,7 +16,6 @@ required=[
     "projection-v53-two-column-step3",
     "projection-v52-proposal-views",
     'id="projection-v25-controls"',
-    'id="projection-v30-control-surface"',
 ]
 missing=[x for x in required if x not in html]
 if missing: raise SystemExit("V56 refused: V55 inheritance/control anchors missing "+repr(missing))

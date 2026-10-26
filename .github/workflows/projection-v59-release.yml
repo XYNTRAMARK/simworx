@@ -1,0 +1,37 @@
+name: Release projector configurator V59 remove material bar
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-v59-deploy/**'
+      - '.github/workflows/projection-v59-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projector-v59
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V59 strictly from live V58
+        run: python3 .projection-v59-deploy/build_v59.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify material bar only is removed
+        run: |
+          python3 -m http.server 8765 >/tmp/v59-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v59-deploy/test_v59_material.py
+          kill $P || true
+      - name: Publish V59 and promote stable page
+        run: python3 .projection-v59-deploy/publish_v59.py

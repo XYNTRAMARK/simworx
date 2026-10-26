@@ -1,22 +1,22 @@
 [
   {
     "path": "reports/analytics.js",
-    "before": "46b574b404b9021961777ca1ccb6f3ab06da4b648d93b81ca891f71a29164507",
+    "before": "31dd707996f1f1040c1798eaa821ffa77d0f68952b55a3dd4b09d3d0e1020e93",
     "after": "31dd707996f1f1040c1798eaa821ffa77d0f68952b55a3dd4b09d3d0e1020e93"
   },
   {
     "path": "reports/app.js",
-    "before": "3d9f4f47645d134ef37e0e8ae9aa5ae8f2b2ae16fa2a5499669f66b52fbbae0f",
-    "after": "9ed22d4fbb74acad5b39dc31c2ee7aa5727aeabaa6429ec5e55034189d459149"
+    "before": "9ed22d4fbb74acad5b39dc31c2ee7aa5727aeabaa6429ec5e55034189d459149",
+    "after": "f708189d7ef8dfd05faa70220a0109a4785585cb624282486c7946a15f9acfda"
   },
   {
     "path": "assets/js/simworx-intelligence-tracker-v1.js",
-    "before": "7010cc28e04714473cf0e79f0fe40efcf3a96c4e73b553fb40b5c58319191ccb",
+    "before": "0ded86f08e2d21704f47d7b8b7936c2d3f14180523d86bb794458c1586bd2443",
     "after": "0ded86f08e2d21704f47d7b8b7936c2d3f14180523d86bb794458c1586bd2443"
   },
   {
     "path": "assets/js/simworx-intelligence-tracker-v2.js",
-    "before": "3e6c2f5e871fd151f1e2f09dd4c3f9d6437f1d99567b7e6afba3186505601892",
+    "before": "22c9f98e8aea00e4bc83fd08fd5bcc505b620f16ab8e084859107b3ae3fc519f",
     "after": "22c9f98e8aea00e4bc83fd08fd5bcc505b620f16ab8e084859107b3ae3fc519f"
   }
 ]

@@ -1,0 +1,37 @@
+name: Release projector configurator V57 email payload fix
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-v57-deploy/**'
+      - '.github/workflows/projection-v57-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projector-v57
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V57 strictly from live V56
+        run: python3 .projection-v57-deploy/build_v57.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify email POST stays below 1 MB
+        run: |
+          python3 -m http.server 8765 >/tmp/v57-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v57-deploy/test_v57_email.py
+          kill $P || true
+      - name: Publish V57 and promote to stable page
+        run: python3 .projection-v57-deploy/publish_v57.py

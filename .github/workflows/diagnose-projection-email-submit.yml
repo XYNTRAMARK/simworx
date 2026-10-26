@@ -1,0 +1,41 @@
+name: Diagnose live projector proposal submit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-projection-email-submit.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect live LED anti-spam submit controller and projector handler
+        run: |
+          python3 - <<'PY'
+          import urllib.request,re,json
+          def get(url):
+              req=urllib.request.Request(url,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-proposal-submit-diagnostic'})
+              with urllib.request.urlopen(req,timeout=45) as r:return r.read().decode('utf-8','replace')
+          led=get('https://www.sim-worx.com/led-screen-configurator.html')
+          proj=get('https://www.sim-worx.com/projection-screen-configurator.html')
+          needle='const sources='
+          i=led.find(needle)
+          assert i>=0,'LED sources bundle missing'
+          raw=led[i+len(needle):].lstrip()
+          sources,_=json.JSONDecoder().raw_decode(raw)
+          candidates=[v for v in sources.values() if isinstance(v,str) and 'Loading spam protection' in v and 'form[data-antispam]' in v]
+          assert len(candidates)==1,len(candidates)
+          anti=candidates[0]
+          print('ANTI_SUBMIT_SNIPPETS')
+          for m in re.finditer(r'addEventListener\([\'\"]submit[\'\"]',anti):
+              print(anti[max(0,m.start()-1800):m.start()+5000])
+          print('ANTI_FETCH_SNIPPETS')
+          for m in re.finditer(r'fetch\(',anti):
+              print(anti[max(0,m.start()-1200):m.start()+3500])
+          print('PROJECTOR_FORM_HANDLER')
+          m=re.search(r'async function emailProposal\(event\)\{.*?\n  \}',proj,re.S)
+          print(m.group(0)[:12000] if m else 'missing')
+          PY

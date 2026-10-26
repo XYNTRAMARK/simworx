@@ -22,7 +22,9 @@ missing=[x for x in required if x not in html]
 if missing: raise SystemExit("V66 refused: V65 inheritance/email anchors missing "+repr(missing))
 
 # Replace only the email transport function with the working LED-style fetch/FormData pattern.
-pattern=re.compile(r"""  async function emailProposal\(event\)\{.*?\n  \}\n\n  function requestFormalQuote""",re.S)
+start=html.find("  async function emailProposal(event){")
+end=html.find("  function requestFormalQuote(){",start)
+if start<0 or end<0: raise SystemExit("V66 email function anchors missing")
 replacement=r'''  async function emailProposal(event){
     event?.preventDefault();
     await captureProposalViews();
@@ -103,8 +105,7 @@ replacement=r'''  async function emailProposal(event){
   }
 
   function requestFormalQuote'''
-html,count=pattern.subn(replacement,html,count=1)
-if count!=1: raise SystemExit("V66 email function replacement failed: "+str(count))
+html=html[:start]+replacement+html[end:]
 
 checks=[
     "projection_images",

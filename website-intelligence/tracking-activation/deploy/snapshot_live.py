@@ -45,7 +45,7 @@ def main():
             candidates=[p for p in html if kind in Path(p).name.lower() and 'configur' in Path(p).name.lower()]
             if candidates:
                 selected.add(max(candidates,key=lambda p:(int((re.search(r'-v(\d+)',p,re.I)or ['','0'])[1]),p)))
-        selected.update(p for p in ('/htdocs/assets/js/cookie-consent.js','/htdocs/assets/js/global-header.js','/htdocs/assets/js/main.js') if p in state)
+        selected.update(p for p in ('/htdocs/assets/js/cookie-consent.js','/htdocs/assets/js/global-header.js','/htdocs/assets/js/main.js','/htdocs/reports/app.js','/htdocs/reports/analytics.js') if p in state)
         manifest={}
         for path in sorted(selected):
             local=OUT/'public'/path.removeprefix(common.ROOT+'/')

@@ -1,0 +1,32 @@
+name: Repair projector proposal MIME email
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-email-mime-fix/**'
+      - '.github/workflows/projection-email-mime-fix.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-email-endpoint
+  cancel-in-progress: true
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate endpoint-only MIME repair
+        run: |
+          php -l .projection-email-mime-fix/projection-quote-submit.php
+          grep -q 'multipart/related' .projection-email-mime-fix/projection-quote-submit.php
+          grep -q 'multipart/alternative' .projection-email-mime-fix/projection-quote-submit.php
+          grep -q 'Content-ID:' .projection-email-mime-fix/projection-quote-submit.php
+          grep -q 'cid:' .projection-email-mime-fix/projection-quote-submit.php
+          grep -q "SimworxFormProtection('contact')" .projection-email-mime-fix/projection-quote-submit.php
+      - name: Publish only projection email endpoint
+        run: python3 .projection-email-mime-fix/publish.py

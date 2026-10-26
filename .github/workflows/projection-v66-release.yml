@@ -1,0 +1,43 @@
+name: Release projector configurator V66 LED-style email
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-v66-deploy/**'
+      - '.github/workflows/projection-v66-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projector-v66
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V66 strictly from live V65
+        run: python3 .projection-v66-deploy/build_v66.py
+      - name: Validate LED-style projection endpoint
+        run: |
+          php -l .projection-v66-deploy/projection-quote-submit.php
+          grep -q 'multipart/related' .projection-v66-deploy/projection-quote-submit.php
+          grep -q 'projection_images' .projection-v66-deploy/projection-quote-submit.php
+          grep -q "SimworxFormProtection('contact')" .projection-v66-deploy/projection-quote-submit.php
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify Projection payload matches LED sender pattern
+        run: |
+          python3 -m http.server 8765 >/tmp/v66-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v66-deploy/test_v66_email.py
+          kill $P || true
+      - name: Publish V66 page and endpoint together
+        run: python3 .projection-v66-deploy/publish_v66.py

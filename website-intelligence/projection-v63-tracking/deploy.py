@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib, io, json, os, pathlib, sys
 
 BASE=pathlib.Path(__file__).resolve().parent
-sys.path.insert(0,str(BASE.parent.parent/'tracking-activation-v38'/'deploy'))
+sys.path.insert(0,str(BASE.parent/'tracking-activation-v38'/'deploy'))
 import ftp_common as ftp
 
 WORK=pathlib.Path('/tmp/simworx-projection-v63-tracking')

@@ -1,0 +1,42 @@
+name: Inspect live Projection fetch implementation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-live-projection-fetch.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Inspect live fetch before and after page load
+        run: |
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          import urllib.request,re
+          html=urllib.request.urlopen(urllib.request.Request('https://www.sim-worx.com/projection-screen-configurator.html?inspect-fetch=1',headers={'Cache-Control':'no-cache'}),timeout=60).read().decode('utf-8','replace')
+          for pat in [r'window\.fetch\s*=',r'fetch\s*=\s*async',r'fetch\.bind\(window\)',r'INVALID_JSON',r'JSON request smaller than']:
+              hits=list(re.finditer(pat,html,re.I))
+              print('HTML_PATTERN',pat,'COUNT',len(hits))
+              for m in hits[:10]: print(html[max(0,m.start()-500):m.start()+1200])
+          with sync_playwright() as pw:
+              b=pw.chromium.launch(headless=True)
+              p=b.new_page()
+              p.goto('https://www.sim-worx.com/projection-screen-configurator.html?inspect-fetch=2',wait_until='domcontentloaded',timeout=60000)
+              p.wait_for_timeout(1200)
+              info=p.evaluate("""() => ({
+                fetchString:String(window.fetch),
+                nativeCode:/\[native code\]/.test(String(window.fetch)),
+                sameGlobal:window.fetch===globalThis.fetch,
+                sw:!!navigator.serviceWorker?.controller
+              })""")
+              print('FETCH_INFO',info)
+              b.close()
+          PY

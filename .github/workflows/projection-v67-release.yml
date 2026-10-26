@@ -1,0 +1,37 @@
+name: Release projector configurator V67 bounded LED-style email
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-v67-deploy/**'
+      - '.github/workflows/projection-v67-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projector-v67
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V67 strictly from live V66
+        run: python3 .projection-v67-deploy/build_v67.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify bounded LED-style email payload
+        run: |
+          python3 -m http.server 8765 >/tmp/v67-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v67-deploy/test_v67_email.py
+          kill $P || true
+      - name: Publish V67 and promote stable page
+        run: python3 .projection-v67-deploy/publish_v67.py

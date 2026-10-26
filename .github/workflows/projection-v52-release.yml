@@ -1,0 +1,38 @@
+name: Release projection configurator V52 proposal views
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/projection-v52-release.yml'
+      - '.projection-v52-deploy/**'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projection-v52
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V52 strictly from live V51
+        run: python3 .projection-v52-deploy/build_v52.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify quote images and inherited delivery
+        run: |
+          python3 -m http.server 8765 >/tmp/v52-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v52-deploy/test_v52_capture.py
+          python3 .projection-v52-deploy/test_v52_delivery.py
+          kill $P || true
+      - name: Publish V52 and switch live navigation
+        run: python3 .projection-v52-deploy/publish_v52.py

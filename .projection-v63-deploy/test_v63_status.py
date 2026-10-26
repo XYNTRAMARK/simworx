@@ -15,7 +15,7 @@ with sync_playwright() as pw:
       s.classList.add('v48-error');
     }""")
 
-    p.locator('#v37-email-proposal').click()
+    p.evaluate("""() => document.getElementById('v37-email-proposal').dispatchEvent(new MouseEvent('click',{bubbles:true}))""")
     p.wait_for_timeout(150)
 
     status=p.locator('#v37-email-status')

@@ -1,0 +1,37 @@
+name: Release projector configurator V60 throw legend alignment
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-v60-deploy/**'
+      - '.github/workflows/projection-v60-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projector-v60
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V60 strictly from live V59
+        run: python3 .projection-v60-deploy/build_v60.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify throw legend matches slider scale
+        run: |
+          python3 -m http.server 8765 >/tmp/v60-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v60-deploy/test_v60_throw.py
+          kill $P || true
+      - name: Publish V60 and promote stable page
+        run: python3 .projection-v60-deploy/publish_v60.py

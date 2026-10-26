@@ -8,6 +8,12 @@ with sync_playwright() as pw:
     p.goto(URL,wait_until="domcontentloaded",timeout=60000)
     p.wait_for_timeout(1200)
 
+    p.evaluate("""() => {
+      document.querySelectorAll('[data-guided-go]').forEach(b=>b.removeAttribute('aria-current'));
+      document.querySelector('[data-guided-go="4"]').setAttribute('aria-current','step');
+    }""")
+    p.wait_for_timeout(500)
+
     assert p.locator('#v65-save-pdf').inner_text()=='Save PDF'
     assert p.locator('#v37-print-proposal').inner_text()=='Print proposal'
     assert p.locator('#v37-email-proposal').count()==1

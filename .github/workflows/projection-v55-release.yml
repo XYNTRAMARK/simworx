@@ -1,0 +1,38 @@
+name: Release projector configurator V55 explicit VAT selection
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-v55-deploy/**'
+      - '.github/workflows/projection-v55-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projector-v55
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V55 from live V54
+        run: python3 .projection-v55-deploy/build_v55.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify explicit VAT selection and inherited delivery
+        run: |
+          python3 -m http.server 8765 >/tmp/v55-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v55-deploy/test_v55_vat.py
+          python3 .projection-v55-deploy/test_v55_delivery.py
+          kill $P || true
+      - name: Publish V55 and promote to stable live projector page
+        run: python3 .projection-v55-deploy/publish_v55.py

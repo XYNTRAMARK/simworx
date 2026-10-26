@@ -1,0 +1,38 @@
+name: Release projector configurator V54 preserve Step 2
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.projection-v54-deploy/**'
+      - '.github/workflows/projection-v54-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-projector-v54
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V54 from live V53
+        run: python3 .projection-v54-deploy/build_v54.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify Step 2 is unchanged after visiting Step 3
+        run: |
+          python3 -m http.server 8765 >/tmp/v54-http.log 2>&1 &
+          P=$!
+          sleep 2
+          python3 .projection-v54-deploy/test_v54_layout.py
+          python3 .projection-v54-deploy/test_v54_delivery.py
+          kill $P || true
+      - name: Publish V54 and promote to stable live projector page
+        run: python3 .projection-v54-deploy/publish_v54.py

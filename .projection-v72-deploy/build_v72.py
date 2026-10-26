@@ -12,7 +12,8 @@ with urlopen(req,timeout=60) as r:
 required=[
     "projection-v69-fetch-router",
     "projection-v65-real-pdf-js",
-    'id="v55-vat-selector"',
+    "projection-v55-vat-selection-js",
+    "box.id='v55-vat-selector'",
     'id="v39-country"',
     'id="v37-customer-type"',
 ]

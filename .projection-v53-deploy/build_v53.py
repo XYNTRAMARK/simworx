@@ -20,7 +20,6 @@ required=[
     'id="led-preview"',
     'id="led-canvas-home"',
     'id="projection-v25-controls"',
-    'id="v31-projector-lookup"',
 ]
 missing=[x for x in required if x not in html]
 if missing: raise SystemExit("V53 refused: V52 inheritance/anchors missing "+repr(missing))

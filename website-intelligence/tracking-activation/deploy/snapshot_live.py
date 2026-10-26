@@ -1,3 +1,4 @@
+# Read-only live-source inspection retriggered 2026-10-26.
 """Read-only inventory and selected public source snapshot for tracking review."""
 from __future__ import annotations
 import json

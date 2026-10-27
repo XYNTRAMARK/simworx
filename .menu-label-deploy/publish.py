@@ -9,7 +9,7 @@ REL="assets/js/global-header.js"
 OLD="title: 'Projector Configurator'"
 NEW="title: 'Projection Screen'"
 DESC="description: 'Design your projection screen & projector layout'"
-HREF="href: '/projection-screen-configurator-v52.html'"
+HREF="href: '/projection-screen-configurator.html'"
 
 def sha(b): return hashlib.sha256(b).hexdigest()
 

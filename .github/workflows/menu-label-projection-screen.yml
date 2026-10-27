@@ -1,0 +1,25 @@
+name: Publish Projection Screen menu label only
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/js/global-header.js'
+      - '.menu-label-deploy/**'
+      - '.github/workflows/menu-label-projection-screen.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-menu-label-projection-screen
+  cancel-in-progress: true
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and publish exactly one menu-label change
+        run: python3 .menu-label-deploy/publish.py

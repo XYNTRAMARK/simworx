@@ -1,0 +1,116 @@
+{
+  "loader_url": "/assets/js/simworx-intelligence-bootstrap-v1.js",
+  "assets": [
+    {
+      "source": "assets/simworx-intelligence-bootstrap-v1.js",
+      "path": "/htdocs/assets/js/simworx-intelligence-bootstrap-v1.js"
+    },
+    {
+      "source": "assets/simworx-intelligence-tracker-v1.js",
+      "path": "/htdocs/assets/js/simworx-intelligence-tracker-v1.js"
+    },
+    {
+      "source": "assets/simworx-intelligence-configurator-v1.js",
+      "path": "/htdocs/assets/js/simworx-intelligence-configurator-v1.js"
+    },
+    {
+      "source": "assets/simworx-intelligence-contact-v1.js",
+      "path": "/htdocs/assets/js/simworx-intelligence-contact-v1.js"
+    }
+  ],
+  "html_paths": [
+    "/htdocs/a320-frame.html",
+    "/htdocs/a320-full-cockpit.html",
+    "/htdocs/a320-single-seat.html",
+    "/htdocs/a320-supershort.html",
+    "/htdocs/about.html",
+    "/htdocs/brochure.html",
+    "/htdocs/certification-pro.html",
+    "/htdocs/contact.html",
+    "/htdocs/cookie-notice.html",
+    "/htdocs/cookies.html",
+    "/htdocs/custom-simulator.html",
+    "/htdocs/custom-simulators.html",
+    "/htdocs/downloads.html",
+    "/htdocs/f16-frames.html",
+    "/htdocs/frames.html",
+    "/htdocs/gameitizer.html",
+    "/htdocs/index.html",
+    "/htdocs/led-screen-configurator.html",
+    "/htdocs/legal-notice.html",
+    "/htdocs/mission-scenarios.html",
+    "/htdocs/mission-systems.html",
+    "/htdocs/privacy-policy.html",
+    "/htdocs/privacy.html",
+    "/htdocs/projection-screen-configurator-v37.html",
+    "/htdocs/projects.html",
+    "/htdocs/shop.html",
+    "/htdocs/simstarter-pro-software.html",
+    "/htdocs/simstarter.html",
+    "/htdocs/simulators.html",
+    "/htdocs/software.html",
+    "/htdocs/terms-and-conditions.html",
+    "/htdocs/terms.html",
+    "/htdocs/visual-systems.html"
+  ],
+  "expected_before": {
+    "/htdocs/a320-frame.html": "c84465f39df145ff1ac056ce57984089a36ead369e214ecc5e4fc3d82ada373f",
+    "/htdocs/a320-full-cockpit.html": "fce48aebfcd5fec82c132fa7f322f055146d078e04b5ce7ab13d7af3477071c3",
+    "/htdocs/a320-single-seat.html": "a9fa129ba16f50c97470c43908af86ced9ad1858ce93f0da292d471c6c38db00",
+    "/htdocs/a320-supershort.html": "db63431426bb9f05ccb5941e6fab79c4f8054bd5d2bb67870577003b88f4eab4",
+    "/htdocs/about.html": "47118a0344c82feb3ef4089d0c4a13c22024eaf7ca1b2b9d90602db115fb4f59",
+    "/htdocs/brochure.html": "fc96c105072a04ce6dababe47cc0a5a7e5d046580afeb8e1b8e9c563d557929a",
+    "/htdocs/certification-pro.html": "8d23bf5ae892ea41e90277ff001f5db20ed297002244af62567c1d36e7c45298",
+    "/htdocs/contact.html": "cd77307eae56edd043e35f955518c35c464a2515fb535495f31c79117ef92195",
+    "/htdocs/cookie-notice.html": "def8ebddb7021597846a876e4a2cf732846a4b6b603e311e316f5c6b2f9bf377",
+    "/htdocs/cookies.html": "0ab1eef7b0483e5b3979d17c901a51db57ff4bf717ae46575234b6d9e2712de5",
+    "/htdocs/custom-simulator.html": "f6c2b3765eb6cb5da0794f54918feb8a6427da76c30157d509b7ef1e2dda556c",
+    "/htdocs/custom-simulators.html": "392102afc0cdf716796b53b2b6b5e012b56323f4c9fa845cd6f2b1b4d4e15749",
+    "/htdocs/downloads.html": "3c3a5830ccc7a963efb1d08b10e5c209900c1cb8c68f7479e66df8930f9c3898",
+    "/htdocs/f16-frames.html": "d6765fce0d88df886142a3e945476d17d1a1ea88ec6ee6bb02b84f98d37218a5",
+    "/htdocs/frames.html": "829509ea4ff6fb40410e3612fa545d6afb9159105a3254401c6d652bc5e40473",
+    "/htdocs/gameitizer.html": "1a2495191a52ad4c931378177d39b83735cc9d3fdbe15ff3c0694335987c4bb4",
+    "/htdocs/index.html": "821c1f756ad8ca205bb04d7d6f5dd76e8dbb80af9a46cdac85247040bad02d87",
+    "/htdocs/led-screen-configurator.html": "659e06b8ec6f937ac80a4eaec5e1dd3b0a23e0d414f3de80d21b56f366f52b4d",
+    "/htdocs/legal-notice.html": "34faa95e38a0ed079921ab82d1417b8391955aa9405e8981cbc238ad66fc162c",
+    "/htdocs/mission-scenarios.html": "1d01f65f77759d73943cb3bb8ac4268ab23e6b1fc122b11a786d762d0baeef64",
+    "/htdocs/mission-systems.html": "f879c0cd3aebbd8629f672c6e873af535b111d6a428c4d5b7885415e4b395085",
+    "/htdocs/privacy-policy.html": "a21159afcede28397b47ad6772ad6446d9999691c5e5ab8090fec85e97b2136b",
+    "/htdocs/privacy.html": "0f6af67ad7db5425dd2d23f9178b220b8c585edea36763d1acbd284e501604ff",
+    "/htdocs/projection-screen-configurator-v37.html": "d0f33b82cae3ad1ebe9a75ecab709ffe7d617c70a6c664b6401523a116ba3a36",
+    "/htdocs/projects.html": "8e4c700583074af2dd507507ff4f33c80daa387484dc8eee1fba245bb564f60b",
+    "/htdocs/shop.html": "fa603d2fb8648b1ad543eed374678defd4f51d61c7c902d385d381e8751a7704",
+    "/htdocs/simstarter-pro-software.html": "0aeff7da16fd56a0babca7469baec1d19f31641250539c8eb47182bb864e51fd",
+    "/htdocs/simstarter.html": "bc0912a105adebaa2c0d4cf8ed8117e4bd4a7055870cd6c453512dd7a0a241de",
+    "/htdocs/simulators.html": "c2332e3155998cf38c46fd02d841406c688ba43e4e54eec98dc134d0e327538d",
+    "/htdocs/software.html": "a95bb2a89bc98b7c4eaa75e70caa71d8c2ca9eb78836012b88757eb150915575",
+    "/htdocs/terms-and-conditions.html": "98c95496e448e03353f22d43898cedd70dab56d6f246ddb0fd5a63cbc2d4d274",
+    "/htdocs/terms.html": "b3008b6d0db9a0989f2d88c1fcc759ef36a7cc903ff9f2f22d7ca9d0a28abecf",
+    "/htdocs/visual-systems.html": "2bc0c67220c9b3be59339c4e5b95697f0b8b67a35a984db09c90c89f19e61d59"
+  },
+  "page_properties": {
+    "/htdocs/led-screen-configurator.html": {
+      "configurator": "led",
+      "configurator_version": "led-live-v1-659e06b8"
+    },
+    "/htdocs/projection-screen-configurator-v37.html": {
+      "configurator": "projection",
+      "configurator_version": "projection-v37-d0f33b82"
+    }
+  },
+  "report_updates": [
+    {
+      "path": "/htdocs/reports/analytics.js",
+      "source": "reports/analytics.js",
+      "expected_before": "e754f537d9982e3305e3638ca6188cc7f835d94186f84a4f0e8334acecf3e75d"
+    },
+    {
+      "path": "/htdocs/reports/app.js",
+      "source": "reports/app.js",
+      "expected_before": "1f4665af3b1fa7d00062b5fd30d021e43d3c4aadf018710a699901cf942e29ec"
+    }
+  ],
+  "csp_tracking_paths": [
+    "/htdocs/projection-screen-configurator-v37.html"
+  ]
+}

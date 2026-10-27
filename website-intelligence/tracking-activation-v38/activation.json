@@ -1,0 +1,48 @@
+{
+  "loader_url": "/assets/js/simworx-intelligence-bootstrap-v2.js",
+  "assets": [
+    {
+      "source": "assets/simworx-intelligence-bootstrap-v2.js",
+      "path": "/htdocs/assets/js/simworx-intelligence-bootstrap-v2.js"
+    },
+    {
+      "source": "assets/simworx-intelligence-tracker-v2.js",
+      "path": "/htdocs/assets/js/simworx-intelligence-tracker-v2.js"
+    },
+    {
+      "source": "assets/simworx-intelligence-configurator-v2.js",
+      "path": "/htdocs/assets/js/simworx-intelligence-configurator-v2.js"
+    },
+    {
+      "source": "assets/simworx-intelligence-contact-v2.js",
+      "path": "/htdocs/assets/js/simworx-intelligence-contact-v2.js"
+    }
+  ],
+  "html_paths": [
+    "/htdocs/projection-screen-configurator-v38.html"
+  ],
+  "expected_before": {
+    "/htdocs/projection-screen-configurator-v38.html": "aa2b5398e3a5e610da78ec02ef9e7cd687ba0fa26a44a1abdd6d7520e8769c7f"
+  },
+  "page_properties": {
+    "/htdocs/projection-screen-configurator-v38.html": {
+      "configurator": "projection",
+      "configurator_version": "projection-v38-aa2b5398"
+    }
+  },
+  "csp_tracking_paths": [
+    "/htdocs/projection-screen-configurator-v38.html"
+  ],
+  "report_updates": [
+    {
+      "path": "/htdocs/reports/analytics.js",
+      "source": "reports/analytics.js",
+      "expected_before": "d61ea285d8a718aecb8a5deadeb509f52c0144f2541d4b9278b07d7a5c8314de"
+    },
+    {
+      "path": "/htdocs/reports/app.js",
+      "source": "reports/app.js",
+      "expected_before": "451ba74a2bf75770cb5e9ec2c4a4d07cc43be345dd105081fa2987adfb9adbca"
+    }
+  ]
+}

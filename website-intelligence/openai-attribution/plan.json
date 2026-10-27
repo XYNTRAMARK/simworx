@@ -1,0 +1,22 @@
+[
+  {
+    "path": "reports/analytics.js",
+    "before": "31dd707996f1f1040c1798eaa821ffa77d0f68952b55a3dd4b09d3d0e1020e93",
+    "after": "31dd707996f1f1040c1798eaa821ffa77d0f68952b55a3dd4b09d3d0e1020e93"
+  },
+  {
+    "path": "reports/app.js",
+    "before": "9ed22d4fbb74acad5b39dc31c2ee7aa5727aeabaa6429ec5e55034189d459149",
+    "after": "f708189d7ef8dfd05faa70220a0109a4785585cb624282486c7946a15f9acfda"
+  },
+  {
+    "path": "assets/js/simworx-intelligence-tracker-v1.js",
+    "before": "0ded86f08e2d21704f47d7b8b7936c2d3f14180523d86bb794458c1586bd2443",
+    "after": "0ded86f08e2d21704f47d7b8b7936c2d3f14180523d86bb794458c1586bd2443"
+  },
+  {
+    "path": "assets/js/simworx-intelligence-tracker-v2.js",
+    "before": "22c9f98e8aea00e4bc83fd08fd5bcc505b620f16ab8e084859107b3ae3fc519f",
+    "after": "22c9f98e8aea00e4bc83fd08fd5bcc505b620f16ab8e084859107b3ae3fc519f"
+  }
+]

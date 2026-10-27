@@ -1,0 +1,45 @@
+name: Update OpenAI ad attribution and reports
+on:
+  push:
+    branches: [codex/simworx-tracking-activation]
+    paths: ['website-intelligence/openai-attribution/**', '.github/workflows/openai-attribution.yml']
+permissions:
+  contents: read
+concurrency:
+  group: simworx-tracking-production
+  cancel-in-progress: false
+jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate attribution and consent regressions
+        run: |
+          node --check website-intelligence/openai-attribution/reports/app.js
+          node --test website-intelligence/openai-attribution/tests/*.test.mjs
+          python3 website-intelligence/openai-attribution/deploy.py validate
+      - name: Back up exact live originals with checksum guards
+        run: python3 website-intelligence/openai-attribution/deploy.py backup
+      - name: Encrypt originals
+        run: |
+          tar -czf /tmp/openai-originals.tar.gz -C /tmp/openai-attribution-backup .
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in /tmp/openai-originals.tar.gz -out /tmp/openai-originals.enc -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in /tmp/openai-originals.enc -pass env:FTP_PASSWORD | cmp - /tmp/openai-originals.tar.gz
+      - uses: actions/upload-artifact@v4
+        id: backup
+        with:
+          name: encrypted-openai-attribution-originals-${{ github.sha }}
+          path: /tmp/openai-originals.enc
+          retention-days: 30
+      - name: Install and verify scoped attribution update
+        env:
+          RETAINED_BACKUP_ARTIFACT_ID: ${{ steps.backup.outputs.artifact-id }}
+        run: python3 website-intelligence/openai-attribution/deploy.py publish

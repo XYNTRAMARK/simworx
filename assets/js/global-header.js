@@ -7,7 +7,7 @@
       href: '/led-screen-configurator.html'
     },
     {
-      title: 'Projector Configurator',
+      title: 'Projection Screen',
       description: 'Design your projection screen & projector layout',
       href: '/projection-screen-configurator-v52.html'
     }

@@ -1,0 +1,117 @@
+name: Xyntra hosting map read only
+on:
+  push:
+    branches: [diagnostic/xyntra-hosting-map-20261027]
+    paths: ['.github/workflows/xyntra-hosting-readonly.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read FTP webroot identity without remote writes
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import ftplib, ssl, os, json, hashlib, re, socket, urllib.request, urllib.parse
+          
+          class ReadOnlyFTP(ftplib.FTP_TLS):
+              def putcmd(self, line):
+                  verb = line.split(" ", 1)[0].upper()
+                  allowed = {"AUTH","PBSZ","PROT","USER","PASS","TYPE","PASV","EPSV","PWD","CWD","CDUP","MLSD","NLST","LIST","SIZE","MDTM","RETR","QUIT","FEAT","SYST","NOOP","OPTS"}
+                  if verb not in allowed:
+                      raise RuntimeError("Remote write command prohibited")
+                  return super().putcmd(line)
+          
+          def public_meta(data):
+              title = re.search(br"<title[^>]*>(.*?)</title>", data, re.I | re.S)
+              return {
+                  "bytes": len(data),
+                  "sha256": hashlib.sha256(data).hexdigest(),
+                  "title": re.sub(r"\\s+", " ", title.group(1).decode("utf-8", "replace")).strip()[:160] if title else None,
+              }
+          
+          def get_public(url):
+              request = urllib.request.Request(url, headers={"User-Agent":"Xyntra-hosting-readonly-check","Cache-Control":"no-cache"})
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  data = response.read(2_000_001)
+                  if len(data) > 2_000_000:
+                      raise RuntimeError("Public response exceeds limit")
+                  return {**public_meta(data), "url": response.url, "status": response.status}
+          
+          report = {"mode": "read-only", "remote_writes": 0, "public": {}, "dns": {}, "directories": [], "webroot_indexes": []}
+          for domain in ["xyntra-ai.com","www.xyntra-ai.com","sim-worx.com","www.sim-worx.com"]:
+              try:
+                  report["dns"][domain] = sorted({entry[4][0] for entry in socket.getaddrinfo(domain,443,type=socket.SOCK_STREAM)})
+              except Exception as exc:
+                  report["dns"][domain] = {"error_type":type(exc).__name__}
+          for label, url in [("xyntra","https://xyntra-ai.com/dashboard"),("simworx","https://www.sim-worx.com/")]:
+              try:
+                  report["public"][label] = get_public(url)
+              except Exception as exc:
+                  report["public"][label] = {"error_type":type(exc).__name__}
+          
+          raw_host = os.environ["FTP_HOST"]
+          parsed = urllib.parse.urlsplit(raw_host if "://" in raw_host else "//" + raw_host)
+          host = parsed.hostname
+          if not host or not os.environ.get("FTP_USERNAME") or not os.environ.get("FTP_PASSWORD"):
+              raise SystemExit("Required FTP connection settings are missing")
+          ftp = ReadOnlyFTP(context=ssl.create_default_context(), timeout=25)
+          try:
+              ftp.connect(host, parsed.port or 21)
+              ftp.login(os.environ["FTP_USERNAME"], os.environ["FTP_PASSWORD"])
+              ftp.prot_p()
+              report["ftp_connected"] = True
+              def folders(path):
+                  ftp.cwd(path)
+                  entries = list(ftp.mlsd(facts=["type"]))
+                  if len(entries) > 1000:
+                      raise RuntimeError("Directory listing exceeds inspection limit")
+                  dirs = sorted(name for name, facts in entries if facts.get("type") == "dir" and name not in [".",".."] and not name.startswith("."))
+                  relevant = [name for name in dirs if re.search(r"xyntra|^(htdocs|httpdocs|www|public_html|sites|domains|vhosts)$", name, re.I)]
+                  report["directories"].append({"path":path,"directory_count":len(dirs),"relevant_directories":relevant})
+                  return relevant
+              root_dirs = folders("/")
+              candidates = []
+              for name in root_dirs[:20]:
+                  parent = "/" + name
+                  children = folders(parent)
+                  if name.lower() in ["htdocs","httpdocs","www","public_html"] or "xyntra" in name.lower():
+                      candidates.append(parent)
+                  for child in children[:20]:
+                      nested = parent + "/" + child
+                      if "xyntra" in child.lower() or child.lower() in ["htdocs","httpdocs","www","public_html"]:
+                          candidates.append(nested)
+              for directory in sorted(set(candidates))[:20]:
+                  path = directory.rstrip("/") + "/index.html"
+                  buffer = bytearray()
+                  def receive(block):
+                      if len(buffer) + len(block) > 2_000_000:
+                          raise RuntimeError("Index exceeds inspection limit")
+                      buffer.extend(block)
+                  try:
+                      ftp.retrbinary("RETR " + path, receive)
+                      meta = public_meta(bytes(buffer))
+                      meta.update({"path":path, "matches_public": [name for name, item in report["public"].items() if item.get("sha256") == meta["sha256"]]})
+                      report["webroot_indexes"].append(meta)
+                  except ftplib.error_perm:
+                      report["webroot_indexes"].append({"path":path,"status":"not readable or absent"})
+              ftp.quit()
+          except Exception as exc:
+              report["ftp_error_type"] = type(exc).__name__
+              try:
+                  ftp.close()
+              except Exception:
+                  pass
+          print(json.dumps(report, indent=2))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("## Read-only hosting map\n\n```json\n" + json.dumps(report, indent=2) + "\n```\n")
+          if not report.get("ftp_connected") or report.get("ftp_error_type"):
+              raise SystemExit(1)
+          
+          PY

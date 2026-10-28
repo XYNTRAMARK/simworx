@@ -1,0 +1,27 @@
+name: Publish Website Intelligence reporting audit extension
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.reporting-audit-deploy/**'
+      - '.github/workflows/reporting-audit-extension.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-reporting-audit
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish reporting extension
+        run: python3 .reporting-audit-deploy/publish.py
+      - name: Roll back if publication fails
+        if: failure()
+        run: python3 .reporting-audit-deploy/rollback.py

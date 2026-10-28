@@ -7,8 +7,6 @@ from urllib.request import Request,urlopen
 ROOT="/htdocs"; BASE="https://www.sim-worx.com"
 BUSINESS_REL="assets/js/simworx-intelligence-business-v1.js"
 PATCH_FILES=[
-  "assets/js/simworx-intelligence-bootstrap-v1.js",
-  "assets/js/simworx-intelligence-bootstrap-v2.js",
   "assets/js/simworx-intelligence-tracker-v1.js",
   "assets/js/simworx-intelligence-tracker-v2.js"
 ]
@@ -36,21 +34,17 @@ with connect() as f:
     for rel in PATCH_FILES:
         body=rb(f,ROOT+"/"+rel);(BACK/Path(rel).name).write_bytes(body)
         text=body.decode("utf-8")
-        if "bootstrap" in rel:
-            if "simworx-intelligence-business-v1.js" not in text:
-                contact_version = 'v2' if 'bootstrap-v2' in rel else 'v1'
-                anchor="if (document.getElementById('contact-form')) load('simworx-intelligence-contact-"+contact_version+".js');"
-                if anchor not in text: raise RuntimeError("Bootstrap business-loader anchor missing: "+rel)
-                text=text.replace(anchor,anchor+"\n    load('simworx-intelligence-business-v1.js');",1)
-        else:
-            if "configurator_session_id: uuid()" not in text: raise RuntimeError("Tracker config anchor absent: "+rel)
-            old="""    if (!enabled || !options.configurator_type) return;
+        if "configurator_session_id: uuid()" not in text: raise RuntimeError("Tracker config anchor absent: "+rel)
+        old="""    if (!enabled || !options.configurator_type) return;
     var key = session.id + ':' + options.configurator_type;"""
-            new="""    if (!enabled || !options.configurator_type) return;
+        new="""    if (!enabled || !options.configurator_type) return;
     if (!config) config = { configurator_session_id: uuid(), configuration_id: null, started: false, completed: false, last_step: 'opened' };
     var key = session.id + ':' + options.configurator_type;"""
-            if old not in text: raise RuntimeError("Tracker opened-session anchor missing: "+rel)
-            text=text.replace(old,new,1)
+        if old not in text: raise RuntimeError("Tracker opened-session anchor missing: "+rel)
+        text=text.replace(old,new,1)
+        business_source=Path(BUSINESS_REL).read_text()
+        if "__simworxBusinessIntelligenceV1" not in text:
+            text=text.rstrip()+"\\n\\n"+business_source+"\\n"
         patched=text.encode();(OUT/Path(rel).name).write_bytes(patched)
     f.quit()
 

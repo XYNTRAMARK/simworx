@@ -38,7 +38,8 @@ with connect() as f:
         text=body.decode("utf-8")
         if "bootstrap" in rel:
             if "simworx-intelligence-business-v1.js" not in text:
-                anchor="if (document.getElementById('contact-form')) load('simworx-intelligence-contact-v1.js');"
+                contact_version = 'v2' if 'bootstrap-v2' in rel else 'v1'
+                anchor="if (document.getElementById('contact-form')) load('simworx-intelligence-contact-"+contact_version+".js');"
                 if anchor not in text: raise RuntimeError("Bootstrap business-loader anchor missing: "+rel)
                 text=text.replace(anchor,anchor+"\n    load('simworx-intelligence-business-v1.js');",1)
         else:

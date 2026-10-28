@@ -1,0 +1,70 @@
+name: Inspect live reports app files
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-live-reports-app.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read live reports entry and linked assets
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os,re,posixpath,hashlib
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          def ls(path):
+            try:return list(f.mlsd(path))
+            except Exception as e:return [('ERR',{'error':repr(e)})]
+          def read(path):
+            out=[];f.retrbinary('RETR '+path,out.append);return b''.join(out).decode('utf-8','replace')
+
+          print('ROOT_REPORT_ENTRIES')
+          for n,x in ls('/htdocs'):
+            if 'report' in n.lower() or 'stat' in n.lower() or 'track' in n.lower() or 'analytic' in n.lower():
+              print(n,x)
+
+          candidates=[]
+          for path in ['/htdocs/reports','/htdocs/reports.html','/htdocs/reports/index.html','/htdocs/reporting.html']:
+            try:
+              s=read(path);candidates.append((path,s));print('READ',path,'LEN',len(s),'SHA',hashlib.sha256(s.encode()).hexdigest())
+            except Exception as e:
+              print('MISS',path,repr(e))
+
+          if not candidates:
+            print('REPORTS_DIR',ls('/htdocs/reports'))
+          else:
+            for path,s in candidates:
+              print('\n###ENTRY',path)
+              print(s[:12000])
+              refs=[]
+              refs+=re.findall(r'<script[^>]+src=["\']([^"\']+)',s,re.I)
+              refs+=re.findall(r'<link[^>]+href=["\']([^"\']+)',s,re.I)
+              print('REFS',refs)
+              for ref in refs:
+                if ref.startswith('http'):continue
+                clean=ref.split('?',1)[0].lstrip('/')
+                rp='/htdocs/'+clean
+                try:
+                  body=read(rp)
+                except Exception as e:
+                  print('REF_MISS',rp,repr(e));continue
+                print('\n###ASSET',rp,'LEN',len(body),'SHA',hashlib.sha256(body.encode()).hexdigest())
+                for term in ['fetch(','sendBeacon','Supabase','supabase','event','visitor','session','configurator','funnel','lead','utm_','pdf','email','simulator','aircraft','software','page']:
+                  hits=[m.start() for m in re.finditer(re.escape(term),body,re.I)]
+                  if hits:
+                    print('TERM',term,'COUNT',len(hits))
+                    for i in hits[:6]:print(body[max(0,i-500):min(len(body),i+2000)].replace('\n',' ')[:2600])
+          f.quit()
+          PY

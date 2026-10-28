@@ -1,0 +1,35 @@
+name: Publish Website Intelligence business tracking v1
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/js/simworx-intelligence-business-v1.js'
+      - '.website-intelligence-deploy/**'
+      - '.github/workflows/website-intelligence-business-v1.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-website-intelligence-business-v1
+  cancel-in-progress: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Patch and publish intelligence assets
+        run: python3 .website-intelligence-deploy/publish-business-v1.py
+      - name: Validate live business journeys without writing analytics data
+        id: live_test
+        run: python3 .website-intelligence-deploy/test-business-v1.py
+      - name: Roll back intelligence assets if live validation fails
+        if: failure() && steps.live_test.outcome == 'failure'
+        run: python3 .website-intelligence-deploy/rollback-business-v1.py

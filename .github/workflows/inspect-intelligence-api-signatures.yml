@@ -1,0 +1,31 @@
+name: Inspect intelligence configurator API signatures
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-intelligence-api-signatures.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read focused SDK functions
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os,re
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45);f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          out=[];f.retrbinary('RETR /htdocs/assets/js/simworx-intelligence-tracker-v1.js',out.append);s=b''.join(out).decode('utf-8','replace');f.quit()
+          for term in ['function startConfigurator','function step(','function completeConfiguration','function opened(','window.SimworxIntelligence']:
+            i=s.find(term)
+            print('\nTERM',term,'AT',i)
+            if i>=0:print(s[max(0,i-1000):i+7000])
+          PY

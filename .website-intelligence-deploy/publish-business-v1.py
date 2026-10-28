@@ -44,7 +44,7 @@ with connect() as f:
         text=text.replace(old,new,1)
         business_source=Path(BUSINESS_REL).read_text()
         if "__simworxBusinessIntelligenceV1" not in text:
-            text=text.rstrip()+"\\n\\n"+business_source+"\\n"
+            text=text.rstrip()+"\n\n"+business_source+"\n"
         patched=text.encode();(OUT/Path(rel).name).write_bytes(patched)
     f.quit()
 

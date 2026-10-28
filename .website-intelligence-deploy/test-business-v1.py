@@ -16,9 +16,11 @@ with sync_playwright() as pw:
     p.route("**/functions/v1/simworx-intelligence",lambda route,req:(capt.append(req.post_data or ''),route.fulfill(status=200,content_type="application/json",body='{"ok":true,"accepted":20}')))
     p.goto("https://www.sim-worx.com/a320-full-cockpit.html?wi-validation=1",wait_until="domcontentloaded",timeout=60000);p.wait_for_timeout(800)
     p.evaluate("window.SimworxIntelligence && window.SimworxIntelligence.setConsent({analytics:true})");p.wait_for_timeout(300)
-    radios=p.locator('input[name="mip-package"]')
-    if radios.count()>1:radios.nth(1).check(force=True)
-    elif radios.count():radios.nth(0).check(force=True)
+    p.evaluate("""() => {
+      const radios=[...document.querySelectorAll('input[name="mip-package"]')];
+      const target=radios[1]||radios[0];
+      if(target){target.checked=true;target.dispatchEvent(new Event('change',{bubbles:true}));}
+    }""")
     p.wait_for_timeout(100)
     region=p.locator('#framecfg-region')
     if region.count() and region.locator('option').count()>1:region.select_option(index=1)

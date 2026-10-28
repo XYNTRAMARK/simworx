@@ -1,0 +1,48 @@
+name: Inspect reports app internals
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-reports-internals.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read reports directory and code
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os,re,posixpath,hashlib
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          def ls(path):
+            return list(f.mlsd(path))
+          def read(path):
+            out=[];f.retrbinary('RETR '+path,out.append);return b''.join(out).decode('utf-8','replace')
+          print('REPORTS_DIR_LIST')
+          for n,x in ls('/htdocs/reports'):print(n,x)
+          for n,x in ls('/htdocs/reports'):
+            if x.get('type')!='file':continue
+            path='/htdocs/reports/'+n
+            if not any(n.lower().endswith(ext) for ext in ['.js','.php','.json','.html','.css']):continue
+            s=read(path)
+            print('\n###FILE',path,'LEN',len(s),'SHA',hashlib.sha256(s.encode()).hexdigest())
+            if n.endswith('.css'):continue
+            if len(s)<50000:print(s)
+            else:
+              for term in ['fetch(','endpoint','events','visitor','session','configurator','funnel','lead','utm_','pdf','email','simulator','aircraft','software','page','traffic','campaign','source','unique','COUNT','GROUP BY','SELECT','INSERT','sqlite','json']:
+                hits=[m.start() for m in re.finditer(re.escape(term),s,re.I)]
+                if hits:
+                  print('TERM',term,'COUNT',len(hits))
+                  for i in hits[:8]:print(s[max(0,i-800):min(len(s),i+2600)].replace('\n',' ')[:3400])
+          f.quit()
+          PY

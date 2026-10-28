@@ -1,0 +1,42 @@
+name: Inspect live tracker runtime
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-live-tracker-runtime.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Inspect scripts and tracker globals
+        run: |
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          pages=['/','/led-screen-configurator.html','/projection-screen-configurator.html','/frames.html','/a320-full-cockpit.html','/software.html']
+          with sync_playwright() as pw:
+            b=pw.chromium.launch(headless=True)
+            for path in pages:
+              p=b.new_page(viewport={'width':1280,'height':800})
+              p.goto('https://www.sim-worx.com'+path,wait_until='domcontentloaded',timeout=60000)
+              p.wait_for_timeout(1500)
+              data=p.evaluate("""() => ({
+                scripts:[...document.scripts].map((s,i)=>({i,src:s.src||'',id:s.id||'',type:s.type||'',len:(s.textContent||'').length,
+                  marker:/simworx-intelligence|session_started|page_performance|web_vitals|configurator_opened|track\(|analytics/i.test(s.textContent||'')?(s.textContent||'').slice(0,1500):''})),
+                resources:performance.getEntriesByType('resource').filter(r=>/\.js(?:\?|$)|supabase|intelligence|track|analytic/i.test(r.name)).map(r=>r.name),
+                globals:Object.keys(window).filter(k=>/simworx|track|analytics|configurator/i.test(k)).slice(0,100)
+              })""")
+              print('\nPAGE',path)
+              print('SCRIPTS',data['scripts'])
+              print('RESOURCES',data['resources'])
+              print('GLOBALS',data['globals'])
+              p.close()
+            b.close()
+          PY

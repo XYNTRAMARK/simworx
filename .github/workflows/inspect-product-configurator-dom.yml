@@ -1,0 +1,37 @@
+name: Inspect product configurator DOM
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-product-configurator-dom.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Inspect stable controls and links
+        run: |
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          pages=['/a320-full-cockpit.html','/a320-single-seat.html','/a320-supershort.html','/f16-frames.html','/software.html','/frames.html']
+          with sync_playwright() as pw:
+            b=pw.chromium.launch(headless=True)
+            for path in pages:
+              p=b.new_page(viewport={'width':1440,'height':900});p.goto('https://www.sim-worx.com'+path,wait_until='domcontentloaded',timeout=60000);p.wait_for_timeout(800)
+              d=p.evaluate("""() => ({
+                title:document.title,
+                headings:[...document.querySelectorAll('h1,h2,h3')].map(x=>({tag:x.tagName,id:x.id||'',text:(x.textContent||'').trim().slice(0,100)})).slice(0,80),
+                controls:[...document.querySelectorAll('input,select,button,textarea')].map(x=>({tag:x.tagName,id:x.id||'',name:x.name||'',type:x.type||'',text:(x.textContent||x.value||'').trim().slice(0,100),cls:x.className||''})).filter(x=>x.id||x.name).slice(0,160),
+                links:[...document.querySelectorAll('a[href]')].map(x=>({id:x.id||'',text:(x.textContent||'').trim().replace(/\s+/g,' ').slice(0,100),href:x.getAttribute('href')||'',cls:x.className||''})).filter(x=>x.href && !x.href.startsWith('#')).slice(0,120),
+                forms:[...document.forms].map(f=>({id:f.id||'',action:f.action||'',cls:f.className||''}))
+              })""")
+              print('\nPAGE',path);print(d);p.close()
+            b.close()
+          PY

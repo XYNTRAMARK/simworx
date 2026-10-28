@@ -1,0 +1,57 @@
+name: Inspect reporting calculations and endpoint
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-reporting-calculations.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect live report client and backend target
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os,re,json,posixpath
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          def read(path):
+            out=[];f.retrbinary('RETR '+path,out.append);return b''.join(out).decode('utf-8','replace')
+          cfg=read('/htdocs/reports/config.js');print('CONFIG_JS\n'+cfg)
+          app=read('/htdocs/reports/app.js')
+          ana=read('/htdocs/reports/analytics.js')
+          for label,s,terms in [
+            ('APP',app,['config.endpoint','async function load','api(\'snapshot\'','renderConfigurators','function renderConfigurators','configuratorTab','Configurator email contacts','product','software']),
+            ('ANALYTICS',ana,['export function buildReport','function configurator','configuratorFunnel','funnel','productPages','software','pageViews','configuratorSummary','simulator'])
+          ]:
+            print('\n###',label)
+            for term in terms:
+              hits=[m.start() for m in re.finditer(re.escape(term),s,re.I)]
+              if hits:
+                print('\nTERM',term,'COUNT',len(hits))
+                for i in hits[:10]:print(s[max(0,i-1800):min(len(s),i+6500)])
+          # Resolve endpoint from config.
+          m=re.search(r'endpoint\s*:\s*["\']([^"\']+)',cfg)
+          if m:
+            ep=m.group(1);print('\nENDPOINT',ep)
+            if not ep.startswith('http'):
+              path=posixpath.normpath('/htdocs/reports/'+ep)
+              try:
+                body=read(path);print('\n###BACKEND',path,'LEN',len(body))
+                for term in ['action','snapshot','events','visitors','sessions','configurations','leads','limit','json','file','sqlite','SELECT','INSERT']:
+                  hits=[x.start() for x in re.finditer(re.escape(term),body,re.I)]
+                  if hits:
+                    print('TERM',term,'COUNT',len(hits))
+                    for i in hits[:8]:print(body[max(0,i-1200):min(len(body),i+5000)])
+              except Exception as e: print('BACKEND_READ_FAIL',path,repr(e))
+          f.quit()
+          PY

@@ -1,0 +1,72 @@
+name: Deep audit live reporting collection
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deep-audit-live-reporting.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect live reporting collection and endpoint contracts
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os,re,posixpath,json,hashlib
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          def ls(path):
+              try:return list(f.mlsd(path))
+              except:return []
+          def walk(path,depth=0):
+              out=[]
+              if depth>5:return out
+              for name,facts in ls(path):
+                  if facts.get('type') in ('cdir','pdir'):continue
+                  full=posixpath.join(path,name);out.append((full,facts))
+                  if facts.get('type')=='dir':out.extend(walk(full,depth+1))
+              return out
+          def read(path):
+              out=[];f.retrbinary('RETR '+path,out.append);return b''.join(out).decode('utf-8','replace')
+          entries=walk('/htdocs')
+          # exact reports inventory
+          print('=== REPORTS TREE ===')
+          for full,facts in entries:
+              if full.startswith('/htdocs/reports'):
+                  print(facts.get('type'),facts.get('size'),full)
+          # candidate collection files by code terms
+          candidates=[]
+          terms=['event_id','visitor_id','session_id','sendbeacon','analytics','telemetry','page_view','session_started','configurator_started','configuration_downloaded','product_configurator','utm_source','reports']
+          for full,facts in entries:
+              if facts.get('type')!='file':continue
+              low=full.lower()
+              if not low.endswith(('.js','.php','.html','.json')):continue
+              try:size=int(facts.get('size') or 0)
+              except:size=0
+              if size>1800000:continue
+              try:s=read(full)
+              except:continue
+              hit=[t for t in terms if t in s.lower()]
+              if hit:candidates.append((full,s,hit))
+          print('=== COLLECTION CANDIDATES ===')
+          for full,s,hit in candidates:
+              print('\nFILE',full,'LEN',len(s),'HITS',','.join(hit),'SHA',hashlib.sha256(s.encode()).hexdigest())
+              # script refs / endpoints
+              refs=sorted(set(re.findall(r'(?:src|href)=["\']([^"\']+)',s,re.I)))
+              endpoints=sorted(set(re.findall(r'["\']((?:https?://[^"\']+|/[^"\']*(?:track|event|report|analytics|collect|api)[^"\']*))["\']',s,re.I)))
+              if refs:print('REFS',refs[:80])
+              if endpoints:print('ENDPOINTS',endpoints[:80])
+              for term in ['event_id','visitor_id','session_id','sendBeacon','session_started','page_view','configurator_started','configuration_downloaded','product_configurator','utm_source']:
+                  for m in list(re.finditer(re.escape(term),s,re.I))[:5]:
+                      print('SNIP',term,s[max(0,m.start()-500):min(len(s),m.start()+1800)].replace('\n',' ')[:2300])
+          f.quit()
+          PY

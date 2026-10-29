@@ -1,0 +1,20 @@
+name: Deduplicate configurator conversion analytics
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.reporting-v4-dedupe/**'
+      - '.github/workflows/reporting-v4-dedupe.yml'
+permissions:
+  contents: read
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .reporting-v4-dedupe/patch.py

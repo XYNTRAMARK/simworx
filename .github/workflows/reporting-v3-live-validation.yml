@@ -1,0 +1,157 @@
+name: Validate Reporting V3 live instrumentation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/reporting-v3-live-validation.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Run marked live journeys
+        run: |
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          import uuid, json, re, time
+          base='https://www.sim-worx.com'
+          suffix=uuid.uuid4().hex[:8]
+          campaign='TRACKING-VALIDATION-REPORTINGV3-'+suffix
+          open('/tmp/reporting_v3_campaign','w').write(campaign)
+          qs=f'?utm_source=tracking_validation&utm_medium=verification&utm_content=deployed-sdk&utm_campaign={campaign}'
+          consent="""() => {
+            localStorage.setItem('simworx_cookie_consent', JSON.stringify({
+              version:'SWX-CKN-001-v1.0-2026-08-14',
+              timestamp:new Date().toISOString(),
+              analytics:true,marketing:false
+            }));
+            window.turnstile={
+              render:(el,opts)=>{
+                const i=document.createElement('input');
+                i.type='hidden'; i.name='cf-turnstile-response'; i.value='reporting-v3-test-token';
+                el.appendChild(i); setTimeout(()=>opts.callback?.('reporting-v3-test-token'),0); return 77;
+              },
+              getResponse:id=>id===77?'reporting-v3-test-token':'',
+              reset:()=>{}
+            };
+          }"""
+          def new_page(browser):
+              p=browser.new_page(viewport={'width':1440,'height':950})
+              p.add_init_script(consent)
+              return p
+          def wait_sdk(p):
+              p.wait_for_function("window.SimworxIntelligence && window.SimworxIntelligence.getContext && window.SimworxIntelligence.getContext().enabled===true",timeout=20000)
+              p.wait_for_timeout(1000)
+          with sync_playwright() as pw:
+              b=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader'])
+
+              # LED: real observer + collector; quote transport is stubbed only after tracking SDK is live.
+              p=new_page(b)
+              def led_route(route,request):
+                  if request.method=='POST' and request.url.endswith('/led-quote-submit.php'):
+                      route.fulfill(status=200,content_type='application/json',body=json.dumps({
+                        'ok':True,
+                        'quote':{'reference':'SW-LED-REPORTING-V3-TEST','created':'2026-10-29','html':'<p>test</p>','total':1234,'currency':'EUR'},
+                        'message':'Your quote email has been sent.'
+                      }))
+                  else: route.continue_()
+              p.route('**/*',led_route)
+              p.goto(base+'/led-screen-configurator.html'+qs,wait_until='domcontentloaded',timeout=60000)
+              wait_sdk(p)
+              # Change a real screen value to guarantee a configuration start.
+              if p.locator('#led-diameter-range').count():
+                  p.locator('#led-diameter-range').evaluate("(el)=>{el.value=String(Math.min(Number(el.max)||12,(Number(el.value)||4.5)+0.1));el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}")
+              p.wait_for_timeout(1800)
+              email_action=p.locator('[data-quote-action="email"]')
+              for _ in range(50):
+                  if email_action.count() and not email_action.is_disabled(): break
+                  p.wait_for_timeout(200)
+              if not email_action.count() or email_action.is_disabled():
+                  raise RuntimeError('LED Email me Quote did not enable')
+              email_action.click()
+              p.wait_for_timeout(300)
+              p.locator('#led-email').fill('tracking-validation-led@sim-worx.com')
+              # Force synthetic Turnstile widget state to be accepted by the client controller.
+              p.wait_for_timeout(200)
+              btn=p.locator('#led-request-button')
+              for _ in range(40):
+                  if not btn.is_disabled(): break
+                  p.wait_for_timeout(150)
+              btn.click()
+              p.wait_for_timeout(3500)
+              print('LED_RESULT',p.locator('#led-action-result').text_content() or '',p.locator('#led-submission-status').text_content() or '')
+              p.close()
+
+              # Projection: real workflow to proposal; stub only email delivery.
+              p=new_page(b)
+              def proj_route(route,request):
+                  if request.method=='POST' and request.url.endswith('/led-quote-submit.php'):
+                      route.fulfill(status=200,content_type='application/json',body=json.dumps({
+                        'ok':True,
+                        'quote':{'reference':'SWX-PROJ-REPORTING-V3-TEST','created':'2026-10-29','html':'<p>test</p>','total':2345,'currency':'EUR'},
+                        'message':'Your projection proposal email has been sent.'
+                      }))
+                  else: route.continue_()
+              p.route('**/*',proj_route)
+              p.goto(base+'/projection-screen-configurator.html'+qs,wait_until='domcontentloaded',timeout=60000)
+              wait_sdk(p)
+              p.locator('[data-guided-go="2"]').click(); p.wait_for_timeout(450)
+              p.locator('[data-guided-go="3"]').click(); p.wait_for_timeout(650)
+              calc=p.locator('#guided-calculate'); calc.click()
+              for _ in range(300):
+                  if p.locator('#guided-result').is_visible() and not calc.is_disabled(): break
+                  p.wait_for_timeout(100)
+              p.wait_for_timeout(700)
+              p.locator('[data-guided-go="4"]').click(); p.wait_for_timeout(1000)
+              if p.locator('#v39-country').count(): p.locator('#v39-country').select_option('GB')
+              if p.locator('#v37-customer-type').count(): p.locator('#v37-customer-type').select_option('business')
+              p.locator('#v37-email-proposal').click(); p.wait_for_timeout(300)
+              p.locator('#v37-email-address').fill('tracking-validation-projection@sim-worx.com')
+              p.locator('#v37-email-name').fill('Reporting V3 Test')
+              p.locator('#v37-email-send').click()
+              p.wait_for_timeout(4200)
+              print('PROJECTION_RESULT',p.locator('#v37-email-status').text_content() or '')
+              p.close()
+
+              # Cockpit product: real page interaction to create opened/start/model/option events.
+              p=new_page(b)
+              p.goto(base+'/a320-single-seat.html'+qs,wait_until='domcontentloaded',timeout=60000)
+              wait_sdk(p)
+              candidates=p.locator('input[name="mip-package"], input[name="side-box"], input[name="f16-package"]')
+              if not candidates.count(): raise RuntimeError('No cockpit option controls found')
+              el=candidates.first
+              if el.get_attribute('type') in ['radio','checkbox']: el.check(force=True)
+              else: el.click(force=True)
+              p.wait_for_timeout(2500)
+              p.close()
+
+              # Software: prevent navigation after tracker sees the click.
+              p=new_page(b)
+              p.goto(base+'/software.html'+qs,wait_until='domcontentloaded',timeout=60000)
+              wait_sdk(p)
+              p.evaluate("document.addEventListener('click',e=>{const a=e.target.closest?.('a[href]');if(a)e.preventDefault();},{capture:false});")
+              links=p.locator('a[href]')
+              target=None
+              for i in range(links.count()):
+                  txt=(links.nth(i).inner_text() or '').strip()
+                  href=links.nth(i).get_attribute('href') or ''
+                  if re.search(r'simstarter|certification|gameboost|qtg|demo|free trial',txt+' '+href,re.I):
+                      target=links.nth(i); break
+              if target is None: raise RuntimeError('No software product link found')
+              print('SOFTWARE_CLICK',target.inner_text(),target.get_attribute('href'))
+              target.click(force=True,no_wait_after=True)
+              p.wait_for_timeout(2500)
+              p.close()
+
+              b.close()
+          print('VALIDATION_CAMPAIGN',campaign)
+          PY
+      - name: Print validation campaign
+        run: cat /tmp/reporting_v3_campaign

@@ -1,0 +1,1 @@
+<script id="simworx-intelligence-tracking" defer src="/assets/js/simworx-intelligence-bootstrap-v2.js" data-configurator="projection" data-configurator-version="projection-v63">

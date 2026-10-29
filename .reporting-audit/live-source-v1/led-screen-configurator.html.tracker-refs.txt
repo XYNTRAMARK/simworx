@@ -1,0 +1,1 @@
+<script id="simworx-intelligence-tracking" defer src="/assets/js/simworx-intelligence-bootstrap-v1.js" data-configurator="led" data-configurator-version="led-live-v1-659e06b8">

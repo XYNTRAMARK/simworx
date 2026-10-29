@@ -1,0 +1,57 @@
+{
+  "/htdocs/assets/js/simworx-intelligence-bootstrap-v1.js": {
+    "file": "assets__js__simworx-intelligence-bootstrap-v1.js",
+    "bytes": 2531,
+    "sha256": "4c51f978d6e1ce0ab593fc4f4ef4ebb006e109fed6feee3c8c4b31e8854ba1b0"
+  },
+  "/htdocs/assets/js/simworx-intelligence-tracker-v1.js": {
+    "file": "assets__js__simworx-intelligence-tracker-v1.js",
+    "bytes": 38514,
+    "sha256": "26a4173bd483363557e335f6879fce8e327b57da80d76b10fa6694c0b16f76b7"
+  },
+  "/htdocs/assets/js/simworx-intelligence-configurator-v1.js": {
+    "file": "assets__js__simworx-intelligence-configurator-v1.js",
+    "bytes": 25960,
+    "sha256": "aacbe87387947f063148ee286314f15b159d88d6e66e90957ca7307ca8a19c17"
+  },
+  "/htdocs/a320-full-cockpit.html": {
+    "tracker_refs": "<script id=\"simworx-intelligence-tracking\" defer src=\"/assets/js/simworx-intelligence-bootstrap-v1.js\">",
+    "bytes": 25345,
+    "sha256": "e14c4dd9ed8ceaaf18ade55fa9c71aceb60314d8348d46b46ef00004d4d91c10"
+  },
+  "/htdocs/a320-single-seat.html": {
+    "tracker_refs": "<script id=\"simworx-intelligence-tracking\" defer src=\"/assets/js/simworx-intelligence-bootstrap-v1.js\">",
+    "bytes": 21512,
+    "sha256": "43250b6fd88aa4b94261b3492913bd98f27fb9afe07621aa90061fae6c8e030f"
+  },
+  "/htdocs/a320-supershort.html": {
+    "tracker_refs": "<script id=\"simworx-intelligence-tracking\" defer src=\"/assets/js/simworx-intelligence-bootstrap-v1.js\">",
+    "bytes": 24240,
+    "sha256": "07745fe8f484ce60824f8a48ba3ccbd027f71377ccfbec3fd4323811788f14fa"
+  },
+  "/htdocs/f16-frames.html": {
+    "tracker_refs": "<script id=\"simworx-intelligence-tracking\" defer src=\"/assets/js/simworx-intelligence-bootstrap-v1.js\">",
+    "bytes": 19363,
+    "sha256": "67745285e9a8caae7256c00d173a8946b8895a5fab4ae795618899dfb55d7976"
+  },
+  "/htdocs/software.html": {
+    "tracker_refs": "<script id=\"simworx-intelligence-tracking\" defer src=\"/assets/js/simworx-intelligence-bootstrap-v1.js\">",
+    "bytes": 9441,
+    "sha256": "ae08e4f4c508350f627878aa5c854999ef9d4588cb57cfbb7ec90f6c1dfd82f1"
+  },
+  "/htdocs/simulators.html": {
+    "tracker_refs": "<script id=\"simworx-intelligence-tracking\" defer src=\"/assets/js/simworx-intelligence-bootstrap-v1.js\">",
+    "bytes": 8759,
+    "sha256": "ff26b2e735b1f0446882ddbd6ee047f488d05777994e4af99087ac657c8b4356"
+  },
+  "/htdocs/led-screen-configurator.html": {
+    "tracker_refs": "<script id=\"simworx-intelligence-tracking\" defer src=\"/assets/js/simworx-intelligence-bootstrap-v1.js\" data-configurator=\"led\" data-configurator-version=\"led-live-v1-659e06b8\">",
+    "bytes": 12942943,
+    "sha256": "b4eb2971a76d91095895ce3010c5d9a6ff404719dd55a72fd39d204324cfc5de"
+  },
+  "/htdocs/projection-screen-configurator.html": {
+    "tracker_refs": "<script id=\"simworx-intelligence-tracking\" defer src=\"/assets/js/simworx-intelligence-bootstrap-v2.js\" data-configurator=\"projection\" data-configurator-version=\"projection-v63\">",
+    "bytes": 13487189,
+    "sha256": "1f8a8eb46415cc726bba2dc60d00ae41f9f77a1d16e896c4f743e4f6fa6ad8e6"
+  }
+}

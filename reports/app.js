@@ -82,9 +82,16 @@ function wiCT(e){var p=wiP(e);return String(p.configurator_type||p.configurator|
 function wiD(rows,key){return new Set((rows||[]).map(key).filter(Boolean)).size;}
 function wiEvents(){return state.report&&state.report.events||[];}
 function wiModels(type){
- var groups=new Map();
- wiEvents().filter(e=>wiCT(e)===type).forEach(e=>{
-   var p=wiP(e),cat=String(p.simulator_category||'Not Selected'),model=String(p.simulator_model||'Not Selected');
+ var groups=new Map(), sessionModel=new Map();
+ var rows=wiEvents().filter(e=>wiCT(e)===type);
+ // Carry a deliberate simulator selection across every later event in the same
+ // configurator session. Raw events stay untouched; only reporting is enriched.
+ rows.forEach(e=>{
+   var p=wiP(e),cat=String(p.simulator_category||''),model=String(p.simulator_model||'');
+   if((cat&&cat!=='Not Selected')||(model&&model!=='Not Selected'))sessionModel.set(e.session_id,{category:cat||'Not Selected',model:model||'Not Selected'});
+ });
+ rows.forEach(e=>{
+   var p=wiP(e),known=sessionModel.get(e.session_id)||{},cat=String((p.simulator_category&&p.simulator_category!=='Not Selected'?p.simulator_category:known.category)||'Not Selected'),model=String((p.simulator_model&&p.simulator_model!=='Not Selected'?p.simulator_model:known.model)||'Not Selected');
    if(cat==='Not Selected'&&model==='Not Selected')return;
    var key=cat+'|'+model,arr=groups.get(key)||[];arr.push(e);groups.set(key,arr);
  });

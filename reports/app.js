@@ -1,7 +1,7 @@
 /* SIMWORX Reporting V3 — unified configurator and traffic reporting. */
-import { config } from './config.js?v=20261029-arrivals-3';
-import { buildReport, defaultSettings } from './analytics.js?v=20261029-arrivals-3';
-import { demoSnapshot } from './demo-data.js?v=20261029-arrivals-3';
+import { config } from './config.js?v=20261029-arrivals-4';
+import { buildReport, defaultSettings } from './analytics.js?v=20261029-arrivals-4';
+import { demoSnapshot } from './demo-data.js';
 
 const $ = (selector, base = document) => base.querySelector(selector);
 const $$ = (selector, base = document) => [...base.querySelectorAll(selector)];

@@ -1,0 +1,58 @@
+name: Capture v1 intelligence and page tracker references
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/capture-v1-intelligence.yml'
+permissions:
+  contents: write
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Capture v1 SDK and selected live page script references
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os,pathlib,hashlib,json,re
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          paths=[
+            '/htdocs/assets/js/simworx-intelligence-bootstrap-v1.js',
+            '/htdocs/assets/js/simworx-intelligence-tracker-v1.js',
+            '/htdocs/assets/js/simworx-intelligence-configurator-v1.js',
+            '/htdocs/a320-full-cockpit.html','/htdocs/a320-single-seat.html','/htdocs/a320-supershort.html',
+            '/htdocs/f16-frames.html','/htdocs/software.html','/htdocs/simulators.html',
+            '/htdocs/led-screen-configurator.html','/htdocs/projection-screen-configurator.html'
+          ]
+          out=pathlib.Path('.reporting-audit/live-source-v1');out.mkdir(parents=True,exist_ok=True)
+          manifest={}
+          for remote in paths:
+              parts=[];f.retrbinary('RETR '+remote,parts.append);body=b''.join(parts)
+              name=remote.replace('/htdocs/','').replace('/','__')
+              if remote.endswith('.html'):
+                  text=body.decode('utf-8','replace')
+                  refs='\n'.join(re.findall(r'<script[^>]+src=["\'][^"\']*simworx-intelligence[^"\']*["\'][^>]*>',text,re.I))
+                  (out/(name+'.tracker-refs.txt')).write_text(refs+'\n')
+                  manifest[remote]={'tracker_refs':refs,'bytes':len(body),'sha256':hashlib.sha256(body).hexdigest()}
+              else:
+                  (out/name).write_bytes(body)
+                  manifest[remote]={'file':name,'bytes':len(body),'sha256':hashlib.sha256(body).hexdigest()}
+          (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          f.quit()
+          PY
+      - name: Commit captured audit source
+        run: |
+          git config user.name "simworx-reporting-audit"
+          git config user.email "actions@users.noreply.github.com"
+          git add .reporting-audit/live-source-v1
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Capture live v1 intelligence source for audit"
+          git push

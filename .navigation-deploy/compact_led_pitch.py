@@ -13,35 +13,42 @@ publisher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publisher)
 
 TARGET = "/htdocs/led-screen-configurator.html"
-MARKER = "sw-led-pitch-compact-v2"
+MARKER = "sw-led-pitch-compact-v3"
 
-CSS = """<style id="sw-led-pitch-compact-v2">
+CSS = """<style id="sw-led-pitch-compact-v3">
 /* Scope: live LED Pixel pitch selector only */
-#led-pitch-options fieldset{
+#led-pixelPitch{
   padding-top:10px!important;
   padding-bottom:10px!important;
 }
-#led-pitch-options fieldset>p{
-  margin-top:5px!important;
-  margin-bottom:5px!important;
-  line-height:1.3!important;
+#led-pixelPitch .led-pitch-scale{
+  margin-bottom:7px!important;
 }
-#led-pitch-options fieldset label{
-  min-height:152px!important;
+#led-pixelPitch .led-pitch-choice{
+  min-height:156px!important;
   height:auto!important;
-  padding-top:9px!important;
-  padding-bottom:9px!important;
+  padding:9px 10px 8px!important;
+  gap:2px 6px!important;
 }
-#led-pitch-options fieldset label>span,
-#led-pitch-options fieldset label>div,
-#led-pitch-options fieldset label>small,
-#led-pitch-options fieldset label>p{
+#led-pixelPitch .led-pitch-choice .led-pitch-detail{
+  min-height:22px!important;
+  margin-top:3px!important;
+  line-height:1.35!important;
+}
+#led-pixelPitch .led-pitch-price-label{
+  margin-top:5px!important;
+}
+#led-pixelPitch .led-pitch-badge{
+  min-height:13px!important;
   margin-top:2px!important;
-  margin-bottom:2px!important;
+  line-height:1.25!important;
 }
-#led-pitch-options .led-pitch-scale{
-  margin-top:6px!important;
-  margin-bottom:6px!important;
+#led-pixelPitch .led-pitch-price-scope{
+  margin:7px 0!important;
+  line-height:1.4!important;
+}
+#led-pixelPitch .led-pitch-recommendation{
+  margin:7px 0 2px!important;
 }
 </style>"""
 
@@ -50,37 +57,35 @@ def patch(source: bytes) -> bytes:
     text = source.decode("utf-8")
     if MARKER in text:
         return source
-    if 'id="led-pitch-options"' not in text:
-        raise RuntimeError("Live LED pitch container not found")
+    if 'id="led-pitch-options"' not in text or '#led-pixelPitch .led-pitch-choice' not in text:
+        raise RuntimeError("Expected live LED Pixel pitch structure not found")
+
+    # Remove our ineffective V2 patch only; leave all original page CSS untouched.
+    text = re.sub(
+        r'<style id="sw-led-pitch-compact-v2">[\s\S]*?</style>',
+        '',
+        text,
+        count=1,
+        flags=re.I,
+    )
+
     text, count = re.subn(r"</head>", CSS + "</head>", text, count=1, flags=re.I)
     if count != 1:
-        raise RuntimeError("Could not insert scoped Pixel pitch CSS")
+        raise RuntimeError("Could not insert scoped Pixel pitch V3 CSS")
     if text.count(MARKER) != 1:
-        raise RuntimeError("Unexpected compact marker count")
+        raise RuntimeError("Unexpected V3 marker count")
     return text.encode("utf-8")
 
 
 def main():
     with publisher.connect() as ftp:
         before = publisher.remote_bytes(ftp, TARGET)
-        text = before.decode("utf-8","replace")
-        for needle in ["data-pitch-distance","data-pitch-price-label","led-pitch-scale","pixelPitch"]:
-            print("\n###",needle)
-            start=0
-            hits=0
-            while True:
-                i=text.find(needle,start)
-                if i<0 or hits>=6: break
-                print(text[max(0,i-1800):min(len(text),i+2600)])
-                print("\n---")
-                start=i+len(needle);hits+=1
-        raise SystemExit("INSPECT_ONLY")
         after = patch(before)
         if after == before:
-            print("Pixel pitch compact V2 already present.")
+            print("Pixel pitch compact V3 already present.")
             return
 
-        staged = "/htdocs/.led-pitch-compact-v2-upload.html"
+        staged = "/htdocs/.led-pitch-compact-v3-upload.html"
         if publisher.exists(ftp, staged):
             raise RuntimeError("Staging file already exists; refusing overwrite.")
 
@@ -93,7 +98,7 @@ def main():
         if hashlib.sha256(live).digest() != hashlib.sha256(after).digest():
             raise RuntimeError("Live LED page failed checksum verification.")
 
-        print("Published compact Pixel pitch selector V2 only.")
+        print("Published compact Pixel pitch selector V3 only.")
 
 
 if __name__ == "__main__":

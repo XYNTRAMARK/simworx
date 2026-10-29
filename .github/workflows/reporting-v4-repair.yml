@@ -1,0 +1,30 @@
+name: Reporting V4 instrumentation repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.reporting-v4-deploy/**'
+      - '.github/workflows/reporting-v4-repair.yml'
+permissions:
+  contents: read
+concurrency:
+  group: simworx-reporting-v4
+  cancel-in-progress: true
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch proven tracking defects only
+        run: python3 .reporting-v4-deploy/patch.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify canonical Projection tracking loader
+        run: python3 .reporting-v4-deploy/test.py

@@ -45,7 +45,20 @@
     var v=params.get(k);if(v)a[k]=clean(v);
   });
   a.click_id=clean(params.get('click_id')||params.get('ad_click_id')||params.get('openai_click_id')||params.get('oclickid')||'');
-  a.source=sourceGroup(a);a.medium=a.utm_medium||'';a.campaign=a.utm_campaign||'';
+  var internal=ref && ref.replace(/^www\./,'')===location.hostname.replace(/^www\./,'');
+  var hasCampaign=!!(a.utm_source||a.utm_medium||a.utm_campaign||a.campaign_id||a.ad_group_id||a.ad_id||a.click_id);
+  if(internal&&!hasCampaign&&session.acquisition){
+    Object.keys(session.acquisition).forEach(function(k){if(session.acquisition[k]!=null&&session.acquisition[k]!=='')a[k]=session.acquisition[k]});
+  }else{
+    a.source=sourceGroup(a);a.medium=a.utm_medium||'';a.campaign=a.utm_campaign||'';
+    if(!session.acquisition){
+      session.acquisition={source:a.source,medium:a.medium,campaign:a.campaign,utm_source:a.utm_source||'',utm_medium:a.utm_medium||'',utm_campaign:a.utm_campaign||'',utm_content:a.utm_content||'',utm_term:a.utm_term||'',campaign_id:a.campaign_id||'',ad_group_id:a.ad_group_id||'',ad_id:a.ad_id||'',click_id:a.click_id||''};
+      try{sessionStorage.setItem(KEY,JSON.stringify(session))}catch(_){}
+    }
+  }
+  if(!a.source)a.source=sourceGroup(a);
+  if(a.medium==null)a.medium=a.utm_medium||'';
+  if(a.campaign==null)a.campaign=a.utm_campaign||'';
   var ctx={arrival_id:arrivalId,arrival_session_id:session.id,source:a.source,campaign:a.campaign||'(none)'};
   window.SimworxArrival=Object.freeze({getContext:function(){return Object.assign({},ctx)}});
   try{

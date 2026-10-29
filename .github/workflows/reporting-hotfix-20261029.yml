@@ -1,9 +1,6 @@
 name: Deploy reporting hotfix 2026-10-29
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/reporting-hotfix-20261029.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

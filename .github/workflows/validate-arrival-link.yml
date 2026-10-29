@@ -1,9 +1,6 @@
 name: Validate arrival to analytics link
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/validate-arrival-link.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

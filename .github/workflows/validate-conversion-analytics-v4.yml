@@ -1,0 +1,72 @@
+name: Validate conversion analytics without external dependencies
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/validate-conversion-analytics-v4.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Exercise V2 observer success paths
+        run: |
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          import uuid
+          campaign='TRACKING-VALIDATION-REPORTINGV4-CONVERSIONS-'+uuid.uuid4().hex[:8]
+          open('/tmp/conversion_campaign','w').write(campaign)
+          url='https://www.sim-worx.com/projection-screen-configurator.html?utm_source=tracking_validation&utm_medium=verification&utm_campaign='+campaign
+          with sync_playwright() as pw:
+              b=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader'])
+              p=b.new_page(viewport={'width':1600,'height':1000})
+              p.goto(url,wait_until='domcontentloaded',timeout=60000)
+              p.wait_for_timeout(1800)
+              p.wait_for_function("typeof window.SimworxIntelligence==='object'",timeout=30000)
+              p.evaluate("window.SimworxIntelligence.setConsent({analytics:true})")
+              p.wait_for_timeout(800)
+
+              # Drive enough real state to create a Projection configuration identity.
+              p.locator('[data-guided-go="2"]').click();p.wait_for_timeout(350)
+              p.locator('[data-guided-go="3"]').click();p.wait_for_timeout(350)
+              if p.locator('#guided-calculate').count():
+                  p.locator('#guided-calculate').click();p.wait_for_timeout(800)
+              p.locator('[data-guided-go="4"]').click();p.wait_for_timeout(700)
+
+              # Email: clone the button to remove production send listeners while keeping
+              # document-level analytics listeners. Then reproduce the production success text.
+              p.locator('#v37-email-proposal').click();p.wait_for_timeout(200)
+              p.locator('#v37-email-address').fill('reporting-v4-validation@example.test')
+              p.locator('#v37-email-name').fill('Reporting Validation')
+              p.evaluate("""() => {
+                const old=document.getElementById('v37-email-send');
+                const clone=old.cloneNode(true);old.replaceWith(clone);
+                clone.click();
+                setTimeout(()=>{document.getElementById('v37-email-status').textContent='Proposal TEST sent successfully to reporting-v4-validation@example.test.'},100);
+              }""")
+              p.wait_for_timeout(1800)
+
+              # PDF: same observer-only validation, with the real success phrase.
+              p.locator('#v65-save-pdf').click();p.wait_for_timeout(200)
+              p.locator('#v65-save-email').fill('reporting-v4-validation@example.test')
+              p.evaluate("""() => {
+                const old=document.getElementById('v65-save-confirm');
+                const clone=old.cloneNode(true);old.replaceWith(clone);
+                clone.click();
+                setTimeout(()=>{document.getElementById('v65-save-status').textContent='PDF saved.'},100);
+              }""")
+              p.wait_for_timeout(1800)
+              p.evaluate("window.SimworxIntelligence.flush()")
+              p.wait_for_timeout(2500)
+              print('VALIDATION_CAMPAIGN',campaign)
+              b.close()
+          PY
+      - name: Print campaign
+        run: cat /tmp/conversion_campaign

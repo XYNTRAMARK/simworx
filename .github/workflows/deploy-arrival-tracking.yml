@@ -1,0 +1,112 @@
+name: Deploy anonymous arrival tracking
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy-arrival-tracking.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax checks
+        run: |
+          node --check assets/js/simworx-arrival-v1.js
+          node --check assets/js/simworx-intelligence-bootstrap-v1.js
+          node --check assets/js/simworx-intelligence-bootstrap-v2.js
+          node --check assets/js/simworx-intelligence-tracker-v1.js
+          node --check assets/js/simworx-intelligence-tracker-v2.js
+          node --check reports/analytics.js
+          node --check reports/app.js
+      - name: Canonical reporting tests
+        run: node .reporting-v3/tests/analytics.mjs
+      - name: Upload tracking and reports; add bootstrap to untracked public root pages
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os,re,hashlib
+          from io import BytesIO
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          class F(ftplib.FTP_TLS):
+              prefer_epsv=False
+              def makepasv(self):
+                  if self.prefer_epsv:
+                      try:return ftplib.parse229(self.sendcmd('EPSV'),self.sock.getpeername())
+                      except ftplib.error_perm:pass
+                  return super().makepasv()
+              def ntransfercmd(self,c,rest=None):
+                  try:return super().ntransfercmd(c,rest)
+                  except ftplib.error_temp as e:
+                      if str(e).startswith('425') and not self.prefer_epsv:
+                          self.prefer_epsv=True;return super().ntransfercmd(c,rest)
+                      raise
+          f=F(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          files=[
+            ('assets/js/simworx-arrival-v1.js','/htdocs/assets/js/simworx-arrival-v1.js'),
+            ('assets/js/simworx-intelligence-bootstrap-v1.js','/htdocs/assets/js/simworx-intelligence-bootstrap-v1.js'),
+            ('assets/js/simworx-intelligence-bootstrap-v2.js','/htdocs/assets/js/simworx-intelligence-bootstrap-v2.js'),
+            ('assets/js/simworx-intelligence-tracker-v1.js','/htdocs/assets/js/simworx-intelligence-tracker-v1.js'),
+            ('assets/js/simworx-intelligence-tracker-v2.js','/htdocs/assets/js/simworx-intelligence-tracker-v2.js'),
+            ('reports/analytics.js','/htdocs/reports/analytics.js'),
+            ('reports/app.js','/htdocs/reports/app.js')
+          ]
+          def put(remote,data):f.storbinary('STOR '+remote,BytesIO(data))
+          def read(remote):
+              out=[];f.retrbinary('RETR '+remote,out.append);return b''.join(out)
+          for local,remote in files:
+              data=open(local,'rb').read();put(remote,data)
+              if hashlib.sha256(read(remote)).digest()!=hashlib.sha256(data).digest():raise RuntimeError('verify failed '+remote)
+              print('DEPLOYED',remote)
+          names=[]
+          try:names=f.nlst('/htdocs')
+          except Exception:names=[]
+          boot='<script id="simworx-intelligence-tracking" defer src="/assets/js/simworx-intelligence-bootstrap-v2.js"></script>'
+          patched=0
+          for item in names:
+              name=item.rsplit('/',1)[-1]
+              if not name.lower().endswith(('.html','.htm')):continue
+              if re.search(r'(?:^|[-_.])(preview|test|backup|old|archive)(?:[-_.]|$)',name,re.I):continue
+              if re.search(r'-v\d+\.html?$',name,re.I):continue
+              remote='/htdocs/'+name
+              try:data=read(remote);text=data.decode('utf-8')
+              except Exception:continue
+              if 'simworx-intelligence-bootstrap-v1.js' in text or 'simworx-intelligence-bootstrap-v2.js' in text:continue
+              if re.search(r'<\/head\s*>',text,re.I):
+                  text=re.sub(r'<\/head\s*>',boot+'\n</head>',text,count=1,flags=re.I)
+              elif re.search(r'<body\b',text,re.I):
+                  text=re.sub(r'(<body\b)',boot+'\n\\1',text,count=1,flags=re.I)
+              else:continue
+              put(remote,text.encode('utf-8'));patched+=1;print('BOOTSTRAP_ADDED',name)
+          print('PUBLIC_ROOT_PAGES_PATCHED',patched)
+          f.quit()
+          PY
+      - name: Browser verify pre-consent arrival
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          import uuid
+          campaign='TRACKING-VALIDATION-ARRIVAL-'+uuid.uuid4().hex[:8]
+          url='https://www.sim-worx.com/?utm_source=tracking_validation&utm_medium=verification&utm_campaign='+campaign
+          with sync_playwright() as pw:
+              b=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
+              p=b.new_page()
+              p.goto(url,wait_until='domcontentloaded',timeout=60000)
+              p.wait_for_function("window.SimworxArrival && window.SimworxArrival.getContext",timeout=15000)
+              ctx=p.evaluate("window.SimworxArrival.getContext()")
+              analytics=p.evaluate("!!(window.SimworxIntelligence && window.SimworxIntelligence.getContext && window.SimworxIntelligence.getContext().enabled)")
+              print('ARRIVAL_CONTEXT',ctx)
+              print('ANALYTICS_ENABLED_BEFORE_CONSENT',analytics)
+              print('VALIDATION_CAMPAIGN',campaign)
+              p.wait_for_timeout(1800)
+              b.close()
+          PY

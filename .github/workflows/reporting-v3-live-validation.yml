@@ -47,7 +47,9 @@ jobs:
               p.add_init_script(consent)
               return p
           def wait_sdk(p):
-              p.wait_for_function("window.SimworxIntelligence && window.SimworxIntelligence.getContext && window.SimworxIntelligence.getContext().enabled===true",timeout=20000)
+              p.wait_for_function("window.SimworxIntelligence && window.SimworxIntelligence.setConsent && window.SimworxIntelligence.getContext",timeout=20000)
+              p.evaluate("window.SimworxIntelligence.setConsent({analytics:true,marketing:false})")
+              p.wait_for_function("window.SimworxIntelligence.getContext().enabled===true",timeout=10000)
               p.wait_for_timeout(1000)
           with sync_playwright() as pw:
               b=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader'])

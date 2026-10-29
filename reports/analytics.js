@@ -412,6 +412,25 @@ export function buildReport(snapshot = {}, filters = {}, now = new Date()) {
   const previousVisitorEvents=new Map();
   for(const e of allEvents)if(timestamp(e)<range.previousEnd) {const arr=previousVisitorEvents.get(e.visitor_id)||[];arr.push(e);previousVisitorEvents.set(e.visitor_id,arr);}
   const metrics=measures(events,facts,snapshot,visitorEvents),previousMetrics=measures(previousEvents,facts,snapshot,previousVisitorEvents);
+  const cleanArrivals=(snapshot.arrivals||[]).filter(a=>Number.isFinite(Date.parse(a.timestamp))&&Date.parse(a.timestamp)<=+now&&!/^tracking_validation$/i.test(String(a.utm_source||'')));
+  const arrivalFilter=(a,r)=>Date.parse(a.timestamp)>=r.start&&Date.parse(a.timestamp)<r.end &&
+    (ALL(filters.source)||String(filters.source).toLowerCase()===String(a.source||'Direct').toLowerCase()) &&
+    (ALL(filters.campaign)||String(filters.campaign).toLowerCase()===String(a.campaign||a.utm_campaign||'(none)').toLowerCase());
+  const arrivals=cleanArrivals.filter(a=>arrivalFilter(a,range)),previousArrivals=cleanArrivals.filter(a=>arrivalFilter(a,previousRange));
+  const arrivalMeasures=rows=>({
+    arrivalPageLoads:rows.length,
+    arrivalSessions:count(rows,'arrival_session_id'),
+    linkedArrivalSessions:count(rows.filter(a=>a.analytics_session_id),'arrival_session_id'),
+    openaiArrivalSessions:count(rows.filter(a=>/openai ads/i.test(String(a.source||''))),'arrival_session_id')
+  });
+  Object.assign(metrics,arrivalMeasures(arrivals));
+  Object.assign(previousMetrics,arrivalMeasures(previousArrivals));
+  metrics.analyticsCoverage=metrics.arrivalSessions?100*metrics.linkedArrivalSessions/metrics.arrivalSessions:null;
+  previousMetrics.analyticsCoverage=previousMetrics.arrivalSessions?100*previousMetrics.linkedArrivalSessions/previousMetrics.arrivalSessions:null;
+  const arrivalSources=[...new Map(arrivals.map(a=>[String(a.source||'Direct'),null])).keys()].map(source=>{
+    const rows=arrivals.filter(a=>String(a.source||'Direct')===source);
+    return {name:source,visitors:count(rows,'arrival_session_id'),sessions:count(rows,'arrival_session_id'),pageViews:rows.length,starts:0,completed:0,emails:0,enquiries:0,returning:0,valueByCurrency:{}};
+  }).sort((a,b)=>b.visitors-a.visitors);
   const deltas=Object.fromEntries(Object.keys(metrics).map(key=>[key,previousMetrics[key]===0?(metrics[key]===0?0:null):(metrics[key]==null||previousMetrics[key]==null?null:100*(metrics[key]-previousMetrics[key])/previousMetrics[key])]));
   const configs=enrichConfigurations(snapshot,events,facts,known,range);
   const currentVisitorIds=new Set(events.map(e=>e.visitor_id)),sessionIds=new Set(events.map(e=>e.session_id));
@@ -468,11 +487,11 @@ export function buildReport(snapshot = {}, filters = {}, now = new Date()) {
     contactMap.set(key,row);
   }
   const configuratorContacts = [...contactMap.values()].sort((a,b)=>Date.parse(b.last_seen)-Date.parse(a.last_seen));
-  const report={configuratorContacts,openaiCampaigns,openaiAds,openaiTotals,range,metrics,previousMetrics,configuratorMetrics,deltas,daily,pages:pagesReport(events,facts),sources,campaigns,categories,devices,countries,
+  const report={configuratorContacts,openaiCampaigns,openaiAds,openaiTotals,range,metrics,previousMetrics,configuratorMetrics,deltas,daily,pages:pagesReport(events,facts),sources,campaigns,arrivalSources,arrivals,categories,devices,countries,
     funnels:{website:makeFunnel(events),led:makeFunnel(events,'led'),projection:makeFunnel(events,'projection')},
     leads,subscribers:leads.filter(l=>l.marketing_consent===true),configurations:configs,journeys,live,problems,abandoned,preferences:makePreferences(configs),events,
     options:{sources:enumValues([...facts.values()].map(s=>s.source)),campaigns:enumValues([...facts.values()].map(s=>s.campaign)),countries:enumValues([...facts.values()].map(s=>s.country)),devices:enumValues([...facts.values()].map(s=>s.device)),categories:enumValues([...facts.values()].map(s=>s.category)),models:enumValues([...facts.values()].map(s=>s.model)),configurators:enumValues([...facts.values()].map(s=>s.configurator).filter(s=>s!=='Not Selected')),statuses:['New','Engaged','High Intent','Contacted','Opportunity','Customer','Lost'],intents:['Low','Interested','Engaged','High Intent','Sales Lead']},
-    meta:{...snapshot.meta,totalEvents:allEvents.length,selectedEvents:events.length,historyStart:allEvents[0]?.timestamp||null,timezone:settings.timezone,comparisonEnabled:filters.compare!==false,collectionHasHistory:!!allEvents.length,methodology:'First-party browser identifiers identify browsers, not individual people. Funnels use the required steps of each recorded configurator version; mixed versions display common milestones without skipping a version’s prerequisites. Distinct counts are recomputed for each selection. Potential Configured Value is not revenue.'},settings};
+    meta:{...snapshot.meta,totalEvents:allEvents.length,selectedEvents:events.length,historyStart:allEvents[0]?.timestamp||null,timezone:settings.timezone,comparisonEnabled:filters.compare!==false,collectionHasHistory:!!allEvents.length,methodology:'Anonymous arrival sessions count page arrivals before analytics consent; consented browser identifiers then provide richer behavioural analytics. Arrival sessions are technical browser-tab sessions, not guaranteed unique people. First-party browser identifiers identify browsers, not individual people. Funnels use the required steps of each recorded configurator version; mixed versions display common milestones without skipping a version’s prerequisites. Distinct counts are recomputed for each selection. Potential Configured Value is not revenue.'},settings};
   report.insights=buildInsights(report);
   return report;
 }

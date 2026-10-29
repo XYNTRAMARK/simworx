@@ -63,6 +63,18 @@ def patch(source: bytes) -> bytes:
 def main():
     with publisher.connect() as ftp:
         before = publisher.remote_bytes(ftp, TARGET)
+        text = before.decode("utf-8","replace")
+        for needle in ["data-pitch-distance","data-pitch-price-label","led-pitch-scale","pixelPitch"]:
+            print("\n###",needle)
+            start=0
+            hits=0
+            while True:
+                i=text.find(needle,start)
+                if i<0 or hits>=6: break
+                print(text[max(0,i-1800):min(len(text),i+2600)])
+                print("\n---")
+                start=i+len(needle);hits+=1
+        raise SystemExit("INSPECT_ONLY")
         after = patch(before)
         if after == before:
             print("Pixel pitch compact V2 already present.")

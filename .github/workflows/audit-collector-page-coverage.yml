@@ -1,9 +1,6 @@
 name: Audit collector and page coverage
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/audit-collector-page-coverage.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

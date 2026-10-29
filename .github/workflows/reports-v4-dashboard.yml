@@ -1,0 +1,27 @@
+name: Reporting V4 dashboard upgrade
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.reports-v4-deploy/**'
+      - '.github/workflows/reports-v4-dashboard.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch reports decision views
+        run: python3 .reports-v4-deploy/patch.py
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Verify dashboard in demo mode
+        run: python3 .reports-v4-deploy/test.py

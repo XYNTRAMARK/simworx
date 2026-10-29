@@ -4,39 +4,18 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/read-led-spacing.yml'
+      - '.navigation-deploy/compact_led_pitch.py'
 permissions:
   contents: read
 jobs:
   inspect:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - name: Read exact LED spacing
-        run: |
-          python3 - <<'PY'
-          import urllib.request,re
-          u='https://www.sim-worx.com/led-screen-configurator.html'
-          req=urllib.request.Request(u,headers={'Cache-Control':'no-cache','User-Agent':'Simworx-spacing-inspector'})
-          with urllib.request.urlopen(req,timeout=45) as r:s=r.read().decode('utf-8','replace')
-          needle='Pixel pitch'
-          i=s.lower().find(needle.lower())
-          print('PIXEL_INDEX',i)
-          if i>=0:
-              print('\n## MARKUP AROUND PIXEL PITCH\n')
-              print(s[max(0,i-4500):min(len(s),i+12000)])
-              window=s[max(0,i-7000):min(len(s),i+18000)]
-              classes=sorted(set(re.findall(r'class=["\']([^"\']+)["\']',window,re.I)))
-              ids=sorted(set(re.findall(r'id=["\']([^"\']+)["\']',window,re.I)))
-              print('\n## CLASSES\n'+'\n'.join(classes))
-              print('\n## IDS\n'+'\n'.join(ids))
-              tokens=set()
-              for c in classes:
-                  tokens.update(c.split())
-              print('\n## CSS RULES FOR NEARBY CLASSES')
-              for token in sorted(tokens):
-                  pat=re.compile(r'([^{}]*\.'+re.escape(token)+r'[^{}]*)\{([^{}]*)\}',re.I)
-                  for m in pat.finditer(s):
-                      print('\nSELECTOR', ' '.join(m.group(1).split())[-500:])
-                      print('DECL', ' '.join(m.group(2).split())[:2000])
-          PY
+      - name: Compact live LED Pixel pitch selector
+        run: python3 .navigation-deploy/compact_led_pitch.py

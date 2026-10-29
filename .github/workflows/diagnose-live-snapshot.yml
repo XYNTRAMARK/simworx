@@ -1,0 +1,38 @@
+name: Diagnose live reports snapshot
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-live-snapshot.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      REPORTS_PIN: ${{ secrets.REPORTS_PIN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read live snapshot diagnostics
+        run: |
+          python3 - <<'PY'
+          import os,json,urllib.request
+          endpoint='https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/simworx-intelligence'
+          pin=os.environ.get('REPORTS_PIN','')
+          if not pin:
+              raise SystemExit('REPORTS_PIN secret unavailable in GitHub')
+          def post(body,headers=None):
+              req=urllib.request.Request(endpoint,data=json.dumps(body).encode(),headers={'Content-Type':'application/json',**(headers or {})},method='POST')
+              with urllib.request.urlopen(req,timeout=45) as r:return json.loads(r.read())
+          login=post({'action':'login','pin':pin})
+          snap=post({'action':'snapshot'},{'X-Reports-Session':login['token']})
+          a=snap.get('arrivals') or []
+          m=snap.get('meta') or {}
+          print('ARRIVALS_LEN',len(a))
+          print('META_DIAGNOSTICS',json.dumps(m.get('diagnostics') or {},sort_keys=True))
+          print('LATEST_ARRIVAL',a[0].get('timestamp') if a else None)
+          print('FIRST_ARRIVAL',a[-1].get('timestamp') if a else None)
+          print('REAL_ARRIVAL_ROWS',sum(1 for x in a if str(x.get('utm_source') or '').lower()!='tracking_validation'))
+          print('REAL_ARRIVAL_SESSIONS',len({x.get('arrival_session_id') for x in a if str(x.get('utm_source') or '').lower()!='tracking_validation' and x.get('arrival_session_id')}))
+          PY

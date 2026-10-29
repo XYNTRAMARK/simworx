@@ -1,9 +1,6 @@
 name: Focused reports schema audit
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/focused-reports-schema-audit.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

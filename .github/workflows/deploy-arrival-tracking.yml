@@ -1,9 +1,6 @@
 name: Deploy anonymous arrival tracking
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/deploy-arrival-tracking.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

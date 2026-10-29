@@ -1,0 +1,37 @@
+{
+  "/htdocs/reports/analytics.js": {
+    "file": "reports__analytics.js",
+    "bytes": 43314,
+    "sha256": "86e3f9fcc53e01ef6f0f09327b071373578dfe6bf02027dff0b18d74c79b1a97"
+  },
+  "/htdocs/reports/app.js": {
+    "file": "reports__app.js",
+    "bytes": 82140,
+    "sha256": "9279ff306f50ed887a61a0344060b2b7e290c829fc4fba9a9a735b29699069df"
+  },
+  "/htdocs/reports/config.js": {
+    "file": "reports__config.js",
+    "bytes": 437,
+    "sha256": "b7ec571d70b99f10db3d87dd2646eeab2b94d6167d0bec5e9136b047d3fbfead"
+  },
+  "/htdocs/reports/index.html": {
+    "file": "reports__index.html",
+    "bytes": 6330,
+    "sha256": "41ed948d6fd8ac3115dd7acb5b28d30c5659a505924aacd2348761183d6cda7b"
+  },
+  "/htdocs/assets/js/simworx-intelligence-tracker-v2.js": {
+    "file": "assets__js__simworx-intelligence-tracker-v2.js",
+    "bytes": 38515,
+    "sha256": "60ab80b4d4531a3e17657990d7e09ddf1c210b90dc1ce1f60da19b819ecedd28"
+  },
+  "/htdocs/assets/js/simworx-intelligence-configurator-v2.js": {
+    "file": "assets__js__simworx-intelligence-configurator-v2.js",
+    "bytes": 27129,
+    "sha256": "a2e8a4a5acdebf77a70e1f7384cbcb9cc824a30d4f9bbc128cc3f2cca859660c"
+  },
+  "/htdocs/assets/js/simworx-intelligence-bootstrap-v2.js": {
+    "file": "assets__js__simworx-intelligence-bootstrap-v2.js",
+    "bytes": 2531,
+    "sha256": "28b4da0965eafdce6e68d158a160bd131f8a05c42b37e8e0d52de5ba9f93c8a4"
+  }
+}

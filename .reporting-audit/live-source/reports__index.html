@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+  <meta name="referrer" content="same-origin">
+  <meta name="theme-color" content="#101114">
+  <meta name="description" content="Private Simworx website intelligence reports.">
+  <title>Simworx | Website Intelligence</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%23ee3348'/%3E%3Cpath d='M29 11H14l-4 9h16l-4 9H8' fill='none' stroke='white' stroke-width='4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to reports</a>
+  <div id="login-screen" class="login-screen">
+    <div class="login-grid" aria-hidden="true"></div>
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="wordmark">SIM<span>WORX</span><i></i></div>
+      <div class="eyebrow">WEBSITE INTELLIGENCE</div>
+      <h1 id="login-title">A clearer view of<br>your next customer.</h1>
+      <p class="login-description">Your website, configurators and commercial interest.<br>One place to see what matters.</p>
+      <form id="login-form">
+        <label for="pin">Enter PIN</label>
+        <div class="pin-row"><input id="pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="current-password" placeholder="••••••" required aria-describedby="login-error"><button class="button primary" type="submit">Enter <span aria-hidden="true">↗</span></button></div>
+        <p id="login-error" class="error-text" role="alert"></p>
+      </form>
+      <button id="demo-login" class="demo-login" type="button">Explore the demonstration <span aria-hidden="true">→</span></button>
+      <p class="login-footnote">Private reporting · No public navigation</p>
+    </section>
+    <div class="login-corner" aria-hidden="true">SIMULATION. WITHOUT LIMITS.</div>
+  </div>
+  <div id="app-shell" class="app-shell" hidden>
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+      <div class="sidebar-brand"><div class="wordmark">SIM<span>WORX</span><i></i></div><div class="brand-caption">WEBSITE INTELLIGENCE</div></div>
+      <div class="nav-caption">WORKSPACE</div>
+      <nav id="primary-nav"></nav>
+      <div class="sidebar-bottom"><span class="connection-dot"></span><span id="sidebar-status">Reports workspace</span><div class="workspace-domain">sim-worx.com</div></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <div class="topbar-title"><button id="menu-toggle" class="icon-button mobile-menu" aria-label="Toggle navigation" aria-expanded="false">☰</button><span class="breadcrumb">Workspace</span><span class="slash">/</span><strong id="breadcrumb-page">Overview</strong></div>
+        <div class="topbar-tools"><span id="data-mode" class="mode-badge">Connecting</span><button id="refresh" class="icon-button" title="Refresh report data" aria-label="Refresh report data">↻</button><span class="topbar-divider"></span><button id="logout" class="text-button">Log out <span aria-hidden="true">↗</span></button></div>
+      </header>
+      <main id="main-content" tabindex="-1">
+        <div id="app-banner" class="app-banner" hidden></div>
+        <section class="page-heading"><div><div class="eyebrow" id="page-eyebrow">YOUR COMMERCIAL PICTURE</div><h1 id="page-title">Overview</h1><p id="page-description">From first visit to serious interest.</p></div><div class="date-controls"><label class="sr-only" for="date-preset">Date range</label><select id="date-preset"><option>Today</option><option>Yesterday</option><option>Last 7 Days</option><option selected>Last 30 Days</option><option>Last 90 Days</option><option>This Month</option><option>Last Month</option><option>This Year</option><option>Custom Date Range</option></select><label class="compare-control"><input id="compare" type="checkbox" checked><span class="switch"></span>Compare</label></div></section>
+        <div id="custom-dates" class="custom-dates" hidden><label>From <input id="date-from" type="date"></label><label>To <input id="date-to" type="date"></label><button id="apply-dates" class="button">Apply dates</button><span id="date-error" class="error-text" role="alert"></span></div>
+        <div class="scopebar"><label class="search-input"><span aria-hidden="true">⌕</span><span class="sr-only">Search reports</span><input id="global-search" type="search" placeholder="Search leads, campaigns, visitors…"></label><label class="category-control"><span aria-hidden="true">◇</span><span class="sr-only">Simulator category</span><select id="category-filter"><option value="All">All simulators</option></select></label><button id="filters-toggle" class="button filters-button" aria-expanded="false" aria-controls="advanced-filters"><span aria-hidden="true">☷</span> Filters <span id="filter-count" hidden></span></button><button id="clear-filters" class="text-button" hidden>Clear all</button></div>
+        <section id="advanced-filters" class="advanced-filters" aria-label="Additional report filters" hidden></section>
+        <div class="range-note"><span id="range-label"></span><span id="comparison-label"></span></div>
+        <div id="content" aria-live="polite"></div>
+        <footer class="report-footer"><span>SIMWORX <span class="footer-divider">/</span> Website Intelligence</span><span id="last-updated"></span></footer>
+      </main>
+    </div>
+  </div>
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="detail-drawer" class="detail-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden tabindex="-1"><div class="drawer-heading"><div><div class="eyebrow" id="drawer-eyebrow">DETAIL</div><h2 id="drawer-title"></h2></div><button id="drawer-close" class="icon-button" aria-label="Close details">×</button></div><div id="drawer-content"></div></aside>
+  <div id="toast" role="status" class="toast" hidden></div>
+  <noscript>This private reporting workspace requires JavaScript.</noscript>
+</body>
+</html>

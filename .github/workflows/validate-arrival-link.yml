@@ -1,0 +1,39 @@
+name: Validate arrival to analytics link
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/validate-arrival-link.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          import uuid
+          campaign='TRACKING-VALIDATION-ARRIVAL-LINK-'+uuid.uuid4().hex[:8]
+          url='https://www.sim-worx.com/?utm_source=tracking_validation&utm_medium=verification&utm_campaign='+campaign
+          with sync_playwright() as pw:
+              b=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
+              p=b.new_page()
+              p.goto(url,wait_until='domcontentloaded',timeout=60000)
+              p.wait_for_function("window.SimworxArrival && window.SimworxIntelligence",timeout=15000)
+              before=p.evaluate("({arrival:window.SimworxArrival.getContext(),analytics:window.SimworxIntelligence.getContext()})")
+              p.evaluate("window.SimworxIntelligence.setConsent({analytics:true,marketing:false})")
+              p.wait_for_function("window.SimworxIntelligence.getContext().enabled===true",timeout=10000)
+              p.wait_for_timeout(2500)
+              after=p.evaluate("({arrival:window.SimworxArrival.getContext(),analytics:window.SimworxIntelligence.getContext()})")
+              p.evaluate("window.SimworxIntelligence.flush()")
+              p.wait_for_timeout(1800)
+              print('BEFORE',before)
+              print('AFTER',after)
+              print('VALIDATION_CAMPAIGN',campaign)
+              b.close()
+          PY

@@ -1,0 +1,47 @@
+name: Identify failing V17 browser module
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build V17
+        run: python3 .projection-v17-deploy/build_v17.py
+      - name: Instrument imports
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('projection-screen-configurator-v17.html')
+          s=p.read_text()
+          import re
+          marker=r"(\s*const offline=await import\('projection:/src/offline-api\.js'\);offline\.installOfflineAPI\(payload\);)"
+          injection="""\n  for(const file of Object.keys(payload.modules)){
+    try{
+      console.log('IMPORTTEST',file);
+      await import('projection:'+file);
+      console.log('IMPORTOK',file);
+    }catch(error){
+      console.error('IMPORTFAIL',file,error?.stack||error?.message||error);
+      throw error;
+    }
+  }"""
+          if not re.search(marker,s): raise SystemExit('wrapper anchor not found')
+          p.write_text(re.sub(marker,injection+r"\1",s,count=1))
+          PY
+      - name: Run Chrome import diagnostic
+        run: |
+          python3 -m http.server 8765 >/tmp/server.log 2>&1 &
+          SERVER_PID=$!
+          sleep 2
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          set +e
+          timeout 50 "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --enable-logging=stderr --v=0 --virtual-time-budget=12000 --dump-dom http://127.0.0.1:8765/projection-screen-configurator-v17.html >/tmp/dom.html 2>/tmp/console.log
+          RC=$?
+          set -e
+          kill $SERVER_PID || true
+          grep -E 'IMPORT(TEST|OK|FAIL)|SyntaxError|CONSOLE:' /tmp/console.log || true
+          grep -o 'id="led-viewer-status"[^<]*>[^<]*' /tmp/dom.html || true
+          exit $RC

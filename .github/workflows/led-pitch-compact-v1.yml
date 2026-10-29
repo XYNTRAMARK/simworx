@@ -1,9 +1,6 @@
 name: Compact live LED pixel pitch selector
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/led-pitch-compact-v1.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

@@ -179,6 +179,11 @@
     if (!interactive && session && Date.now() - session.last_activity >= SESSION_MS) return null;
     ensureSession(interactive);
     var base = context(); delete base.enabled; delete base.visitor_id; delete base.session_id;
+    try {
+      var arrival = window.SimworxArrival && window.SimworxArrival.getContext && window.SimworxArrival.getContext();
+      if (arrival && arrival.arrival_id) base.arrival_id = arrival.arrival_id;
+      if (arrival && arrival.arrival_session_id) base.arrival_session_id = arrival.arrival_session_id;
+    } catch (_) {}
     if (pendingSessionStarted) {
       pendingSessionStarted = false;
       if (name !== 'session_started') enqueue('session_started', Object.assign({}, base, { landing_page: session.landing_page }), null);

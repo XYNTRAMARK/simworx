@@ -115,8 +115,8 @@ function wiLastSteps(type){
  if(type==='cockpit'){var products=panel('Cockpit product journey',table([{label:'Product',key:'name'},{label:'Page visitors',num:true,render:x=>num(x.pageVisitors)},{label:'Opened',num:true,render:x=>num(x.opened)},{label:'Starts',num:true,render:x=>num(x.starts)},{label:'Options',num:true,render:x=>num(x.optionChanged)},{label:'Quote',num:true,render:x=>num(x.quote)},{label:'Buy',num:true,render:x=>num(x.buy)},{label:'Enquiries',num:true,render:x=>num(x.enquiries)}],wiProducts()),{table:true,description:'Product-page visitors → active cockpit configuration → commercial intent.'});return tabs+top+'<div class="grid two">'+core+stages+'</div>'+aircraft+products;}"""
     if old not in app:raise RuntimeError("Configurator panel anchor missing")
     app=app.replace(old,new,1)
-    old2="""  return tabs+top+contacts+'<div class="grid two">'+core+aircraft+'</div>'+panel('Saved configurations',configTable(configs),{table:true,description:num(configs.length)+' stored '+type+' configuration records.'})+pref;"""
-    new2="""  return tabs+top+contacts+'<div class="grid two">'+core+stages+'</div>'+aircraft+panel('Saved configurations',configTable(configs),{table:true,description:num(configs.length)+' stored '+type+' configuration records.'})+pref;"""
+    old2="""tabs+top+contacts+'<div class="grid two">'+core+aircraft+'</div>'+panel"""
+    new2="""tabs+top+contacts+'<div class="grid two">'+core+stages+'</div>'+aircraft+panel"""
     if old2 not in app:raise RuntimeError("Visual configurator return anchor missing")
     app=app.replace(old2,new2,1)
 

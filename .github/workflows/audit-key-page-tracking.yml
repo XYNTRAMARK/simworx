@@ -1,9 +1,6 @@
 name: Audit key page tracking coverage
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/audit-key-page-tracking.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

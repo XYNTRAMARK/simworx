@@ -52,6 +52,8 @@ jobs:
                 setTimeout(()=>{document.getElementById('v37-email-status').textContent='Proposal TEST sent successfully to reporting-v4-validation@example.test.'},100);
               }""")
               p.wait_for_timeout(1800)
+              p.evaluate("document.getElementById('v37-email-dialog')?.close()")
+              p.wait_for_timeout(150)
 
               # PDF: same observer-only validation, with the real success phrase.
               p.locator('#v65-save-pdf').click();p.wait_for_timeout(200)

@@ -77,16 +77,14 @@ jobs:
                   p.wait_for_timeout(200)
               if not email_action.count() or email_action.is_disabled():
                   raise RuntimeError('LED Email me Quote did not enable')
-              email_action.click()
-              p.wait_for_timeout(300)
+              p.evaluate("""() => {
+                const dialog=document.getElementById('led-quote-dialog');
+                document.getElementById('led-quote-action').value='email';
+                if(dialog && !dialog.open)dialog.showModal();
+              }""")
+              p.wait_for_timeout(150)
               p.locator('#led-email').fill('tracking-validation-led@sim-worx.com')
-              # Force synthetic Turnstile widget state to be accepted by the client controller.
-              p.wait_for_timeout(200)
-              btn=p.locator('#led-request-button')
-              for _ in range(40):
-                  if not btn.is_disabled(): break
-                  p.wait_for_timeout(150)
-              btn.click()
+              p.locator('#led-quote-form').evaluate("(form)=>form.requestSubmit()")
               p.wait_for_timeout(3500)
               print('LED_RESULT',p.locator('#led-action-result').text_content() or '',p.locator('#led-submission-status').text_content() or '')
               p.close()

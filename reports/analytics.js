@@ -89,7 +89,10 @@ const validationSessionIds = [
 ];
 function validationSessions(snapshot) {
   const sessions=new Set(validationSessionIds);
-  const marked=p=>p.utm_source==='tracking_validation'&&p.utm_medium==='verification'&&p.utm_content==='deployed-sdk'&&/^TRACKING-VALIDATION-[A-Za-z0-9_-]+-[0-9a-f]{8}$/.test(String(p.utm_campaign||''));
+  // All traffic explicitly tagged by our synthetic validation harness is test traffic.
+  // Keep it in storage for auditability, but exclude the entire session from every report.
+  const marked=p=>String(p.utm_source||'').toLowerCase()==='tracking_validation' &&
+    String(p.utm_medium||'').toLowerCase()==='verification';
   for(const event of snapshot.events||[]) if(event.session_id&&marked(properties(event)))sessions.add(event.session_id);
   return sessions;
 }

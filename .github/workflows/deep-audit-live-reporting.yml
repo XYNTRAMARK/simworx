@@ -1,9 +1,6 @@
 name: Deep audit live reporting collection
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/deep-audit-live-reporting.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

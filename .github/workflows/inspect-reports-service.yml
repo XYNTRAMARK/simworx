@@ -1,9 +1,6 @@
 name: Inspect reports config and service
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/inspect-reports-service.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

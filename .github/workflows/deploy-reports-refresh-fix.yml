@@ -1,0 +1,36 @@
+name: Deploy reports live-refresh fix
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy-reports-refresh-fix.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        run: node --check reports/app.js
+      - name: Upload reports app and index only
+        run: |
+          python3 - <<'PY'
+          import ftplib,ssl,os,hashlib
+          from io import BytesIO
+          from urllib.parse import urlsplit
+          raw=os.environ['FTP_HOST'].strip();p=urlsplit(raw if '://' in raw else 'ftp://'+raw)
+          f=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=45)
+          f.connect(p.hostname,p.port or 21);f.login(os.environ['FTP_USERNAME'],os.environ['FTP_PASSWORD']);f.prot_p()
+          for local,remote in [('reports/app.js','/htdocs/reports/app.js'),('reports/index.html','/htdocs/reports/index.html'),('reports/analytics.js','/htdocs/reports/analytics.js')]:
+              data=open(local,'rb').read();f.storbinary('STOR '+remote,BytesIO(data))
+              out=[];f.retrbinary('RETR '+remote,out.append);live=b''.join(out)
+              if hashlib.sha256(live).digest()!=hashlib.sha256(data).digest():raise RuntimeError('verify failed '+remote)
+              print('DEPLOYED',remote)
+          f.quit()
+          PY

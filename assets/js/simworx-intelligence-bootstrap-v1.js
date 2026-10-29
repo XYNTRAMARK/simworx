@@ -37,9 +37,15 @@
     if (document.getElementById('contact-form')) load('simworx-intelligence-contact-v1.js');
   }
 
-  if (window.SimworxIntelligence) addObservers();
-  else load('simworx-intelligence-tracker-v1.js', {
-    endpoint: data.endpoint || 'https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/simworx-intelligence',
-    configurator: type, configuratorVersion: version
-  }, addObservers);
+  function startAnalytics() {
+    if (window.SimworxIntelligence) addObservers();
+    else load('simworx-intelligence-tracker-v1.js', {
+      endpoint: data.endpoint || 'https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/simworx-intelligence',
+      configurator: type, configuratorVersion: version
+    }, addObservers);
+  }
+  if (window.SimworxArrival) startAnalytics();
+  else load('simworx-arrival-v1.js', {
+    endpoint: data.endpoint || 'https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/simworx-intelligence'
+  }, startAnalytics);
 })(window, document);

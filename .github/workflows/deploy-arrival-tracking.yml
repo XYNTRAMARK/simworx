@@ -65,18 +65,19 @@ jobs:
               data=open(local,'rb').read();put(remote,data)
               if hashlib.sha256(read(remote)).digest()!=hashlib.sha256(data).digest():raise RuntimeError('verify failed '+remote)
               print('DEPLOYED',remote)
-          names=[]
-          try:names=f.nlst('/htdocs')
-          except Exception:names=[]
+          pages=[
+            'index.html','about.html','contact.html','simulators.html','frames.html','custom-simulator.html',
+            'custom-simulators.html','mission-systems.html','mission-scenarios.html','projects.html',
+            'a320-single-seat.html','a320-full-cockpit.html','a320-supershort.html','f16-frames.html',
+            'software.html','simstarter.html','simstarter-pro-software.html','certification-pro.html',
+            'gameitizer.html','visual-systems.html','led-screen-configurator.html','projection-screen-configurator.html',
+            'downloads.html','brochure.html'
+          ]
           boot='<script id="simworx-intelligence-tracking" defer src="/assets/js/simworx-intelligence-bootstrap-v2.js"></script>'
-          patched=0
-          for item in names:
-              name=item.rsplit('/',1)[-1]
-              if not name.lower().endswith(('.html','.htm')):continue
-              if re.search(r'(?:^|[-_.])(preview|test|backup|old|archive)(?:[-_.]|$)',name,re.I):continue
-              if re.search(r'-v\d+\.html?$',name,re.I):continue
+          patched=0;checked=0
+          for name in pages:
               remote='/htdocs/'+name
-              try:data=read(remote);text=data.decode('utf-8')
+              try:data=read(remote);text=data.decode('utf-8');checked+=1
               except Exception:continue
               if 'simworx-intelligence-bootstrap-v1.js' in text or 'simworx-intelligence-bootstrap-v2.js' in text:continue
               if re.search(r'<\/head\s*>',text,re.I):
@@ -85,7 +86,7 @@ jobs:
                   text=re.sub(r'(<body\b)',boot+'\n\\1',text,count=1,flags=re.I)
               else:continue
               put(remote,text.encode('utf-8'));patched+=1;print('BOOTSTRAP_ADDED',name)
-          print('PUBLIC_ROOT_PAGES_PATCHED',patched)
+          print('PUBLIC_PAGES_CHECKED',checked,'PATCHED',patched)
           f.quit()
           PY
       - name: Browser verify pre-consent arrival

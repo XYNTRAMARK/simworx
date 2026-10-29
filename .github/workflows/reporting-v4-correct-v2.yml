@@ -1,0 +1,23 @@
+name: Correct Projection tracking audit and inspect V2
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.reporting-v4-correct/**'
+      - '.github/workflows/reporting-v4-correct-v2.yml'
+permissions:
+  contents: read
+jobs:
+  correct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove redundant V1 bootstrap
+        run: python3 .reporting-v4-correct/correct.py
+      - name: Inspect actual live V2 tracker
+        run: python3 .reporting-v4-correct/inspect.py

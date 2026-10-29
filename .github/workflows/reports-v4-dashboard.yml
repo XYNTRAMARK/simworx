@@ -1,10 +1,6 @@
 name: Reporting V4 dashboard upgrade
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.reports-v4-deploy/**'
-      - '.github/workflows/reports-v4-dashboard.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

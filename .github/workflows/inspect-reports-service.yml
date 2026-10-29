@@ -30,18 +30,22 @@ jobs:
           if not m: raise SystemExit('endpoint missing')
           endpoint=m.group(1)
           if endpoint.startswith('http'):
-              path=urlparse(endpoint).path
-          elif endpoint.startswith('/'): path=endpoint
-          else: path='/reports/'+endpoint
-          remote='/htdocs'+path
-          print('ENDPOINT_REMOTE',remote)
-          service=read(remote)
-          print('SERVICE_LEN',len(service))
-          for term in ['collect','snapshot','event_id','visitor_id','session_id','configurator','contact','utm_','INSERT','SELECT','CREATE TABLE','JSON','events','analytics_consent','page_url']:
-              hits=[x.start() for x in re.finditer(re.escape(term),service,re.I)]
-              if hits:
-                  print('TERM',term,'COUNT',len(hits))
-                  for i in hits[:12]:
-                      print(service[max(0,i-700):min(len(service),i+2600)].replace('\n',' ')[:3300])
+              parsed=urlparse(endpoint)
+              print('EXTERNAL_ENDPOINT',endpoint)
+              print('ENDPOINT_HOST',parsed.hostname or '')
+              print('ENDPOINT_PATH',parsed.path)
+              print('INFO','Reporting service is external to Fasthosts; do not attempt an FTP read.')
+          else:
+              path=endpoint if endpoint.startswith('/') else '/reports/'+endpoint
+              remote='/htdocs'+path
+              print('ENDPOINT_REMOTE',remote)
+              service=read(remote)
+              print('SERVICE_LEN',len(service))
+              for term in ['collect','snapshot','event_id','visitor_id','session_id','configurator','contact','utm_','INSERT','SELECT','CREATE TABLE','JSON','events','analytics_consent','page_url']:
+                  hits=[x.start() for x in re.finditer(re.escape(term),service,re.I)]
+                  if hits:
+                      print('TERM',term,'COUNT',len(hits))
+                      for i in hits[:12]:
+                          print(service[max(0,i-700):min(len(service),i+2600)].replace('\n',' ')[:3300])
           f.quit()
           PY

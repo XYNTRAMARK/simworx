@@ -1,0 +1,96 @@
+name: Validate Projection email and PDF analytics
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/validate-projection-conversions-v4.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Run real Projection conversion journey
+        run: |
+          python3 - <<'PY'
+          from playwright.sync_api import sync_playwright
+          import uuid,time
+          campaign='TRACKING-VALIDATION-REPORTINGV4-'+uuid.uuid4().hex[:8]
+          open('/tmp/reporting_v4_campaign','w').write(campaign)
+          url='https://www.sim-worx.com/projection-screen-configurator.html?utm_source=tracking_validation&utm_medium=verification&utm_campaign='+campaign
+          with sync_playwright() as pw:
+              b=pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--use-gl=swiftshader','--enable-unsafe-swiftshader'])
+              p=b.new_page(viewport={'width':1600,'height':1000},accept_downloads=True)
+              p.goto(url,wait_until='domcontentloaded',timeout=60000)
+              p.wait_for_timeout(1800)
+              p.wait_for_function("typeof window.SimworxIntelligence==='object'",timeout=30000)
+              p.evaluate("window.SimworxIntelligence.setConsent({analytics:true})")
+              p.wait_for_timeout(700)
+
+              # Real Projection workflow through proposal.
+              p.locator('[data-guided-go="2"]').click();p.wait_for_timeout(500)
+              # Choose an aircraft if selector exists.
+              if p.locator('#led-showSimulator').count() and not p.locator('#led-showSimulator').is_checked():
+                  p.locator('#led-showSimulator').check();p.wait_for_timeout(250)
+              if p.locator('#led-simulatorType').count():
+                  opts=p.locator('#led-simulatorType option').all()
+                  values=[o.get_attribute('value') for o in opts if o.get_attribute('value')]
+                  if values:p.locator('#led-simulatorType').select_option(values[0]);p.wait_for_timeout(250)
+              p.locator('[data-guided-go="3"]').click();p.wait_for_timeout(600)
+              calc=p.locator('#guided-calculate')
+              if calc.count():
+                  calc.click()
+                  for _ in range(300):
+                      if not calc.is_disabled(): break
+                      p.wait_for_timeout(100)
+              p.wait_for_timeout(900)
+              p.locator('[data-guided-go="4"]').click();p.wait_for_timeout(1200)
+              if p.locator('#v39-country').count(): p.locator('#v39-country').select_option('GB')
+              if p.locator('#v37-customer-type').count(): p.locator('#v37-customer-type').select_option('business')
+              p.wait_for_timeout(300)
+
+              # Real email delivery to Mark.
+              p.locator('#v37-email-proposal').click();p.wait_for_timeout(350)
+              p.locator('#v37-email-address').fill('mark@sim-worx.com')
+              p.locator('#v37-email-name').fill('Reporting V4 Test')
+              p.locator('#v37-email-send').click()
+              for _ in range(120):
+                  status=(p.locator('#v37-email-status').text_content() or '')
+                  if 'sent successfully' in status.lower(): break
+                  p.wait_for_timeout(250)
+              print('EMAIL_STATUS',status)
+              assert 'sent successfully' in status.lower(),status
+              p.wait_for_timeout(1800)
+
+              # Real Save PDF flow; actual download proves success status.
+              if p.locator('#v65-save-pdf').count():
+                  p.locator('#v65-save-pdf').click();p.wait_for_timeout(300)
+                  p.locator('#v65-save-email').fill('mark@sim-worx.com')
+                  try:
+                      with p.expect_download(timeout=30000) as dl:
+                          p.locator('#v65-save-confirm').click()
+                      download=dl.value
+                      print('PDF_DOWNLOAD',download.suggested_filename)
+                  except Exception as e:
+                      print('PDF_DOWNLOAD_ERROR',repr(e))
+                  for _ in range(120):
+                      pdfstatus=(p.locator('#v65-save-status').text_content() or '')
+                      if 'pdf saved' in pdfstatus.lower(): break
+                      p.wait_for_timeout(250)
+                  print('PDF_STATUS',pdfstatus)
+                  assert 'pdf saved' in pdfstatus.lower(),pdfstatus
+                  p.wait_for_timeout(1800)
+
+              p.evaluate("window.SimworxIntelligence.flush()")
+              p.wait_for_timeout(2500)
+              print('CAMPAIGN',campaign)
+              b.close()
+          PY
+      - name: Print validation campaign
+        run: cat /tmp/reporting_v4_campaign

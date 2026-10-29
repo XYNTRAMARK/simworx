@@ -13,22 +13,47 @@ publisher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publisher)
 
 TARGET = "/htdocs/led-screen-configurator.html"
-MARKER = "sw-led-price-gate-v1"
+MARKER = "sw-led-price-gate-v2"
 
-SCRIPT = """<script id="sw-led-price-gate-v1">
+ADDON = """<style id="sw-led-mobile-pc-notice-v1">
+.sw-led-mobile-pc-notice{display:none}
+@media(max-width:780px){
+  .sw-led-mobile-pc-notice{
+    display:block;
+    margin:0 0 14px;
+    padding:10px 12px;
+    border:1px solid #d4ae42;
+    border-radius:4px;
+    background:#fffaf0;
+    color:#665b3a;
+    font-size:12px;
+    font-weight:700;
+    line-height:1.4;
+    text-align:center;
+  }
+}
+</style>
+<script id="sw-led-price-gate-v2">
 (function(){
   let priceActivated=false;
   let observer=null;
 
-  function priceTargets(){
+  function topPriceTargets(){
     return ['led-running-total','led-estimate']
       .map(function(id){ return document.getElementById(id); })
       .filter(Boolean);
   }
 
+  function pitchPriceTargets(){
+    return Array.from(document.querySelectorAll('#led-pixelPitch .led-option-price'));
+  }
+
   function forceZero(){
     if(priceActivated) return;
-    priceTargets().forEach(function(el){
+    topPriceTargets().forEach(function(el){
+      if(el.textContent!=='0') el.textContent='0';
+    });
+    pitchPriceTargets().forEach(function(el){
       if(el.textContent!=='0') el.textContent='0';
     });
   }
@@ -42,20 +67,38 @@ SCRIPT = """<script id="sw-led-price-gate-v1">
     document.removeEventListener('change',activateFromSlider,true);
   }
 
-  function initPriceGate(){
+  function addMobileNotice(){
+    if(document.querySelector('.sw-led-mobile-pc-notice')) return;
+    var notice=document.createElement('div');
+    notice.className='sw-led-mobile-pc-notice';
+    notice.textContent='This configurator works best on a PC.';
+    var anchor=document.querySelector('.led-estimate-bar');
+    if(anchor && anchor.parentNode){
+      anchor.parentNode.insertBefore(notice,anchor);
+    }
+  }
+
+  function init(){
+    addMobileNotice();
     forceZero();
+
     observer=new MutationObserver(forceZero);
-    priceTargets().forEach(function(el){
+    topPriceTargets().forEach(function(el){
       observer.observe(el,{childList:true,subtree:true,characterData:true});
     });
+    var pitch=document.getElementById('led-pitch-options');
+    if(pitch){
+      observer.observe(pitch,{childList:true,subtree:true,characterData:true});
+    }
+
     document.addEventListener('input',activateFromSlider,true);
     document.addEventListener('change',activateFromSlider,true);
   }
 
   if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',initPriceGate,{once:true});
+    document.addEventListener('DOMContentLoaded',init,{once:true});
   }else{
-    initPriceGate();
+    init();
   }
 })();
 </script>"""
@@ -67,14 +110,25 @@ def patch(source: bytes) -> bytes:
         return source
     if 'id="led-running-total"' not in text:
         raise RuntimeError("Live LED running price target not found")
-    if 'class="led-workbench"' not in text:
-        raise RuntimeError("Live LED configurator workbench not found")
+    if 'id="led-pitch-options"' not in text:
+        raise RuntimeError("Live LED pitch container not found")
+    if 'class="led-estimate-bar"' not in text:
+        raise RuntimeError("Live LED estimate bar not found")
 
-    text, count = re.subn(r"</body>", SCRIPT + "</body>", text, count=1, flags=re.I)
+    # Replace only our earlier price-gate script if present.
+    text = re.sub(
+        r'<script id="sw-led-price-gate-v1">[\s\S]*?</script>',
+        '',
+        text,
+        count=1,
+        flags=re.I,
+    )
+
+    text, count = re.subn(r"</body>", ADDON + "</body>", text, count=1, flags=re.I)
     if count != 1:
-        raise RuntimeError("Could not insert LED initial-price gate")
+        raise RuntimeError("Could not insert LED price gate V2 / mobile notice")
     if text.count(MARKER) != 1:
-        raise RuntimeError("Unexpected price-gate marker count")
+        raise RuntimeError("Unexpected price-gate V2 marker count")
     return text.encode("utf-8")
 
 
@@ -83,10 +137,10 @@ def main():
         before = publisher.remote_bytes(ftp, TARGET)
         after = patch(before)
         if after == before:
-            print("Initial LED price gate already present.")
+            print("LED price gate V2 and mobile notice already present.")
             return
 
-        staged = "/htdocs/.led-initial-price-gate-v1-upload.html"
+        staged = "/htdocs/.led-price-gate-v2-mobile-notice-upload.html"
         if publisher.exists(ftp, staged):
             raise RuntimeError("Staging file already exists; refusing overwrite.")
 
@@ -99,7 +153,7 @@ def main():
         if hashlib.sha256(live).digest() != hashlib.sha256(after).digest():
             raise RuntimeError("Live LED page failed checksum verification.")
 
-        print("Published LED initial price gate only.")
+        print("Published LED pitch-price gate and mobile-only PC notice.")
 
 
 if __name__ == "__main__":

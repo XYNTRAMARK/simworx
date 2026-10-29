@@ -1,9 +1,6 @@
 name: Inspect Fasthosts access log availability
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/inspect-fasthosts-access-logs.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

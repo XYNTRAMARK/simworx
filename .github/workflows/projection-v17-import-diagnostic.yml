@@ -1,9 +1,6 @@
 name: Identify failing V17 browser module
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/projection-v17-import-diagnostic.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

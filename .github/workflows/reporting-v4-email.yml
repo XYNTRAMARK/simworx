@@ -1,0 +1,21 @@
+name: Repair Projection V2 email analytics
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.reporting-v4-email/**'
+      - '.github/workflows/reporting-v4-email.yml'
+permissions:
+  contents: read
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch current V2 Projection email tracking
+        run: python3 .reporting-v4-email/patch.py

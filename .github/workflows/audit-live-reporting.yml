@@ -1,9 +1,6 @@
 name: Audit live reporting instrumentation
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/audit-live-reporting.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

@@ -1,9 +1,6 @@
 name: Inspect reports module wiring
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/inspect-reports-wiring.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

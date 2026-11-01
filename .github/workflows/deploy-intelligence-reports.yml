@@ -1,0 +1,63 @@
+name: Publish isolated reports HTML through FTP
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: simworx-reports-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Back up live site, then upload only the new reports folder
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify reports before any FTP write
+        working-directory: website-intelligence
+        run: |
+          npm test
+          python3 -m unittest discover -s deploy -p 'test_*.py'
+          node tests/remote-smoke.mjs
+      - name: Back up and verify the complete live htdocs tree
+        run: python3 website-intelligence/deploy/reports_ftp.py backup
+      - name: Encrypt and verify the complete backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s /tmp/simworx-reports-deploy/verified-backup.json
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in /tmp/simworx-reports-deploy/live-htdocs.tar.gz \
+            -out /tmp/simworx-reports-deploy/live-htdocs.tar.gz.enc \
+            -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in /tmp/simworx-reports-deploy/live-htdocs.tar.gz.enc \
+            -pass env:FTP_PASSWORD | cmp - /tmp/simworx-reports-deploy/live-htdocs.tar.gz
+          cd /tmp/simworx-reports-deploy
+          sha256sum live-htdocs.tar.gz.enc > live-htdocs.tar.gz.enc.sha256
+      - name: Retain encrypted full backup before any FTP write
+        id: retained_backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-live-backup-before-reports-${{ github.sha }}
+          path: |
+            /tmp/simworx-reports-deploy/live-htdocs.tar.gz.enc
+            /tmp/simworx-reports-deploy/live-htdocs.tar.gz.enc.sha256
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload only reports and verify homepage and existing-file inventory
+        env:
+          REPORTS_BACKUP_RETAINED: 'true'
+          RETAINED_BACKUP_ARTIFACT_ID: ${{ steps.retained_backup.outputs.artifact-id }}
+        run: python3 website-intelligence/deploy/reports_ftp.py deploy

@@ -1,0 +1,12 @@
+[
+  {
+    "path": "assets/js/simworx-intelligence-configurator-v1.js",
+    "before": "c10ec98e0c26892777311d9467bb29ed3bc7be6dcb4f47fb6edfde937a3a9243",
+    "after": "b4ba3ee834b33dc5608b4d5a36d55186f9615de88668b05e4ef40381d00f8bd5"
+  },
+  {
+    "path": "assets/js/simworx-intelligence-configurator-v2.js",
+    "before": "d5dcfb6ecf267444721f03761ecf287085b0d1898fd588a860c3620d67e46a5c",
+    "after": "cf4bc7889cf61a8a26b5ce414fd7bb550be3e847c1f4303eb46be28ba6a2dcac"
+  }
+]

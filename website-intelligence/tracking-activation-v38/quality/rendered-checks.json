@@ -1,0 +1,16 @@
+[
+  {
+    "page": "/projection-screen-configurator-v38.html",
+    "consent": false,
+    "unchangedVisibleNodes": 55,
+    "events": 0,
+    "passed": true
+  },
+  {
+    "page": "/projection-screen-configurator-v38.html",
+    "consent": true,
+    "unchangedVisibleNodes": 55,
+    "events": 6,
+    "passed": true
+  }
+]

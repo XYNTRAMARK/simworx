@@ -1,0 +1,27 @@
+[
+  {
+    "path": "reports/app.js",
+    "before": "f708189d7ef8dfd05faa70220a0109a4785585cb624282486c7946a15f9acfda",
+    "after": "da218dd88c8e2167c4fe8b32b2c454075eb1c2faaffa0879d49db708678dc44f"
+  },
+  {
+    "path": "reports/analytics.js",
+    "before": "31dd707996f1f1040c1798eaa821ffa77d0f68952b55a3dd4b09d3d0e1020e93",
+    "after": "d4dcb988ea10db8e7a07d359265bb869f182d984ec3c5d9e27219d8ebba2b90b"
+  },
+  {
+    "path": "assets/js/simworx-intelligence-configurator-v1.js",
+    "before": "b4ba3ee834b33dc5608b4d5a36d55186f9615de88668b05e4ef40381d00f8bd5",
+    "after": "111f5bb2ba3ff2af03a82721319933060169dc7bafaf33c562611fe9e49bb3c3"
+  },
+  {
+    "path": "assets/js/simworx-intelligence-configurator-v2.js",
+    "before": "cf4bc7889cf61a8a26b5ce414fd7bb550be3e847c1f4303eb46be28ba6a2dcac",
+    "after": "645bcb5998f6bc220fabef4313a11a8079f582dcce008cd0c42e5b27b3227863"
+  },
+  {
+    "path": "assets/js/simworx-intelligence-tracker-v2.js",
+    "before": "22c9f98e8aea00e4bc83fd08fd5bcc505b620f16ab8e084859107b3ae3fc519f",
+    "after": "1ca09c679ef42a2f6f6001de638af612448093d3491a465187a39e9635df3a1a"
+  }
+]

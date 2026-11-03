@@ -1,0 +1,77 @@
+name: Filter controlled test visits from reports
+on:
+  push:
+    branches: [codex/simworx-tracking-activation]
+    paths:
+      - '.github/workflows/filter-report-test-visits.yml'
+      - 'website-intelligence/report-test-filter/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: simworx-tracking-production
+  cancel-in-progress: false
+jobs:
+  reports-filter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate single-file deployment guards and reporting exclusions
+        run: |
+          python3 -m unittest discover -s website-intelligence/report-test-filter/deploy -p 'test_*.py'
+          python3 website-intelligence/report-test-filter/deploy/update_reports.py validate
+          node --check website-intelligence/report-test-filter/reports/analytics.js
+          node --test website-intelligence/report-test-filter/reports/tests/*.test.mjs
+      - name: Back up and verify the complete live htdocs without writes
+        run: python3 website-intelligence/report-test-filter/deploy/update_reports.py backup
+      - name: Encrypt and verify the complete current backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s /tmp/simworx-report-test-filter/verified-backup.json
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in /tmp/simworx-report-test-filter/live-htdocs.tar.gz \
+            -out /tmp/simworx-report-test-filter/live-htdocs.tar.gz.enc -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in /tmp/simworx-report-test-filter/live-htdocs.tar.gz.enc -pass env:FTP_PASSWORD \
+            | cmp - /tmp/simworx-report-test-filter/live-htdocs.tar.gz
+      - uses: actions/upload-artifact@v4
+        id: retained_backup
+        with:
+          name: encrypted-live-backup-before-report-test-filter-${{ github.sha }}
+          path: /tmp/simworx-report-test-filter/live-htdocs.tar.gz.enc
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: report-test-filter-change-manifest-${{ github.sha }}
+          path: /tmp/simworx-report-test-filter/change-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Replace only the reviewed reporting calculation file
+        env:
+          RETAINED_BACKUP_ARTIFACT_ID: ${{ steps.retained_backup.outputs.artifact-id }}
+        run: python3 website-intelligence/report-test-filter/deploy/update_reports.py publish
+      - name: Verify deployed report calculations without database access
+        env:
+          REPORT_FILTER_PROOF_PATH: /tmp/simworx-report-test-filter/report-filter-calculations-verified.json
+        run: node website-intelligence/report-test-filter/tests/verify-deployed.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-test-filter-publication-proof-${{ github.sha }}
+          path: |
+            /tmp/simworx-report-test-filter/report-filter-ftp-verified.json
+            /tmp/simworx-report-test-filter/report-filter-deployed.json
+            /tmp/simworx-report-test-filter/report-filter-calculations-verified.json
+          if-no-files-found: ignore
+          retention-days: 30

@@ -1,0 +1,28 @@
+name: Inspect live public sources for tracking only
+on:
+  push:
+    branches: [codex/simworx-tracking-activation]
+    paths:
+      - 'website-intelligence/tracking-activation/deploy/snapshot_live.py'
+      - '.github/workflows/tracking-source-snapshot.yml'
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read public HTML and shared JS from live FTPS without changes
+        run: python3 website-intelligence/tracking-activation/deploy/snapshot_live.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-tracking-source-snapshot
+          path: /tmp/simworx-tracking-snapshot/
+          compression-level: 9
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,45 @@
+name: Repair configurator step tracking only
+on:
+  push:
+    branches: [codex/simworx-tracking-activation]
+    paths: ['website-intelligence/configurator-step-tracking/**', '.github/workflows/configurator-step-tracking.yml']
+permissions:
+  contents: read
+concurrency:
+  group: simworx-tracking-production
+  cancel-in-progress: false
+jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate attribution and consent regressions
+        run: |
+          node --check website-intelligence/configurator-step-tracking/assets/js/simworx-intelligence-configurator-v1.js
+          node --test website-intelligence/configurator-step-tracking/tests/*.test.mjs
+          python3 website-intelligence/configurator-step-tracking/deploy.py validate
+      - name: Back up exact live originals with checksum guards
+        run: python3 website-intelligence/configurator-step-tracking/deploy.py backup
+      - name: Encrypt originals
+        run: |
+          tar -czf /tmp/configurator-step-originals.tar.gz -C /tmp/configurator-step-backup .
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in /tmp/configurator-step-originals.tar.gz -out /tmp/configurator-step-originals.enc -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in /tmp/configurator-step-originals.enc -pass env:FTP_PASSWORD | cmp - /tmp/configurator-step-originals.tar.gz
+      - uses: actions/upload-artifact@v4
+        id: backup
+        with:
+          name: encrypted-configurator-step-tracking-originals-${{ github.sha }}
+          path: /tmp/configurator-step-originals.enc
+          retention-days: 30
+      - name: Install and verify scoped attribution update
+        env:
+          RETAINED_BACKUP_ARTIFACT_ID: ${{ steps.backup.outputs.artifact-id }}
+        run: python3 website-intelligence/configurator-step-tracking/deploy.py publish

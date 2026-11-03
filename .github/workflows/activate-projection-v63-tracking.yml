@@ -1,0 +1,46 @@
+name: Add tracking to current Projection V63
+on:
+  push:
+    branches: [codex/simworx-tracking-activation]
+    paths:
+      - '.github/workflows/activate-projection-v63-tracking.yml'
+      - 'website-intelligence/projection-v63-tracking/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: simworx-tracking-production
+  cancel-in-progress: false
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate additive Projection tracking transform
+        run: python3 website-intelligence/projection-v63-tracking/deploy.py validate
+      - name: Back up exact current Projection pages with checksum guards
+        run: python3 website-intelligence/projection-v63-tracking/deploy.py backup
+      - name: Encrypt and verify originals
+        run: |
+          tar -czf /tmp/projection-v63-originals.tar.gz -C /tmp/simworx-projection-v63-tracking originals manifest.json
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in /tmp/projection-v63-originals.tar.gz -out /tmp/projection-v63-originals.enc -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in /tmp/projection-v63-originals.enc -pass env:FTP_PASSWORD | cmp - /tmp/projection-v63-originals.tar.gz
+      - uses: actions/upload-artifact@v4
+        id: retained_backup
+        with:
+          name: encrypted-projection-v63-originals-${{ github.sha }}
+          path: /tmp/projection-v63-originals.enc
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Install only the first-party tracking hook
+        env:
+          RETAINED_BACKUP_ARTIFACT_ID: ${{ steps.retained_backup.outputs.artifact-id }}
+        run: python3 website-intelligence/projection-v63-tracking/deploy.py publish
+      - name: Verify live Projection pages
+        run: python3 website-intelligence/projection-v63-tracking/deploy.py verify

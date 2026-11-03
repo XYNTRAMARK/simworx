@@ -1,0 +1,6 @@
+{
+  "path": "/htdocs/reports/analytics.js",
+  "source": "reports/analytics.js",
+  "expected_before": "9581c508795a6122923b5bec54d44c5ccb10825d492dc6fb1cdeb5b0cfbfbd37",
+  "expected_after": "46b574b404b9021961777ca1ccb6f3ab06da4b648d93b81ca891f71a29164507"
+}

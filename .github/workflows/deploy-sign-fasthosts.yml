@@ -1,0 +1,45 @@
+name: Deploy Simworx Sign to Fasthosts
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sign/**'
+      - '.github/workflows/deploy-sign-fasthosts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy-sign-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install lftp
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lftp
+      - name: Upload only Simworx Sign folder
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s sign/index.html
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP'
+          set cmd:fail-exit true
+          set net:max-retries 2
+          set net:timeout 20
+          set ftp:ssl-allow no
+          mirror -R --verbose --no-perms --no-umask ./sign /htdocs/sign
+          bye
+          LFTP
+      - name: Verify live sign page
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 30 "https://sim-worx.com/sign/?v=${GITHUB_SHA}" -o /tmp/sign-live.html
+          grep -q 'SIMWORX SIGN' /tmp/sign-live.html
+          grep -q 'Current limitation' /tmp/sign-live.html
+          echo "Verified https://sim-worx.com/sign/"

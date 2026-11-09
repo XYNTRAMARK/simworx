@@ -37,7 +37,7 @@ $baseHeaders=['From: Simworx Sign <'.$from.'>','Reply-To: '.$from,'MIME-Version:
 if($cleanCc)$baseHeaders[]='Cc: '.implode(', ',$cleanCc);
 if($kind==='invitation'){
  $baseHeaders[]='Content-Type: text/plain; charset=UTF-8';
- $sent=@mail($to,$subject,$body,implode("\r\n",$baseHeaders),'-f'.$from);
+ $sent=@mail($to,$subject,$body,implode("\r\n",$baseHeaders));
  respond($sent?200:502,['sent'=>(bool)$sent,'type'=>'invitation','message'=>$sent?'Accepted by mail transport':'Mail transport rejected invitation']);
 }
 if($kind!=='completed')respond(400,['error'=>'Unknown delivery type']);
@@ -49,7 +49,7 @@ $parts[]='--'.$boundary."\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-
 $bytes=0;
 foreach($files as $item){
  $url=$item['url']??'';$filename=$item['filename']??'signed.pdf';
- if(!is_string($url)||!str_starts_with($url,'https://euttubfvsrgkeiescsdm.supabase.co/storage/v1/object/sign/'))respond(400,['error'=>'Unexpected file location']);
+ if(!is_string($url)||strpos($url,'https://euttubfvsrgkeiescsdm.supabase.co/storage/v1/object/sign/')!==0)respond(400,['error'=>'Unexpected file location']);
  if(!is_string($filename)||!preg_match('/^[a-zA-Z0-9._ -]{1,130}\.pdf$/',$filename))respond(400,['error'=>'Unexpected filename']);
  $ch=curl_init($url);
  curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>40,CURLOPT_MAXREDIRS=>0]);

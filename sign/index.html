@@ -31,10 +31,14 @@
 <div class="two"><div><label>Signer</label><input id="signer" value="Mark Furber"><label>Email</label><input id="email" value="mark@sim-worx.com" type="email"></div><div><label>Initials</label><input id="initials" value="MF"><label>Signing role</label><select id="side"><option value="seller">Simworx — Seller</option></select></div></div>
 <div id="docList"></div>
 <div style="margin-top:20px;padding:16px;border:1px solid #506e87;background:#0b2234;border-radius:10px">
-<h3 style="margin:0 0 6px">Joshua's signing invitation</h3><p class="muted">After all three Simworx signatures have been saved securely, create Joshua's personal signing link. Do not share a public document URL.</p>
-<button id="inviteBuyer" disabled>Prepare Joshua's secure signing link</button>
+<h3 style="margin:0 0 6px">Send for signature</h3>
+<p class="muted">Once you've signed all three documents, enter the recipient's email address and click Send for Signature. They receive a private link to review and sign the full PDFs.</p>
+<label for="recipientEmail">Recipient email address</label>
+<input id="recipientEmail" type="email" autocomplete="email" value="jrw@pistudios.com" placeholder="client@example.com" style="max-width:460px">
+<div class="actions"><button id="inviteBuyer" disabled>Send for Signature</button></div>
+<p class="muted">When the recipient completes all three documents, the signed PDF copies are emailed to both parties.</p>
 <p id="inviteMessage" class="muted"></p>
-<div class="hide" id="inviteLinkWrap"><label for="inviteLink">Private signing link for Joshua</label><input id="inviteLink" readonly><div class="actions"><button id="copyInvite" class="secondary">Copy signing link</button><a id="emailInvite" href="#" style="color:#9ad6ff">Open email to Joshua</a></div></div>
+<div class="hide" id="inviteLinkWrap"><label for="inviteLink">Recipient’s private signing link</label><input id="inviteLink" readonly><div class="actions"><button id="copyInvite" class="secondary">Copy signing link</button><a id="emailInvite" href="#" style="color:#9ad6ff">Open backup email</a></div></div>
 </div>
 <div class="actions"><button class="secondary" id="downloadAll" disabled>Download completed PDFs (ZIP)</button><button class="secondary hide" id="resendCopies">Resend all completed PDFs by email</button><span id="downloadStatus" class="muted"></span></div></section>
 <section id="signingPage" class="panel hide"><div class="actions" style="margin-top:0"><button class="secondary" id="back">← Dashboard</button><span id="stepPill" class="pill">Document</span></div><h2 style="margin-top:18px" id="docTitle"></h2>
@@ -244,19 +248,28 @@ $('downloadAll').onclick=async()=>{if(!window.JSZip)return alert('ZIP library un
 $('side').onchange=()=>{for(const d of docs)d.output=null;updateDashboard()};
 
 $('inviteBuyer').onclick=async()=>{
- const button=$('inviteBuyer');button.disabled=true;
- $('inviteMessage').textContent='Creating Joshua’s secure invitation and attempting email delivery…';
+ const button=$('inviteBuyer'),recipient=$('recipientEmail').value.trim().toLowerCase();
+ if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(recipient)){
+  $('inviteMessage').textContent='Enter a valid recipient email address before sending.';return;
+ }
+ button.disabled=true;
+ $('inviteMessage').textContent='Sending private signing invitation to '+recipient+'…';
  try{
-  const result=await window.signCloud.createBuyerInvite();
+  const result=await window.signCloud.createBuyerInvite(recipient);
   const safeLink=result.link.replace('?token=','#token=');
   $('inviteLink').value=safeLink;
   $('inviteLinkWrap').classList.remove('hide');
-  $('inviteMessage').textContent=result.email_sent?'✓ Invitation accepted by the email server for Joshua. Keep the private link as a fallback.':'Invitation link created, but automatic email delivery was not confirmed. Use Open email to Joshua below to send it manually.';
-  $('emailInvite').textContent=result.email_sent?'Open backup email to Joshua':'Open email to Joshua';
-  const subject='NOAA King Air 360ER — Please sign the agreement';
-  const message='Dear Joshua,\n\nPlease review and sign the Main Agreement, Annex 01 and Annex 16 using this secure Simworx Sign link:\n\n'+safeLink+'\n\nKind regards,\nMark';
+  $('inviteMessage').textContent=result.email_sent?
+   '✓ Invitation accepted by the outgoing email server for '+result.buyer_email+'.':
+   'Signing link created, but automatic email delivery was not confirmed. Use Open backup email below.';
+  $('emailInvite').textContent=result.email_sent?'Open backup email':'Open backup email to send manually';
+  const subject='NOAA King Air 360ER — Please review and sign';
+  const message='Dear recipient,\n\nPlease review and sign the Main Supply Agreement, Annex 01 and Annex 16 using your private signing link:\n\n'+safeLink+'\n\nKind regards,\nMark\nSimworx Flight Simulators';
   $('emailInvite').href='mailto:'+encodeURIComponent(result.buyer_email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(message);
- }catch(e){$('inviteMessage').textContent=e.message}
+  $('recipientEmail').value=result.buyer_email;
+  $('deliveryRecipients').textContent='Simworx: mark@sim-worx.com  |  Client: '+result.buyer_email;
+  if(window.signCloud?.loadExisting)await window.signCloud.loadExisting();
+ }catch(e){$('inviteMessage').textContent='Invitation not sent: '+e.message}
  finally{button.disabled=false}
 };
 $('resendCopies').onclick=async()=>{const b=$('resendCopies');b.disabled=true;try{const result=await window.signCloud.resendSignedCopies();$('downloadStatus').textContent=result.email_sent?'The signed PDFs were accepted by the email server.':'Email delivery failed: '+result.email_result}catch(e){$('downloadStatus').textContent=e.message}finally{b.disabled=false}};
@@ -265,4 +278,4 @@ window.signDocs=docs;window.updateSignDashboard=updateDashboard;window.importPre
 updateDashboard();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
-<script src="private-storage.js?v=20261109-remote2"></script></body></html>
+<script src="private-storage.js?v=20261109-recipient3"></script></body></html>

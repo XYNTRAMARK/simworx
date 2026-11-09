@@ -55,6 +55,7 @@ async function loadExisting(){
  const done=info.documents.length===3&&info.documents.every(x=>x.signedBySeller);
  const button=el("inviteBuyer");
  if(button)button.disabled=!done||pkg.status==="complete";
+ const resend=el("resendCopies");if(resend)resend.classList.toggle("hide",pkg.status!=="complete");
  const importer=el("packageZip")?.closest("div[style*='margin-top:16px']");
  if(importer)importer.style.display=info.documents.length===3?"none":"";
  tell("✓ "+count+" NOAA PDF"+(count===1?"":"s")+" loaded from private storage. "+(done?"Simworx signatures recorded. Joshua's invitation can now be prepared.":"Sign each contract document before inviting Joshua."));
@@ -73,6 +74,7 @@ async function createBuyerInvite(){
  if(!authorized||!pkg)throw Error("Sign in to the private document library.");
  return await requestSign("invite");
 }
+async function resendSignedCopies(){return await requestSign("resend-completed");}
 async function saveRole(d){
  if(!authorized || !pkg || !d?.file)throw Error("Sign in to the private library before importing.");
  const bytes=await d.file.arrayBuffer();
@@ -107,7 +109,7 @@ async function saveAll(items){
   return {ok:false,count,message};
  }finally{busy=false}
 }
-window.signCloud={saveRole,saveAll,check,signDocument,createBuyerInvite,loadExisting};
+window.signCloud={saveRole,saveAll,check,signDocument,createBuyerInvite,resendSignedCopies,loadExisting};
 el("packageZip").onchange=()=>{
  const file=el("packageZip").files[0];
  if(file)window.importPreparedZip?.(file);

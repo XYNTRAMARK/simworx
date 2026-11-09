@@ -14,8 +14,8 @@
 <div style="margin-top:16px;padding:15px;border:1px solid #42708a;border-radius:9px;background:#0d2b40">
 <h3 style="margin-bottom:7px">Import the prepared NOAA documents</h3>
 <p class="muted" style="margin-top:0">Choose the NOAA ZIP you already have. The three PDFs will be identified and saved into your private document library automatically. You only do this once.</p>
-<input id="packageZip" type="file" accept=".zip,application/zip" aria-label="Choose NOAA ZIP package" onchange="window.importPreparedZip(this.files[0])">
-<div class="actions"><button type="button" class="secondary" onclick="window.importPreparedZip(document.getElementById('packageZip').files[0])">Import selected ZIP</button></div><p id="importStatus" class="muted">Choose your ZIP, then select Import selected ZIP if it does not start automatically.</p>
+<input id="packageZip" type="file" accept=".zip,application/zip" aria-label="Choose NOAA ZIP package">
+<p id="importStatus" class="muted">Select your ZIP once to import it. If the NOAA documents are already listed below, no import is needed.</p>
 </div></div>
 <p id="privateStatus" class="muted">Checking secure storage…</p>
 </section><h1>Contract dashboard</h1><p style="margin-top:3px">Choose a document, click <b>Sign here</b>, type or draw your signature, and finish. The dashboard shows a green tick when your PDF has been marked.</p>

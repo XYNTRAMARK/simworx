@@ -33,7 +33,7 @@
 <div id="loading"></div>
 <div class="form-section hide" id="signatureForm">
   <h3 id="formTitle">Sign here</h3><div class="two"><div><label>Signature method</label><select id="method"><option value="type">Type your name</option><option value="draw">Draw with mouse or touchscreen</option></select><div id="typedBox"><label>Signature</label><input id="signatureText" value="Mark Furber"></div><div id="drawBox" class="hide"><label>Draw inside the box</label><div class="canvaswrap"><canvas id="drawPad" class="sign-pad" width="700" height="160"></canvas></div><button type="button" class="secondary" style="margin-top:8px" id="clearDraw">Clear</button></div></div><div><label>Signing date (automatic)</label><input id="dateReadout" disabled><p class="muted">The date is added automatically to the signed PDF. No manual positioning required.</p><label><input type="checkbox" id="consent"> I intend to apply this signature or initials to the document.</label></div></div>
-  <div class="actions"><button id="next">Next → Finish document</button><button class="secondary" id="cancel">Cancel</button></div>
+  <div id="inlinePreview" style="margin-top:16px;padding:12px;border:1px solid #6e8c9f;border-radius:8px;background:#fff;color:#1a3556"><div style="font:12px Arial;color:#606b79">LIVE PREVIEW — appears on signing page</div><div id="inlineSignature" style="font:italic 23px Georgia,serif;min-height:36px"></div><div id="inlineDate" style="font:12px Arial"></div></div><div class="actions"><button type="button" id="seeOnPage" class="secondary">See signature on contract ↑</button><button id="next">Next → Finish document</button><button class="secondary" id="cancel">Cancel</button></div>
 </div></section>
 <section class="panel hide" id="completePage"><div class="complete"><div class="tick">✓</div><h2 id="completeTitle">Document finished</h2><p>Your marked PDF has been created. A green tick now appears on the dashboard next to this document.</p><div class="actions" style="justify-content:center"><button id="completeDownload">Download signed PDF</button><button class="secondary" id="finish">Back to dashboard →</button></div><p class="muted">Keep your downloaded PDF and the original file. This is a locally recorded electronic mark, not independently verified remote signing.</p></div></section>
 </main>
@@ -186,6 +186,7 @@ function showLiveMark(){
  date.style.left=Math.round(pos.x*viewScale)+'px';
  date.style.top=Math.round((pageHeight-pos.y+7)*viewScale)+'px';
  date.textContent='Date: '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+ $('inlineDate').textContent=date.textContent;
  if($('method').value==='type'){
    mark.textContent=$('signatureText').value;
  }else if(drawn){
@@ -196,12 +197,14 @@ function showLiveMark(){
  }else{mark.textContent=''}
  mark.classList.toggle('hide',!mark.textContent&&!mark.querySelector('img'));
  date.classList.remove('hide');
+ $('inlineSignature').replaceChildren();if(mark.querySelector('img')){$('inlineSignature').append(mark.querySelector('img').cloneNode(true))}else{$('inlineSignature').textContent=mark.textContent}
 }
 function positionField(el,pos){el.style.left=Math.round(pos.x*viewScale-8)+'px';el.style.top=Math.round((pageHeight-pos.y-pos.maxH)*viewScale-5)+'px';el.style.width=Math.max(90,pos.maxW*viewScale)+'px';el.style.height=Math.max(38,pos.maxH*viewScale+10)+'px'}
 $('onPageField').onclick=()=>{if(!current||current.output||current.kind==='attachment')return;
 $('signatureForm').classList.remove('hide');$('dateReadout').value=new Date().toLocaleString('en-GB',{dateStyle:'full',timeStyle:'short'});$('formTitle').textContent=current.kind==='initials'?'Add your initials':'Add your signature';$('signatureText').value=current.kind==='initials'?$('initials').value:$('signer').value;showLiveMark();$('signatureForm').scrollIntoView({behavior:'smooth',block:'center'})};
 $('method').onchange=()=>{$('typedBox').classList.toggle('hide',$('method').value!=='type');$('drawBox').classList.toggle('hide',$('method').value!=='draw');showLiveMark()};
 $('signatureText').addEventListener('input',showLiveMark);
+$('seeOnPage').onclick=()=>{$('signTargetTitle').scrollIntoView({behavior:'smooth',block:'start'})};
 const pad=$('drawPad'),ctx=pad.getContext('2d');ctx.strokeStyle='#183f72';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';
 function padPoint(ev){const r=pad.getBoundingClientRect();return{x:(ev.clientX-r.left)*pad.width/r.width,y:(ev.clientY-r.top)*pad.height/r.height}}
 pad.onpointerdown=ev=>{drag=true;drawn=true;pad.setPointerCapture(ev.pointerId);const p=padPoint(ev);ctx.beginPath();ctx.moveTo(p.x,p.y)};pad.onpointermove=ev=>{if(!drag)return;const p=padPoint(ev);ctx.lineTo(p.x,p.y);ctx.stroke()};pad.onpointerup=pad.onpointercancel=()=>{drag=false;showLiveMark()};

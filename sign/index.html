@@ -22,8 +22,15 @@
 
 <section id="dashboard" class="panel"><h2>NOAA King Air 360ER — Signing package</h2>
 <div id="preparedImport" style="border:1px solid #46657e;border-radius:11px;padding:15px;margin:12px 0;background:#10283b"><h3>Private NOAA contract documents</h3><p class="muted" style="margin:5px 0">Documents stored in the private library load automatically. If files are missing, use Import above.</p></div>
-<div class="two"><div><label>Signer</label><input id="signer" value="Mark Furber"><label>Email</label><input id="email" value="mark@sim-worx.com" type="email"></div><div><label>Initials</label><input id="initials" value="MF"><label>Signing role</label><select id="side"><option value="seller">Simworx — Seller</option><option value="buyer">Pure Imagination — Buyer (local demonstration only)</option></select></div></div>
-<div id="docList"></div><div class="actions"><button class="secondary" id="downloadAll" disabled>Download completed PDFs (ZIP)</button><span id="downloadStatus" class="muted"></span></div></section>
+<div class="two"><div><label>Signer</label><input id="signer" value="Mark Furber"><label>Email</label><input id="email" value="mark@sim-worx.com" type="email"></div><div><label>Initials</label><input id="initials" value="MF"><label>Signing role</label><select id="side"><option value="seller">Simworx — Seller</option></select></div></div>
+<div id="docList"></div>
+<div style="margin-top:20px;padding:16px;border:1px solid #506e87;background:#0b2234;border-radius:10px">
+<h3 style="margin:0 0 6px">Joshua's signing invitation</h3><p class="muted">After all three Simworx signatures have been saved securely, create Joshua's personal signing link. Do not share a public document URL.</p>
+<button id="inviteBuyer" disabled>Prepare Joshua's secure signing link</button>
+<p id="inviteMessage" class="muted"></p>
+<div class="hide" id="inviteLinkWrap"><label for="inviteLink">Private signing link for Joshua</label><input id="inviteLink" readonly><div class="actions"><button id="copyInvite" class="secondary">Copy signing link</button><a id="emailInvite" href="#" style="color:#9ad6ff">Open email to Joshua</a></div></div>
+</div>
+<div class="actions"><button class="secondary" id="downloadAll" disabled>Download completed PDFs (ZIP)</button><span id="downloadStatus" class="muted"></span></div></section>
 <section id="signingPage" class="panel hide"><div class="actions" style="margin-top:0"><button class="secondary" id="back">← Dashboard</button><span id="stepPill" class="pill">Document</span></div><h2 style="margin-top:18px" id="docTitle"></h2>
 <p id="instruction">Click the highlighted Sign Here field to jump to the signature box.</p>
 <div class="actions"><button type="button" id="jumpToSign">Sign Here ↓</button><button type="button" id="readFromStart" class="secondary">View full document ↑</button><span class="muted" id="pageCountLabel"></span></div>
@@ -209,14 +216,19 @@ function padPoint(ev){const r=pad.getBoundingClientRect();return{x:(ev.clientX-r
 pad.onpointerdown=ev=>{drag=true;drawn=true;pad.setPointerCapture(ev.pointerId);const p=padPoint(ev);ctx.beginPath();ctx.moveTo(p.x,p.y)};pad.onpointermove=ev=>{if(!drag)return;const p=padPoint(ev);ctx.lineTo(p.x,p.y);ctx.stroke()};pad.onpointerup=pad.onpointercancel=()=>{drag=false;showLiveMark()};
 $('clearDraw').onclick=()=>{ctx.clearRect(0,0,pad.width,pad.height);drawn=false;showLiveMark()};
 $('cancel').onclick=()=>{$('signatureForm').classList.add('hide');showLiveMark()};
-async function signCurrent(){const d=current;if(!d||d.kind==='attachment'||d.output)return;
-
-const method=$('method').value,text=$('signatureText').value.trim();if(method==='type'&&!text)throw Error('Enter your signature or initials.');if(method==='draw'&&!drawn)throw Error('Draw your signature in the box first.');
-const doc=await PDFLib.PDFDocument.load(await d.file.arrayBuffer()),page=d.page==='last'?doc.getPages()[doc.getPageCount()-1]:doc.getPages()[0],{width,height}=page.getSize(),pos=place(d,$('side').value,width,height);
-if(method==='type'){const font=await doc.embedFont(PDFLib.StandardFonts.HelveticaOblique),size=d.kind==='initials'?15:19,value=text.slice(0,75);page.drawText(value,{x:pos.x,y:pos.y,size,font,color:PDFLib.rgb(.08,.22,.46),maxWidth:pos.maxW})}
-else {const png=await doc.embedPng(pad.toDataURL('image/png'));const ratio=Math.min(pos.maxW/png.width,pos.maxH/png.height);page.drawImage(png,{x:pos.x,y:pos.y,width:png.width*ratio,height:png.height*ratio})}
-const now=new Date(),date=now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),small=await doc.embedFont(PDFLib.StandardFonts.Helvetica);page.drawText('Date: '+date,{x:pos.x,y:pos.y-16,size:9,font:small,color:PDFLib.rgb(.2,.28,.37),maxWidth:pos.maxW+30});
-d.output=new Uint8Array(await doc.save({useObjectStreams:false}));d.signedAt=now.toISOString();d.signer=$('signer').value;d.role=$('side').value;lastDownload=d.id;updateDashboard();show('dashboard');$('downloadStatus').textContent='✓ '+d.title+' finished. Green tick added. Choose the next document below.';}
+async function signCurrent(){
+ const d=current;if(!d||d.kind==="attachment")return;
+ if(d.output)throw Error("This document has already been signed by Simworx.");
+ const method=$("method").value==="draw"?"drawn":"typed",text=$("signatureText").value.trim();
+ if(method==="typed"&&!text)throw Error("Enter the signature.");
+ if(method==="drawn"&&!drawn)throw Error("Draw the signature first.");
+ if(!window.signCloud?.signDocument)throw Error("Secure signing server is not connected. Please refresh.");
+ const result=await window.signCloud.signDocument(d,method,$("signer").value.trim(),text,method==="drawn"?pad.toDataURL("image/png"):null);
+ d.signedAt=result.signed_at;d.signer=$("signer").value;d.role="seller";lastDownload=d.id;
+ updateDashboard();show("dashboard");
+ $("downloadStatus").textContent="✓ "+d.title+" securely signed and saved. Select the next document.";
+ await window.signCloud.loadExisting();
+}
 $('next').onclick=async()=>{const btn=$('next');try{btn.disabled=true;$('signError').textContent='';await signCurrent()}catch(e){$('signError').textContent=e.message;}finally{btn.disabled=false}};
 function downloadBlob(bytes,name,type){const b=new Blob([bytes],{type}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),20000)}
 function downloadPdf(d){if(!d.output)return;downloadBlob(d.output,(d.filename||d.id+'.pdf').replace(/\.pdf$/i,'')+'_marked.pdf','application/pdf')}
@@ -225,8 +237,23 @@ $('finish').onclick=()=>{updateDashboard();show('dashboard')};$('back').onclick=
 $('downloadAll').onclick=async()=>{if(!window.JSZip)return alert('ZIP library unavailable.');const zip=new JSZip();for(const d of docs){if(d.output)zip.file(d.filename.replace(/\.pdf$/i,'')+'_marked.pdf',d.output)}const b=await zip.generateAsync({type:'blob'});downloadBlob(b,'Simworx_Signed_Documents.zip','application/zip');$('downloadStatus').textContent='Downloaded locally.'};
 $('side').onchange=()=>{for(const d of docs)d.output=null;updateDashboard()};
 
+$('inviteBuyer').onclick=async()=>{
+ const button=$('inviteBuyer');button.disabled=true;
+ $('inviteMessage').textContent='Preparing a private link…';
+ try{
+  const result=await window.signCloud.createBuyerInvite();
+  $('inviteLink').value=result.link;
+  $('inviteLinkWrap').classList.remove('hide');
+  $('inviteMessage').textContent='Secure link created. Joshua has not yet been emailed automatically. Use the email link below to send it.';
+  const subject='NOAA King Air 360ER — Please sign the agreement';
+  const message='Dear Joshua,\n\nPlease review and sign the Main Agreement, Annex 01 and Annex 16 using this secure Simworx Sign link:\n\n'+result.link+'\n\nKind regards,\nMark';
+  $('emailInvite').href='mailto:'+encodeURIComponent(result.buyer_email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(message);
+ }catch(e){$('inviteMessage').textContent=e.message}
+ finally{button.disabled=false}
+};
+$('copyInvite').onclick=async()=>{try{await navigator.clipboard.writeText($('inviteLink').value);$('inviteMessage').textContent='Signing link copied.'}catch(e){$('inviteMessage').textContent='Select and copy the link manually.'}};
 window.signDocs=docs;window.updateSignDashboard=updateDashboard;window.importPreparedZip=importPreparedZip;
 updateDashboard();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
-<script src="private-storage.js?v=20261109-4"></script></body></html>
+<script src="private-storage.js?v=20261109-remote1"></script></body></html>

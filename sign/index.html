@@ -30,7 +30,7 @@
 <p id="inviteMessage" class="muted"></p>
 <div class="hide" id="inviteLinkWrap"><label for="inviteLink">Private signing link for Joshua</label><input id="inviteLink" readonly><div class="actions"><button id="copyInvite" class="secondary">Copy signing link</button><a id="emailInvite" href="#" style="color:#9ad6ff">Open email to Joshua</a></div></div>
 </div>
-<div class="actions"><button class="secondary" id="downloadAll" disabled>Download completed PDFs (ZIP)</button><span id="downloadStatus" class="muted"></span></div></section>
+<div class="actions"><button class="secondary" id="downloadAll" disabled>Download completed PDFs (ZIP)</button><button class="secondary hide" id="resendCopies">Resend all completed PDFs by email</button><span id="downloadStatus" class="muted"></span></div></section>
 <section id="signingPage" class="panel hide"><div class="actions" style="margin-top:0"><button class="secondary" id="back">← Dashboard</button><span id="stepPill" class="pill">Document</span></div><h2 style="margin-top:18px" id="docTitle"></h2>
 <p id="instruction">Click the highlighted Sign Here field to jump to the signature box.</p>
 <div class="actions"><button type="button" id="jumpToSign">Sign Here ↓</button><button type="button" id="readFromStart" class="secondary">View full document ↑</button><span class="muted" id="pageCountLabel"></span></div>
@@ -253,9 +253,10 @@ $('inviteBuyer').onclick=async()=>{
  }catch(e){$('inviteMessage').textContent=e.message}
  finally{button.disabled=false}
 };
+$('resendCopies').onclick=async()=>{const b=$('resendCopies');b.disabled=true;try{const result=await window.signCloud.resendSignedCopies();$('downloadStatus').textContent=result.email_sent?'The signed PDFs were accepted by the email server.':'Email delivery failed: '+result.email_result}catch(e){$('downloadStatus').textContent=e.message}finally{b.disabled=false}};
 $('copyInvite').onclick=async()=>{try{await navigator.clipboard.writeText($('inviteLink').value);$('inviteMessage').textContent='Signing link copied.'}catch(e){$('inviteMessage').textContent='Select and copy the link manually.'}};
 window.signDocs=docs;window.updateSignDashboard=updateDashboard;window.importPreparedZip=importPreparedZip;
 updateDashboard();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
-<script src="private-storage.js?v=20261109-remote1"></script></body></html>
+<script src="private-storage.js?v=20261109-remote2"></script></body></html>

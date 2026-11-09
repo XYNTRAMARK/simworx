@@ -1,0 +1,132 @@
+(() => {
+"use strict";
+const ENDPOINT="https://euttubfvsrgkeiescsdm.supabase.co";
+const PUBLISHABLE="sb_publishable_PEfCOwn6Xkwtl7RhWPAPVA_Ppgq08Wl";
+const BUCKET="simworx-sign-private";
+const NOI="TEST — NOAA King Air 360ER — NOT FOR EXECUTION";
+const SIGN_API=ENDPOINT+"/functions/v1/simworx-sign-api";
+const sb=window.supabase.createClient(ENDPOINT,PUBLISHABLE,{auth:{flowType:"pkce",persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+let authorized=false, pkg=null, busy=false;
+const el=id=>document.getElementById(id);
+const tell=(txt,error=false)=>{const e=el("privateStatus");e.textContent=txt;e.style.color=error?"#f4b4b4":"#a9dff9"};
+async function sha(bytes){const hash=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,"0")).join("")}
+const findDoc=role=>window.signDocs?.find(d=>d.id===role);
+async function check(){
+try{
+ const {data:{user},error}=await sb.auth.getUser();
+ if(error||!user){authorized=false;el("cloudSignIn").classList.remove("hide");el("cloudSignedIn").classList.add("hide");tell("Sign in to access private contract documents.");return}
+ const {data:staff,error:se}=await sb.from("sign_staff").select("user_id").eq("user_id",user.id).maybeSingle();
+ if(se||!staff){authorized=false;tell("This account is not authorised for Simworx Sign. No documents were accessed.",true);return}
+ authorized=true;el("cloudSignIn").classList.add("hide");el("cloudSignedIn").classList.remove("hide");
+ el("staffIdentity").textContent=user.email||"Simworx staff";await loadExisting();
+}catch(e){tell("Unable to connect private storage: "+e.message,true)}
+}
+async function requestSign(action,payload={}){
+ const {data:{session},error}=await sb.auth.getSession();
+ if(error||!session?.access_token)throw Error("Please sign in again.");
+ const response=await fetch(SIGN_API,{method:"POST",headers:{
+  "Content-Type":"application/json","Authorization":"Bearer "+session.access_token,
+  "apikey":PUBLISHABLE
+ },body:JSON.stringify({action,package:"test",...payload})});
+ const result=await response.json();
+ if(!response.ok||result.error)throw Error(result.error||"Signing server error");
+ return result;
+}
+async function loadExisting(){
+ if(!authorized)return;
+ const {data:p,error:pe}=await sb.from("sign_packages").select("id,title,status").eq("title",NOI).order("created_at",{ascending:false}).limit(1);
+ if(pe)throw pe;if(!p?.length)throw Error("NOAA package not registered.");
+ pkg=p[0];el("activePackage").textContent=pkg.title+" · "+pkg.status;
+ const info=await requestSign("staff-status");
+ let count=0;
+ for(const record of info.documents){
+  const d=findDoc(record.role);if(!d)continue;
+  try{
+   const response=await fetch(record.url);if(!response.ok)throw Error("Download failed");
+   const buf=await response.arrayBuffer();
+   d.file=new File([buf],record.filename,{type:"application/pdf"});
+   d.filename=record.filename;
+   d.output=record.signedBySeller?new Uint8Array(buf):null;
+   d.remoteSeller=record.signedBySeller;d.remoteBuyer=record.signedByBuyer;
+   count++;
+  }catch(e){tell("Cannot load "+record.filename+": "+e.message,true)}
+ }
+ window.updateSignDashboard?.();
+ const done=info.documents.length===3&&info.documents.every(x=>x.signedBySeller);
+ const button=el("inviteBuyer");
+ if(button)button.disabled=!done||pkg.status==="complete";
+ const prep=el("prepareTest");if(prep)prep.classList.toggle("hide",info.documents.length===3);
+ const resend=el("resendCopies");if(resend)resend.classList.toggle("hide",pkg.status!=="complete");
+ const importer=el("packageZip")?.closest("div[style*='margin-top:16px']");
+ if(importer)importer.style.display=info.documents.length===3?"none":"";
+ tell("✓ "+count+" NOAA PDF"+(count===1?"":"s")+" loaded from private storage. "+(done?"Simworx signatures recorded. Joshua's invitation can now be prepared.":"Sign each TEST document as Simworx, then invite yourself by email."));
+}
+async function signDocument(d,method,name,signature,image){
+ if(!authorized||!pkg)throw Error("Sign in to the private document library.");
+ const result=await requestSign("staff-sign",{document:d.id,method,name,signature,image});
+ const response=await fetch(result.url);
+ if(!response.ok)throw Error("Signed PDF saved, but could not download the new version.");
+ d.output=new Uint8Array(await response.arrayBuffer());
+ d.remoteSeller=true;
+ window.updateSignDashboard?.();
+ return result;
+}
+async function createBuyerInvite(){
+ if(!authorized||!pkg)throw Error("Sign in to the private document library.");
+ return await requestSign("invite");
+}
+async function resendSignedCopies(){return await requestSign("resend-completed");}
+async function saveRole(d){
+ if(!authorized || !pkg || !d?.file)throw Error("Sign in to the private library before importing.");
+ const bytes=await d.file.arrayBuffer();
+ if(bytes.byteLength>50*1024*1024)throw Error(d.title+" exceeds 50 MB.");
+ if(!window.PDFLib)throw Error("PDF library unavailable.");
+ const pdf=await PDFLib.PDFDocument.load(bytes);
+ const path=pkg.id+"/"+crypto.randomUUID()+".pdf";
+ const {error:ue}=await sb.storage.from(BUCKET).upload(path,new Blob([bytes],{type:"application/pdf"}),{contentType:"application/pdf",upsert:false});
+ if(ue)throw Error(d.title+": "+ue.message);
+ const {error:me}=await sb.from("sign_documents").upsert({
+   package_id:pkg.id,role:d.id,filename:d.file.name,storage_path:path,
+   sha256:await sha(bytes),pages:pdf.getPageCount(),requires_signature:d.kind!=="attachment"
+ },{onConflict:"package_id,role"});
+ if(me)throw Error(d.title+" metadata: "+me.message);
+ return true;
+}
+async function saveAll(items){
+ if(busy)return {ok:false,message:"An import is already running."};
+ if(!authorized || !pkg)return {ok:false,message:"Private storage is not authorised."};
+ busy=true;
+ let count=0;
+ try{
+  for(const d of items){
+   tell("Saving "+d.title+" securely…");
+   await saveRole(d);count++;
+  }
+  tell("✓ "+count+" NOAA PDF"+(count===1?"":"s")+" saved to private storage.");
+  return {ok:true,count};
+ }catch(e){
+  const message=e instanceof Error?e.message:String(e);
+  tell("Private import stopped: "+message,true);
+  return {ok:false,count,message};
+ }finally{busy=false}
+}
+window.signCloud={saveRole,saveAll,check,signDocument,createBuyerInvite,resendSignedCopies,loadExisting};
+el("prepareTest").onclick=async()=>{const b=el("prepareTest");b.disabled=true;try{tell("Creating isolated test PDF copies…");const r=await requestSign("prepare-test");tell(r.already_prepared?"Test copies already exist. Loading…":"✓ Three test copies created.");await loadExisting()}catch(e){tell("Test preparation failed: "+e.message,true)}finally{b.disabled=false}};
+el("packageZip").onchange=()=>{
+ const file=el("packageZip").files[0];
+ if(file)window.importPreparedZip?.(file);
+};
+el("sendMagicLink").onclick=async()=>{
+ const email=el("cloudEmail").value.trim();if(!email)return tell("Enter your Simworx staff email.",true);
+ el("sendMagicLink").disabled=true;
+ try{
+  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:"https://sim-worx.com/sign/",shouldCreateUser:false}});
+  if(error)throw error;tell("A secure sign-in email has been sent. Open the link in your mailbox.");
+ }catch(e){tell("Sign-in failed: "+e.message,true)}
+ finally{el("sendMagicLink").disabled=false}
+};
+el("cloudLogOut").onclick=async()=>{await sb.auth.signOut();pkg=null;authorized=false;for(const d of window.signDocs||[]){d.file=null;d.output=null;d.filename=""}window.updateSignDashboard?.();await check()};
+el("cloudReload").onclick=()=>loadExisting().catch(e=>tell(e.message,true));
+sb.auth.onAuthStateChange((_event,_session)=>{setTimeout(()=>check(),0)});
+check();
+})();

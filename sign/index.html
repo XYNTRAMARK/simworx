@@ -26,6 +26,9 @@
 <div id="docList"></div><div class="actions"><button class="secondary" id="downloadAll" disabled>Download completed PDFs (ZIP)</button><span id="downloadStatus" class="muted"></span></div></section>
 <section id="signingPage" class="panel hide"><div class="actions" style="margin-top:0"><button class="secondary" id="back">← Dashboard</button><span id="stepPill" class="pill">Document</span></div><h2 style="margin-top:18px" id="docTitle"></h2>
 <p id="instruction">Click the highlighted Sign Here field to jump to the signature box.</p>
+<div class="actions"><button type="button" id="jumpToSign">Sign Here ↓</button><button type="button" id="readFromStart" class="secondary">View full document ↑</button><span class="muted" id="pageCountLabel"></span></div>
+<div id="fullDocumentArea"><h3>Complete contract — scroll through every page</h3><iframe id="fullPdf" title="Complete contract PDF" style="display:block;width:100%;height:67vh;min-height:500px;border:1px solid #4c6b85;border-radius:9px;background:white"></iframe><p class="muted">This viewer contains the entire original PDF, not merely the signing page. Use the PDF viewer's page controls to read it.</p></div>
+<h3 id="signTargetTitle" style="margin:20px 0 8px">Designated signature page</h3>
 <div class="preview-shell" id="pageShell"><div class="page" id="pageView"><canvas id="pdfPage"></canvas><button type="button" class="field" id="onPageField">Sign Here</button><div class="field other" id="otherField">Joshua signs here</div></div></div>
 <div id="loading"></div>
 <div class="form-section hide" id="signatureForm">

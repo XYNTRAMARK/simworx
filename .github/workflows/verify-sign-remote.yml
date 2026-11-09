@@ -23,7 +23,11 @@ jobs:
           set -euo pipefail
           for n in $(seq 1 10); do
             curl -fsSL --max-time 15 -H "Cache-Control: no-cache" "https://sim-worx.com/sign/client.html?smoke=${GITHUB_SHA}" -o /tmp/client.html
-            if grep -q 'Review and sign your contract' /tmp/client.html; then break; fi
+            if grep -q 'Review and sign your contract' /tmp/client.html
+          curl -fsSL --max-time 15 "https://sim-worx.com/sign/test.html?smoke=${GITHUB_SHA}" -o /tmp/test.html
+          grep -q 'TEST MODE' /tmp/test.html
+          curl -fsSL --max-time 15 "https://sim-worx.com/sign/test-private-storage.js?smoke=${GITHUB_SHA}" -o /tmp/test.js
+          grep -q 'NOT FOR EXECUTION' /tmp/test.js; then break; fi
             sleep 4
           done
           grep -q 'Review and sign your contract' /tmp/client.html

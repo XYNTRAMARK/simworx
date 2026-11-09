@@ -3,7 +3,13 @@
 </head><body><main><header><div class="brand">SIM<b>WORX</b> <span style="font-size:12px">SIGN</span></div><div class="muted">Private contract signing</div></header>
 <h1>Review and sign your contract</h1><p>This private invitation lets you read all pages of the contract before applying your electronic signature. No account registration is needed.</p>
 <div id="fatal" class="warning hidden"></div>
-<section class="panel" id="dashboard"><h2 id="title">Loading signing package…</h2><p id="stage" class="muted"></p><div id="documents" class="docs"></div><p id="completeBanner" class="success hidden">✓ All three contract documents have been signed. Their completed copies are stored securely.</p></section>
+<section class="panel" id="dashboard"><h2 id="title">Loading signing package…</h2><p id="stage" class="muted"></p>
+<div id="recipientPanel" style="padding:14px;background:#0d2336;border:1px solid #426783;border-radius:9px;margin:13px 0">
+<strong>Completed-contract email recipients</strong>
+<p class="muted" style="margin:5px 0">After both parties finish all three documents, copies are sent to:</p>
+<div id="recipientEmails" style="color:#d4eaff;font-size:14px"></div>
+<p id="deliveryStatus" class="muted" style="margin:7px 0 0"></p>
+</div><div id="documents" class="docs"></div><p id="completeBanner" class="success hidden">✓ All three contract documents have been signed. Their completed copies are stored securely.</p></section>
 <section class="panel hidden" id="reading"><div class="actions" style="margin-top:0"><button id="back" class="secondary">← All documents</button><span id="progress" class="muted"></span></div>
 <h2 id="docTitle" style="margin-top:18px"></h2><p id="reviewNotice">You can scroll through the entire original document below. Sign Here takes you to the designated signature or initials page.</p>
 <div class="actions"><button id="jump">Sign Here ↓</button><button id="beginning" class="secondary">Read from page 1</button><span id="pageInfo" class="muted"></span></div>
@@ -17,7 +23,7 @@
 <div><label>Full legal name</label><input id="buyerName" value="Joshua Wexler"><label>Date (automatically recorded)</label><input id="date" disabled><p class="muted">By clicking Finish signing, you intend to apply the displayed electronic mark to this contract document.</p></div></div>
 <div class="actions"><button type="button" class="secondary" id="seePreview">See signature on contract ↑</button><button id="finish">Finish signing → Documents</button><button id="cancel" class="secondary">Cancel</button></div><p class="error" id="formError"></p>
 </div></section>
-<div class="warning">Electronic signatures are recorded with the date, signer details and document hashes. This system does not issue a qualified digital-signature certificate.</div>
+
 </main>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
@@ -31,7 +37,14 @@ function show(screen){$('dashboard').classList.toggle('hidden',screen!=="dashboa
 function fail(err){$('fatal').textContent=err instanceof Error?err.message:String(err);$('fatal').classList.remove('hidden')}
 async function reload(){
  if(!/^[0-9a-f]{64}$/.test(token))throw Error("This invitation link is incomplete. Request a fresh link from Simworx.");
- info=await api("buyer-status");$('title').textContent=info.title;$('stage').textContent="Signed by Simworx · Awaiting Joshua Wexler";
+ info=await api("buyer-status");$('title').textContent=info.title;
+ $('stage').textContent=info.status==="complete"?"✓ All document signatures recorded":"Signed by Simworx · Awaiting "+(info.buyer_name||"client");
+ $('recipientEmails').textContent="Simworx: "+(info.simworx_email||"mark@sim-worx.com")+"  |  Client: "+(info.buyer_email||"not configured");
+ $('deliveryStatus').textContent=info.status==="complete"?
+  (info.completed_email?.transport_accepted===true?
+    "Completed PDFs were accepted by the outgoing mail server. Please check both inboxes.":
+    "Signed PDFs are stored. Email delivery has not been confirmed; Simworx can resend the documents."):
+  "Copies are sent automatically when the last document is signed.";
  $('documents').replaceChildren();
  for(let i=0;i<info.documents.length;i++){
   const d=info.documents[i],row=document.createElement('div');row.className='doc';
@@ -146,7 +159,12 @@ $('finish').onclick=async()=>{
    signature,image:method==="drawn"?canvas.toDataURL("image/png"):null});
   if(!data.ok)throw Error("Unable to save the signed PDF.");
   await reload();
-  if(data.complete)$('stage').textContent=data.notification?.sent?"✓ Both parties signed; emailed copies accepted for delivery.":"✓ Both parties signed; automatic email delivery has not been confirmed. Please notify Simworx.";
+  if(data.complete){
+    $('stage').textContent="✓ All three documents signed";
+    $('deliveryStatus').textContent=data.notification?.sent?
+     "Three signed PDF copies were accepted by the email server for both recipients. Check your inbox.":
+     "All three PDFs are saved, but email delivery was not confirmed. Contact Simworx for a resend.";
+   }
  }catch(e){$('formError').textContent=e.message}
  finally{btn.disabled=false}
 };

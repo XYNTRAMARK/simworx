@@ -242,7 +242,7 @@ $('inviteBuyer').onclick=async()=>{
  const button=$('inviteBuyer');button.disabled=true;
  $('inviteMessage').textContent='Creating Joshua’s secure invitation and attempting email delivery…';
  try{
-  const result=await window.signCloud.createBuyerInvite();
+  const result=await window.signCloud.createBuyerInvite('mark@sim-worx.com');
   const safeLink=result.link.replace('?token=','#token=');
   $('inviteLink').value=safeLink;
   $('inviteLinkWrap').classList.remove('hide');
@@ -260,4 +260,4 @@ window.signDocs=docs;window.updateSignDashboard=updateDashboard;window.importPre
 updateDashboard();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
-<script src="test-private-storage.js?v=20261109-test1"></script></body></html>
+<script src="test-private-storage.js?v=20261109-test2"></script></body></html>

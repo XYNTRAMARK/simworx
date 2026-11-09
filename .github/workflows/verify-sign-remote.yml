@@ -1,0 +1,35 @@
+name: Verify Simworx Sign remote signing deployment
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'sign/**'
+      - '.github/workflows/verify-sign-remote.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP syntax
+        run: |
+          set -e
+          php -l sign/dispatch.php
+      - name: Verify public pages and protected email relay
+        run: |
+          set -euo pipefail
+          for n in $(seq 1 10); do
+            curl -fsSL --max-time 15 -H "Cache-Control: no-cache" "https://sim-worx.com/sign/client.html?smoke=${GITHUB_SHA}" -o /tmp/client.html
+            if grep -q 'Review and sign your contract' /tmp/client.html; then break; fi
+            sleep 4
+          done
+          grep -q 'Review and sign your contract' /tmp/client.html
+          curl -fsSL --max-time 15 "https://sim-worx.com/sign/?smoke=${GITHUB_SHA}" -o /tmp/staff.html
+          grep -q 'inviteBuyer' /tmp/staff.html
+          code=$(curl -sS -o /tmp/relay.txt -w '%{http_code}' --max-time 20             -H 'Content-Type: application/json'             -d '{"token":"invalid"}' "https://sim-worx.com/sign/dispatch.php")
+          test "$code" = "400"
+          grep -q 'Invalid delivery proof' /tmp/relay.txt
+          echo "Client page, staff link and mail relay protections verified"

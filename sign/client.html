@@ -3,7 +3,7 @@
 </head><body><main><header><div class="brand">SIM<b>WORX</b> <span style="font-size:12px">SIGN</span></div><div class="muted">Private contract signing</div></header>
 <h1>Review and sign your contract</h1><p>This private invitation lets you read all pages of the contract before applying your electronic signature. No account registration is needed.</p>
 <div id="fatal" class="warning hidden"></div>
-<section class="panel" id="dashboard"><h2 id="title">Loading signing package…</h2><p id="stage" class="muted"></p><div id="documents" class="docs"></div><p id="completeBanner" class="success hidden">✓ All three documents have been signed. Simworx has been notified of completion.</p></section>
+<section class="panel" id="dashboard"><h2 id="title">Loading signing package…</h2><p id="stage" class="muted"></p><div id="documents" class="docs"></div><p id="completeBanner" class="success hidden">✓ All three contract documents have been signed. Their completed copies are stored securely.</p></section>
 <section class="panel hidden" id="reading"><div class="actions" style="margin-top:0"><button id="back" class="secondary">← All documents</button><span id="progress" class="muted"></span></div>
 <h2 id="docTitle" style="margin-top:18px"></h2><p id="reviewNotice">You can scroll through the entire original document below. Sign Here takes you to the designated signature or initials page.</p>
 <div class="actions"><button id="jump">Sign Here ↓</button><button id="beginning" class="secondary">Read from page 1</button><span id="pageInfo" class="muted"></span></div>
@@ -129,7 +129,7 @@ $('finish').onclick=async()=>{
    signature,image:method==="drawn"?canvas.toDataURL("image/png"):null});
   if(!data.ok)throw Error("Unable to save the signed PDF.");
   await reload();
-  if(data.complete)$('stage').textContent="✓ Both parties have completed all signatures.";
+  if(data.complete)$('stage').textContent=data.notification?.sent?"✓ Both parties signed; emailed copies accepted for delivery.":"✓ Both parties signed; automatic email delivery has not been confirmed. Please notify Simworx.";
  }catch(e){$('formError').textContent=e.message}
  finally{btn.disabled=false}
 };

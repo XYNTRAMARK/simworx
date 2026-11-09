@@ -13,14 +13,9 @@
 <div id="cloudSignedIn" class="hide"><div class="actions"><b id="staffIdentity"></b><span class="pill" id="activePackage">NOAA package</span><button id="cloudReload" class="secondary">Reload saved documents</button><button id="cloudLogOut" class="secondary">Sign out</button></div></div>
 <p id="privateStatus" class="muted">Checking secure storage…</p>
 </section><h1>Contract dashboard</h1><p style="margin-top:3px">Choose a document, click <b>Sign here</b>, type or draw your signature, and finish. The dashboard shows a green tick when your PDF has been marked.</p>
-<div class="notice"><b>Current limitation:</b> This version performs local electronic PDF marking only. It does not email secure invitations, identify Joshua, or create certificate-backed digital signatures or independent audit evidence. It must not be used as the complete remote two-party execution system. PDFs stay inside your browser; nothing is uploaded to the website.</div>
+<div class="notice"><b>Current limitation:</b> This version applies local PDF marks. The protected private document library is available to authorised staff, but secure client invitations, independent identity verification and certificate-backed signing are not yet implemented. Do not send a signing invitation for this contract from the prototype.</div>
 <section id="dashboard" class="panel"><h2>NOAA King Air 360ER — Signing package</h2>
-<div id="preparedImport" style="border:2px solid #58b5e4;border-radius:12px;padding:19px;margin:15px 0;background:#102e44">
-<h3>Load the prepared NOAA contract package</h3>
-<p style="margin:4px 0 12px">ChatGPT has already converted the three contract documents to PDF and corrected the Annex 01 date reference. Download that package from our conversation, then select the ZIP here. All three PDFs will appear automatically below.</p>
-<label for="packageZip">Prepared NOAA package (.zip)</label>
-<input id="packageZip" type="file" accept=".zip,application/zip" aria-label="Load prepared NOAA signing ZIP">
-<div id="importStatus" class="muted" style="padding-top:9px">No package loaded. Your PDF documents are processed locally in this browser, never published in the website's source code.</div>
+<div id="preparedImport" style="border:1px solid #46657e;border-radius:11px;padding:15px;margin:12px 0;background:#10283b"><h3>Private NOAA contract documents</h3><p class="muted" style="margin:5px 0">Documents already stored in the private library load automatically when you sign in. The NOAA draft is currently awaiting its PDF files. The individual file selectors below are a fallback for authorised staff only.</p></div>
 </div>
 <div class="two"><div><label>Signer</label><input id="signer" value="Mark Furber"><label>Email</label><input id="email" value="mark@sim-worx.com" type="email"></div><div><label>Initials</label><input id="initials" value="MF"><label>Signing role</label><select id="side"><option value="seller">Simworx — Seller</option><option value="buyer">Pure Imagination — Buyer (local demonstration only)</option></select></div></div>
 <div id="docList"></div><div class="actions"><button class="secondary" id="downloadAll" disabled>Download completed PDFs (ZIP)</button><span id="downloadStatus" class="muted"></span></div></section>
@@ -118,7 +113,7 @@ $('completeDownload').onclick=()=>{const d=docs.find(d=>d.id===lastDownload);if(
 $('finish').onclick=()=>{updateDashboard();show('dashboard')};$('back').onclick=()=>{updateDashboard();show('dashboard')};
 $('downloadAll').onclick=async()=>{if(!window.JSZip)return alert('ZIP library unavailable.');const zip=new JSZip();for(const d of docs){if(d.output)zip.file(d.filename.replace(/\.pdf$/i,'')+'_marked.pdf',d.output)}const b=await zip.generateAsync({type:'blob'});downloadBlob(b,'Simworx_Signed_Documents.zip','application/zip');$('downloadStatus').textContent='Downloaded locally.'};
 $('side').onchange=()=>{for(const d of docs)d.output=null;updateDashboard()};
-$('packageZip').onchange=()=>importPreparedZip($('packageZip').files[0]);
+
 window.signDocs=docs;window.updateSignDashboard=updateDashboard;
 updateDashboard();
 </script>

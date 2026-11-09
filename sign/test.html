@@ -26,10 +26,10 @@
 <div class="two"><div><label>Signer</label><input id="signer" value="Mark Furber"><label>Email</label><input id="email" value="mark@sim-worx.com" type="email"></div><div><label>Initials</label><input id="initials" value="MF"><label>Signing role</label><select id="side"><option value="seller">Simworx — Seller</option></select></div></div>
 <button id="prepareTest" class="secondary" style="margin:13px 0">Create private TEST copies of all three PDFs</button><div id="docList"></div>
 <div style="margin-top:20px;padding:16px;border:1px solid #506e87;background:#0b2234;border-radius:10px">
-<h3 style="margin:0 0 6px">Joshua's signing invitation</h3><p class="muted">After all three Simworx signatures have been saved securely, create Joshua's personal signing link. Do not share a public document URL.</p>
-<button id="inviteBuyer" disabled>Prepare Joshua's secure signing link</button>
+<h3 style="margin:0 0 6px">TEST signing invitation to yourself</h3><p class="muted">After signing all three TEST PDFs as Simworx, send a private signing invitation to mark@sim-worx.com.</p>
+<button id="inviteBuyer" disabled>Send TEST invitation to myself</button>
 <p id="inviteMessage" class="muted"></p>
-<div class="hide" id="inviteLinkWrap"><label for="inviteLink">Private signing link for Joshua</label><input id="inviteLink" readonly><div class="actions"><button id="copyInvite" class="secondary">Copy signing link</button><a id="emailInvite" href="#" style="color:#9ad6ff">Open email to Joshua</a></div></div>
+<div class="hide" id="inviteLinkWrap"><label for="inviteLink">Private TEST signing link for yourself</label><input id="inviteLink" readonly><div class="actions"><button id="copyInvite" class="secondary">Copy signing link</button><a id="emailInvite" href="#" style="color:#9ad6ff">Open backup test email</a></div></div>
 </div>
 <div class="actions"><button class="secondary" id="downloadAll" disabled>Download completed PDFs (ZIP)</button><button class="secondary hide" id="resendCopies">Resend all completed PDFs by email</button><span id="downloadStatus" class="muted"></span></div></section>
 <section id="signingPage" class="panel hide"><div class="actions" style="margin-top:0"><button class="secondary" id="back">← Dashboard</button><span id="stepPill" class="pill">Document</span></div><h2 style="margin-top:18px" id="docTitle"></h2>
@@ -37,7 +37,7 @@
 <div class="actions"><button type="button" id="jumpToSign">Sign Here ↓</button><button type="button" id="readFromStart" class="secondary">View full document ↑</button><span class="muted" id="pageCountLabel"></span></div>
 <div id="fullDocumentArea"><h3>Complete contract — scroll through every page</h3><div id="fullPdf" role="document" aria-label="All pages of the contract" style="height:70vh;min-height:500px;overflow-y:auto;overflow-x:auto;background:#344558;border:1px solid #4c6b85;border-radius:9px;padding:15px;scroll-behavior:smooth"><div id="fullPages" style="display:flex;flex-direction:column;align-items:center;gap:14px"></div></div><p class="muted">This viewer contains the entire original PDF, not merely the signing page. Use the PDF viewer's page controls to read it.</p></div>
 <h3 id="signTargetTitle" style="margin:20px 0 8px">Designated signature page</h3>
-<div class="preview-shell" id="pageShell"><div class="page" id="pageView"><canvas id="pdfPage"></canvas><button type="button" class="field" id="onPageField">Sign Here</button><div class="field other" id="otherField">Joshua signs here</div><div id="signatureLive" class="hide" aria-live="polite" style="position:absolute;z-index:5;pointer-events:none;color:#173e71;font:italic 20px Georgia,serif;white-space:nowrap;text-shadow:0 0 2px white"></div><div id="dateLive" class="hide" style="position:absolute;z-index:5;pointer-events:none;color:#303d50;font:10px Arial;background:#ffffffc9;padding:1px"></div></div></div>
+<div class="preview-shell" id="pageShell"><div class="page" id="pageView"><canvas id="pdfPage"></canvas><button type="button" class="field" id="onPageField">Sign Here</button><div class="field other" id="otherField">Test client signs here</div><div id="signatureLive" class="hide" aria-live="polite" style="position:absolute;z-index:5;pointer-events:none;color:#173e71;font:italic 20px Georgia,serif;white-space:nowrap;text-shadow:0 0 2px white"></div><div id="dateLive" class="hide" style="position:absolute;z-index:5;pointer-events:none;color:#303d50;font:10px Arial;background:#ffffffc9;padding:1px"></div></div></div>
 <div id="loading"></div>
 <div class="form-section hide" id="signatureForm">
   <h3 id="formTitle">Sign here</h3><div class="two"><div><label>Signature method</label><select id="method"><option value="type">Type your name</option><option value="draw">Draw with mouse or touchscreen</option></select><div id="typedBox"><label>Signature</label><input id="signatureText" value="Mark Furber"></div><div id="drawBox" class="hide"><label>Draw inside the box</label><div class="canvaswrap"><canvas id="drawPad" class="sign-pad" width="700" height="160"></canvas></div><button type="button" class="secondary" style="margin-top:8px" id="clearDraw">Clear</button></div></div><div><label>Signing date (automatic)</label><input id="dateReadout" disabled><p class="muted">The date is added automatically to the signed PDF. No manual positioning required.</p><p class="muted">Clicking <b>Finish signing</b> confirms your intention to apply the signature shown, saves the marked PDF locally, and returns to the dashboard.</p></div></div>
@@ -248,8 +248,8 @@ $('inviteBuyer').onclick=async()=>{
   $('inviteLinkWrap').classList.remove('hide');
   $('inviteMessage').textContent=result.email_sent?'✓ Invitation accepted by the email server for Joshua. Keep the private link as a fallback.':'Invitation link created, but automatic email delivery was not confirmed. Use Open email to Joshua below to send it manually.';
   $('emailInvite').textContent=result.email_sent?'Open backup email to Joshua':'Open email to Joshua';
-  const subject='NOAA King Air 360ER — Please sign the agreement';
-  const message='Dear Joshua,\n\nPlease review and sign the Main Agreement, Annex 01 and Annex 16 using this secure Simworx Sign link:\n\n'+safeLink+'\n\nKind regards,\nMark';
+  const subject='TEST ONLY — Simworx Sign invitation';
+  const message='TEST ONLY — This is not a real executed agreement.\n\nPlease test signing all three NOAA documents using this private link:\n\n'+safeLink+'\n\nKind regards,\nMark';
   $('emailInvite').href='mailto:'+encodeURIComponent(result.buyer_email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(message);
  }catch(e){$('inviteMessage').textContent=e.message}
  finally{button.disabled=false}

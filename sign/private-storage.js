@@ -40,6 +40,9 @@ async function loadExisting(){
    }catch(e){tell("One stored document failed verification: "+item.filename+" — "+e.message,true)}
  }
  window.updateSignDashboard?.();
+ const haveAll=['agreement','annex01','annex16'].every(role=>(items||[]).some(item=>item.role===role));
+ const importer=el("packageZip")?.closest("div[style*='margin-top:16px']");
+ if(importer)importer.style.display=haveAll?"none":"";
  tell(count?("✓ "+count+" verified private document"+(count>1?"s":"")+" loaded automatically. Choose Main Agreement below."):
      "Private NOAA package created. Awaiting upload of its three PDFs.");
 }

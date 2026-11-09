@@ -242,11 +242,12 @@ $('inviteBuyer').onclick=async()=>{
  $('inviteMessage').textContent='Preparing a private link…';
  try{
   const result=await window.signCloud.createBuyerInvite();
-  $('inviteLink').value=result.link;
+  const safeLink=result.link.replace('?token=','#token=');
+  $('inviteLink').value=safeLink;
   $('inviteLinkWrap').classList.remove('hide');
-  $('inviteMessage').textContent='Secure link created. Joshua has not yet been emailed automatically. Use the email link below to send it.';
+  $('inviteMessage').textContent='Private link created. Click Open email to Joshua to send it. The email has not been sent automatically.';
   const subject='NOAA King Air 360ER — Please sign the agreement';
-  const message='Dear Joshua,\n\nPlease review and sign the Main Agreement, Annex 01 and Annex 16 using this secure Simworx Sign link:\n\n'+result.link+'\n\nKind regards,\nMark';
+  const message='Dear Joshua,\n\nPlease review and sign the Main Agreement, Annex 01 and Annex 16 using this secure Simworx Sign link:\n\n'+safeLink+'\n\nKind regards,\nMark';
   $('emailInvite').href='mailto:'+encodeURIComponent(result.buyer_email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(message);
  }catch(e){$('inviteMessage').textContent=e.message}
  finally{button.disabled=false}

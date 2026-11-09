@@ -38,6 +38,14 @@ async function loadExisting(){
  if(pe)throw pe;if(!p?.length)throw Error("NOAA package not registered.");
  pkg=p[0];el("activePackage").textContent=pkg.title+" · "+pkg.status;
  const info=await requestSign("staff-status");
+ const recipients=el("deliveryRecipients");
+ if(recipients)recipients.textContent="Simworx: mark@sim-worx.com  |  Client: "+info.buyer_email;
+ const deliveryStatus=el("completedDeliveryStatus");
+ if(deliveryStatus)deliveryStatus.textContent=info.status==="complete"?
+  (info.completed_email?.transport_accepted===true?
+   "✓ Completed PDFs accepted by the outgoing email server. Please check both inboxes.":
+   "All six signatures are recorded; completed email delivery is unconfirmed. Use Resend all completed PDFs by email below."):
+  "After the last signature, three completed PDFs will be sent to both addresses.";
  let count=0;
  for(const record of info.documents){
   const d=findDoc(record.role);if(!d)continue;

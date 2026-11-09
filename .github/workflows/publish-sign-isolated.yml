@@ -1,0 +1,47 @@
+name: Publish Simworx Sign (isolated)
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sign/**'
+      - '.github/workflows/publish-sign-isolated.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: FTP deployment for sign only
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo apt-get install -y lftp
+          test -s sign/index.html
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<'LFTP'
+          set cmd:fail-exit true
+          set net:max-retries 2
+          set net:timeout 20
+          set ftp:ssl-allow no
+          mirror -R --verbose --no-perms --no-umask ./sign /htdocs/sign
+          bye
+          LFTP
+      - name: Verify current frontend on production
+        run: |
+          set -euo pipefail
+          for try in $(seq 1 6); do
+            curl -fsSL --max-time 25 -H 'Cache-Control: no-cache' "https://sim-worx.com/sign/?verify=${GITHUB_SHA}" -o /tmp/simworx-sign-page.html
+            if grep -q 'id="fullPages"' /tmp/simworx-sign-page.html; then
+              echo "Confirmed full PDF viewer on live site"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Latest frontend was not found on the live website"
+          exit 1

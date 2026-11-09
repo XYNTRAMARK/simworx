@@ -249,7 +249,7 @@ $('side').onchange=()=>{for(const d of docs)d.output=null;updateDashboard()};
 
 $('inviteBuyer').onclick=async()=>{
  const button=$('inviteBuyer'),recipient=$('recipientEmail').value.trim().toLowerCase();
- if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(recipient)){
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)){
   $('inviteMessage').textContent='Enter a valid recipient email address before sending.';return;
  }
  button.disabled=true;

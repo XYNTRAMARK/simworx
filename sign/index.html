@@ -93,6 +93,61 @@ $('downloadAll').disabled=!docs.some(d=>d.output);
 }
 function show(name){for(const id of ['dashboard','signingPage','completePage'])$(id).classList.toggle('hide',id!==name);window.scrollTo({top:0,behavior:'instant'})}
 function place(d,role,w,h){const agreement=d.kind==='signature';const left=role==='seller';return agreement?{x:w*(left?.17:.58),y:h-225,maxW:w*.27,maxH:33}:{x:w*(left?.12:.65),y:h-90,maxW:65,maxH:23}}
+let pdfPageObserver=null,pdfLoadToken=0;
+async function renderFullPages(pdf){
+  const token=++pdfLoadToken,root=$('fullPdf'),host=$('fullPages');
+  if(pdfPageObserver)pdfPageObserver.disconnect();
+  host.replaceChildren();
+  const first=await pdf.getPage(1);
+  const firstWidth=first.getViewport({scale:1}).width;
+  const scale=Math.min(1.4,Math.max(.35,(root.clientWidth-43)/firstWidth));
+  const items=[];
+  for(let number=1;number<=pdf.numPages;number++){
+    if(token!==pdfLoadToken)return;
+    const sheet=document.createElement('div');
+    sheet.dataset.pdfPage=String(number);
+    sheet.style.cssText='position:relative;flex-shrink:0;background:white;box-shadow:0 4px 18px #0005;min-width:0';
+    const pg=number===1?first:await pdf.getPage(number);
+    const viewport=pg.getViewport({scale});
+    sheet.style.width=Math.ceil(viewport.width)+'px';
+    sheet.style.height=Math.ceil(viewport.height)+'px';
+    const placeholder=document.createElement('div');
+    placeholder.style.cssText='position:absolute;inset:0;display:grid;place-items:center;background:#fff;color:#677;font:14px Arial';
+    placeholder.textContent='Page '+number+' of '+pdf.numPages;
+    sheet.append(placeholder);host.append(sheet);items.push(sheet);
+  }
+  let active=0,queue=[];
+  const draw=async()=>{
+    if(active>=2||!queue.length)return;
+    const sheet=queue.shift(),number=Number(sheet.dataset.pdfPage);
+    if(token!==pdfLoadToken)return;
+    active++;
+    try{
+      const page=await pdf.getPage(number);
+      if(token!==pdfLoadToken)return;
+      const canvas=document.createElement('canvas');
+      const viewport=page.getViewport({scale});
+      canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+      canvas.style.cssText='display:block;width:100%;height:100%';
+      sheet.replaceChildren(canvas);
+      await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+    }catch(e){sheet.textContent='Unable to display page '+number+': '+e.message}
+    finally{active--;if(queue.length)draw();}
+  };
+  pdfPageObserver=new IntersectionObserver(entries=>{
+    for(const e of entries){
+      if(e.isIntersecting && !e.target.dataset.queued){
+        e.target.dataset.queued='1';
+        pdfPageObserver.unobserve(e.target);
+        queue.push(e.target);
+      }
+    }
+    draw();draw();
+  },{root,rootMargin:'750px 0px'});
+  for(const sheet of items)pdfPageObserver.observe(sheet);
+  root.scrollTop=0;
+}
+
 async function openDoc(d){current=d;show('signingPage');$('loading').textContent='Opening document…';$('signatureForm').classList.add('hide');$('consent').checked=false;$('stepPill').textContent='Document '+d.number+' of 04';$('docTitle').textContent=d.title;$('instruction').textContent=d.kind==='attachment'?'Invoice is separate. Read the full PDF below; no signature is needed.':d.output?'Read the complete marked PDF below.':'Read the full contract below. Sign Here jumps to the designated signature page; no other pages are changed.';$('onPageField').classList.toggle('hide',d.kind==='attachment'||!!d.output);$('otherField').classList.toggle('hide',d.kind==='attachment'||!!d.output);
 try{
 if(!window.pdfjsLib)throw Error('PDF viewer library could not load.');if(!window.PDFLib)throw Error('PDF library could not load.');

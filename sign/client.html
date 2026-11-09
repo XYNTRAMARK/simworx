@@ -72,7 +72,7 @@ async function openDoc(d){
    const v=p.getViewport({scale});
    const sheet=document.createElement('section');sheet.className='sheet';sheet.dataset.page=String(n);
    sheet.style.width=Math.ceil(v.width)+"px";sheet.style.height=Math.ceil(v.height)+"px";
-   const note=document.createElement('div');note.style.cssText="position:absolute;inset:0;display:grid;place-items:center;color:#778;background:white";
+   const note=document.createElement('div');note.className='pdf-page-placeholder';note.style.cssText="position:absolute;inset:0;display:grid;place-items:center;color:#778;background:white";
    note.textContent="Page "+n+" / "+docPdf.numPages;sheet.append(note);
    if(n===signPage&&!d.signedByBuyer){
      const isMain=d.role==='agreement',native=p.getViewport({scale:1}),x=native.width*(isMain?.58:.65),y=isMain?native.height-225:native.height-90;
@@ -94,7 +94,7 @@ async function openDoc(d){
     canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
     canvas.style.cssText="width:100%;height:100%;display:block";
     sheet.prepend(canvas);await p.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
-    sheet.querySelector('div[style*="position:absolute;inset:0"]')?.remove();
+    sheet.querySelector('.pdf-page-placeholder')?.remove();
    }catch(e){$('loadStatus').textContent="PDF page could not be displayed: "+e.message}
    finally{running--;draw();}
   };

@@ -44,26 +44,44 @@ async function loadExisting(){
      "Private NOAA package created. Awaiting upload of its three PDFs.");
 }
 async function saveRole(d){
- if(!authorized||!pkg||!d?.file)return;
- if(busy)return;
- busy=true;
- try{
-  const bytes=await d.file.arrayBuffer();if(bytes.byteLength>50*1024*1024)throw Error("PDF exceeds 50 MB");
-  if(!window.PDFLib)throw Error("PDF library unavailable");
-  const pdf=await PDFLib.PDFDocument.load(bytes);
-  const path=pkg.id+"/"+crypto.randomUUID()+".pdf";
-  const {error:ue}=await sb.storage.from(BUCKET).upload(path,new Blob([bytes],{type:"application/pdf"}),{contentType:"application/pdf",upsert:false});
-  if(ue)throw ue;
-  const {error:me}=await sb.from("sign_documents").upsert({
-    package_id:pkg.id,role:d.id,filename:d.file.name,storage_path:path,
-    sha256:await sha(bytes),pages:pdf.getPageCount(),requires_signature:d.kind!=="attachment"
-  },{onConflict:"package_id,role"});
-  if(me)throw me;
-  tell("✓ "+d.title+" saved in private storage. It will load automatically on your next visit.");
- }catch(e){tell("Private upload failed for "+d.title+": "+e.message,true)}
- finally{busy=false}
+ if(!authorized || !pkg || !d?.file)throw Error("Sign in to the private library before importing.");
+ const bytes=await d.file.arrayBuffer();
+ if(bytes.byteLength>50*1024*1024)throw Error(d.title+" exceeds 50 MB.");
+ if(!window.PDFLib)throw Error("PDF library unavailable.");
+ const pdf=await PDFLib.PDFDocument.load(bytes);
+ const path=pkg.id+"/"+crypto.randomUUID()+".pdf";
+ const {error:ue}=await sb.storage.from(BUCKET).upload(path,new Blob([bytes],{type:"application/pdf"}),{contentType:"application/pdf",upsert:false});
+ if(ue)throw Error(d.title+": "+ue.message);
+ const {error:me}=await sb.from("sign_documents").upsert({
+   package_id:pkg.id,role:d.id,filename:d.file.name,storage_path:path,
+   sha256:await sha(bytes),pages:pdf.getPageCount(),requires_signature:d.kind!=="attachment"
+ },{onConflict:"package_id,role"});
+ if(me)throw Error(d.title+" metadata: "+me.message);
+ return true;
 }
-window.signCloud={saveRole,check};
+async function saveAll(items){
+ if(busy)return {ok:false,message:"An import is already running."};
+ if(!authorized || !pkg)return {ok:false,message:"Private storage is not authorised."};
+ busy=true;
+ let count=0;
+ try{
+  for(const d of items){
+   tell("Saving "+d.title+" securely…");
+   await saveRole(d);count++;
+  }
+  tell("✓ "+count+" NOAA PDF"+(count===1?"":"s")+" saved to private storage.");
+  return {ok:true,count};
+ }catch(e){
+  const message=e instanceof Error?e.message:String(e);
+  tell("Private import stopped: "+message,true);
+  return {ok:false,count,message};
+ }finally{busy=false}
+}
+window.signCloud={saveRole,saveAll,check};
+el("packageZip").onchange=()=>{
+ const file=el("packageZip").files[0];
+ if(file)window.importPreparedZip?.(file);
+};
 el("sendMagicLink").onclick=async()=>{
  const email=el("cloudEmail").value.trim();if(!email)return tell("Enter your Simworx staff email.",true);
  el("sendMagicLink").disabled=true;

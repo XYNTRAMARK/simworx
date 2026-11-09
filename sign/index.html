@@ -45,8 +45,7 @@ const $=id=>document.getElementById(id);
 const docs=[
 {id:'agreement',title:'Main Supply Agreement',kind:'signature',number:'01',page:'last',file:null,output:null,filename:''},
 {id:'annex01',title:'Annex 01 — Master Proposal',kind:'initials',number:'02',page:'first',file:null,output:null,filename:''},
-{id:'annex16',title:'Annex 16 — Insurance',kind:'initials',number:'03',page:'first',file:null,output:null,filename:''},
-{id:'invoice',title:'First invoice (optional)',kind:'attachment',number:'04',page:'first',file:null,output:null,filename:''}
+{id:'annex16',title:'Annex 16 — Insurance',kind:'initials',number:'03',page:'first',file:null,output:null,filename:''}
 ];let current=null,viewScale=1,pageWidth=0,pageHeight=0,drawn=false,drag=false,fieldSpec=null,lastDownload='';
 
 async function importPreparedZip(file) {
@@ -61,7 +60,7 @@ async function importPreparedZip(file) {
       let type = /^(?:.*\/)?01[_-]/.test(lower) || /main.*agreement|supply.*agreement/.test(lower) ? 'agreement' :
           /^(?:.*\/)?02[_-]/.test(lower) || /annex[_ -]?0?1(?=[_. -]|$)|master[_ -]?proposal/.test(lower) ? 'annex01' :
           /^(?:.*\/)?03[_-]/.test(lower) || /annex[_ -]?16(?=[_. -]|$)|insurance[_ -]?requirements/.test(lower) ? 'annex16' :
-          /invoice/.test(lower) ? 'invoice' : null;
+          null;
           if(type) entries.push({type,name:name.split('/').pop(),bytes:await entry.async('uint8array')});
     }
     const required=['agreement','annex01','annex16'];
@@ -148,7 +147,7 @@ async function renderFullPages(pdf){
   root.scrollTop=0;
 }
 
-async function openDoc(d){current=d;show('signingPage');$('loading').textContent='Opening document…';$('signatureForm').classList.add('hide');$('signatureLive').classList.add('hide');$('dateLive').classList.add('hide');$('stepPill').textContent='Document '+d.number+' of 04';$('docTitle').textContent=d.title;$('instruction').textContent=d.kind==='attachment'?'Invoice is separate. Read the full PDF below; no signature is needed.':d.output?'Read the complete marked PDF below.':'Read the full contract below. Sign Here jumps to the designated signature page; no other pages are changed.';$('onPageField').classList.toggle('hide',d.kind==='attachment'||!!d.output);$('otherField').classList.toggle('hide',d.kind==='attachment'||!!d.output);
+async function openDoc(d){current=d;show('signingPage');$('loading').textContent='Opening document…';$('signatureForm').classList.add('hide');$('signatureLive').classList.add('hide');$('dateLive').classList.add('hide');$('stepPill').textContent='Document '+d.number+' of 03';$('docTitle').textContent=d.title;$('instruction').textContent=d.kind==='attachment'?'Invoice is separate. Read the full PDF below; no signature is needed.':d.output?'Read the complete marked PDF below.':'Read the full contract below. Sign Here jumps to the designated signature page; no other pages are changed.';$('onPageField').classList.toggle('hide',d.kind==='attachment'||!!d.output);$('otherField').classList.toggle('hide',d.kind==='attachment'||!!d.output);
 try{
 if(!window.pdfjsLib)throw Error('PDF viewer library could not load.');if(!window.PDFLib)throw Error('PDF library could not load.');
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';

@@ -246,7 +246,7 @@ $('inviteBuyer').onclick=async()=>{
   const safeLink=result.link.replace('?token=','#token=');
   $('inviteLink').value=safeLink;
   $('inviteLinkWrap').classList.remove('hide');
-  $('inviteMessage').textContent=result.email_sent?'✓ Invitation accepted by the email server for Joshua. Keep the private link as a fallback.':'Invitation link created, but automatic email delivery was not confirmed. Use Open email to Joshua below to send it manually.';
+  $('inviteMessage').textContent=result.email_sent?'✓ Invitation accepted by the email server for Joshua. Keep the private link as a fallback.':'Invitation link created, but automatic email delivery was not confirmed. Use the backup email link below to send it manually.';
   $('emailInvite').textContent=result.email_sent?'Open backup email to Joshua':'Open email to Joshua';
   const subject='TEST ONLY — Simworx Sign invitation';
   const message='TEST ONLY — This is not a real executed agreement.\n\nPlease test signing all three NOAA documents using this private link:\n\n'+safeLink+'\n\nKind regards,\nMark';

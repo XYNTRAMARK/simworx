@@ -112,10 +112,7 @@ async function saveAll(items){
 }
 window.signCloud={saveRole,saveAll,check,signDocument,createBuyerInvite,resendSignedCopies,loadExisting};
 el("prepareTest").onclick=async()=>{const b=el("prepareTest");b.disabled=true;try{tell("Creating isolated test PDF copies…");const r=await requestSign("prepare-test");tell(r.already_prepared?"Test copies already exist. Loading…":"✓ Three test copies created.");await loadExisting()}catch(e){tell("Test preparation failed: "+e.message,true)}finally{b.disabled=false}};
-el("packageZip").onchange=()=>{
- const file=el("packageZip").files[0];
- if(file)window.importPreparedZip?.(file);
-};
+// No ZIP import in test mode; PDFs are copied privately by the server.
 el("sendMagicLink").onclick=async()=>{
  const email=el("cloudEmail").value.trim();if(!email)return tell("Enter your Simworx staff email.",true);
  el("sendMagicLink").disabled=true;

@@ -33,7 +33,7 @@ canvas.addEventListener('pointermove',e=>{if(!active)return;let p=point(e);ctx.l
 ['pointerup','pointercancel'].forEach(event=>canvas.addEventListener(event,()=>active=false));
 $('clear').onclick=()=>{ctx.clearRect(0,0,canvas.width,canvas.height);strokes=0};
 async function apply(d,mark){let doc=await PDFLib.PDFDocument.load(d.bytes),page=d.key==='agreement'?doc.getPages()[doc.getPageCount()-1]:doc.getPages()[0],{width,height}=page.getSize(),sel=$('position').value,side=sel==='left'?0:1;
-let x=(side===0?width*.1:width*.54),y=d.key==='agreement'?75:height-90;
+let x=(side===0?width*.15:width*.58),y=d.key==='agreement'?height-225:height-90;
 if(mark.type==='image'){let png=await doc.embedPng(mark.png),maxW=d.key==='agreement'?Math.min(168,width*.32):65,maxH=d.key==='agreement'?38:24,ratio=Math.min(maxW/png.width,maxH/png.height);page.drawImage(png,{x,y,width:png.width*ratio,height:png.height*ratio})}else{let font=await doc.embedFont(PDFLib.StandardFonts.HelveticaOblique);page.drawText(mark.value.slice(0,64),{x,y,size:d.key==='agreement'?17:14,font,color:PDFLib.rgb(.08,.2,.43),maxWidth:width-x-20})}
 let small=await doc.embedFont(PDFLib.StandardFonts.Helvetica),label='Electronically marked by '+$('sellerName').value+' · '+new Date().toISOString().slice(0,16)+' UTC';page.drawText(label.slice(0,105),{x,y:y-14,size:6.5,font:small,color:PDFLib.rgb(.3,.38,.47),maxWidth:width-x-12});return new Uint8Array(await doc.save({useObjectStreams:false}))}
 $('sign').onclick=async()=>{if(!documents.length)return status('Inspect a complete package first.');if(!$('consent').checked)return status('Confirm your intent to electronically sign first.');

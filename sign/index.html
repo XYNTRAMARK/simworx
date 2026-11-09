@@ -29,7 +29,7 @@
 <div class="actions"><button type="button" id="jumpToSign">Sign Here ↓</button><button type="button" id="readFromStart" class="secondary">View full document ↑</button><span class="muted" id="pageCountLabel"></span></div>
 <div id="fullDocumentArea"><h3>Complete contract — scroll through every page</h3><div id="fullPdf" role="document" aria-label="All pages of the contract" style="height:70vh;min-height:500px;overflow-y:auto;overflow-x:auto;background:#344558;border:1px solid #4c6b85;border-radius:9px;padding:15px;scroll-behavior:smooth"><div id="fullPages" style="display:flex;flex-direction:column;align-items:center;gap:14px"></div></div><p class="muted">This viewer contains the entire original PDF, not merely the signing page. Use the PDF viewer's page controls to read it.</p></div>
 <h3 id="signTargetTitle" style="margin:20px 0 8px">Designated signature page</h3>
-<div class="preview-shell" id="pageShell"><div class="page" id="pageView"><canvas id="pdfPage"></canvas><button type="button" class="field" id="onPageField">Sign Here</button><div class="field other" id="otherField">Joshua signs here</div></div></div>
+<div class="preview-shell" id="pageShell"><div class="page" id="pageView"><canvas id="pdfPage"></canvas><button type="button" class="field" id="onPageField">Sign Here</button><div class="field other" id="otherField">Joshua signs here</div><div id="signatureLive" class="hide" aria-live="polite" style="position:absolute;z-index:5;pointer-events:none;color:#173e71;font:italic 20px Georgia,serif;white-space:nowrap;text-shadow:0 0 2px white"></div><div id="dateLive" class="hide" style="position:absolute;z-index:5;pointer-events:none;color:#303d50;font:10px Arial;background:#ffffffc9;padding:1px"></div></div></div>
 <div id="loading"></div>
 <div class="form-section hide" id="signatureForm">
   <h3 id="formTitle">Sign here</h3><div class="two"><div><label>Signature method</label><select id="method"><option value="type">Type your name</option><option value="draw">Draw with mouse or touchscreen</option></select><div id="typedBox"><label>Signature</label><input id="signatureText" value="Mark Furber"></div><div id="drawBox" class="hide"><label>Draw inside the box</label><div class="canvaswrap"><canvas id="drawPad" class="sign-pad" width="700" height="160"></canvas></div><button type="button" class="secondary" style="margin-top:8px" id="clearDraw">Clear</button></div></div><div><label>Signing date (automatic)</label><input id="dateReadout" disabled><p class="muted">The date is added automatically to the signed PDF. No manual positioning required.</p><label><input type="checkbox" id="consent"> I intend to apply this signature or initials to the document.</label></div></div>
@@ -148,7 +148,7 @@ async function renderFullPages(pdf){
   root.scrollTop=0;
 }
 
-async function openDoc(d){current=d;show('signingPage');$('loading').textContent='Opening document…';$('signatureForm').classList.add('hide');$('consent').checked=false;$('stepPill').textContent='Document '+d.number+' of 04';$('docTitle').textContent=d.title;$('instruction').textContent=d.kind==='attachment'?'Invoice is separate. Read the full PDF below; no signature is needed.':d.output?'Read the complete marked PDF below.':'Read the full contract below. Sign Here jumps to the designated signature page; no other pages are changed.';$('onPageField').classList.toggle('hide',d.kind==='attachment'||!!d.output);$('otherField').classList.toggle('hide',d.kind==='attachment'||!!d.output);
+async function openDoc(d){current=d;show('signingPage');$('loading').textContent='Opening document…';$('signatureForm').classList.add('hide');$('signatureLive').classList.add('hide');$('dateLive').classList.add('hide');$('consent').checked=false;$('stepPill').textContent='Document '+d.number+' of 04';$('docTitle').textContent=d.title;$('instruction').textContent=d.kind==='attachment'?'Invoice is separate. Read the full PDF below; no signature is needed.':d.output?'Read the complete marked PDF below.':'Read the full contract below. Sign Here jumps to the designated signature page; no other pages are changed.';$('onPageField').classList.toggle('hide',d.kind==='attachment'||!!d.output);$('otherField').classList.toggle('hide',d.kind==='attachment'||!!d.output);
 try{
 if(!window.pdfjsLib)throw Error('PDF viewer library could not load.');if(!window.PDFLib)throw Error('PDF library could not load.');
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
@@ -172,15 +172,41 @@ if(target){target.scrollIntoView({behavior:'smooth',block:'center'});}
 else $('signTargetTitle').scrollIntoView({behavior:'smooth',block:'start'});
 };
 $('readFromStart').onclick=()=>{$('fullPdf').scrollTop=0;$('fullDocumentArea').scrollIntoView({behavior:'smooth',block:'start'})};
+function showLiveMark(){
+ const d=current,mark=$('signatureLive'),date=$('dateLive');
+ if(!d||d.kind==='attachment'||d.output||$('signatureForm').classList.contains('hide')){
+   mark.classList.add('hide');date.classList.add('hide');return;
+ }
+ const pos=place(d,$('side').value,pageWidth,pageHeight);
+ mark.style.left=Math.round(pos.x*viewScale)+'px';
+ mark.style.top=Math.round((pageHeight-pos.y-21)*viewScale)+'px';
+ mark.style.maxWidth=Math.round(pos.maxW*viewScale)+'px';
+ mark.style.overflow='hidden';
+ mark.style.fontSize=Math.round((d.kind==='initials'?15:19)*viewScale)+'px';
+ date.style.left=Math.round(pos.x*viewScale)+'px';
+ date.style.top=Math.round((pageHeight-pos.y+7)*viewScale)+'px';
+ date.textContent='Date: '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+ if($('method').value==='type'){
+   mark.textContent=$('signatureText').value;
+ }else if(drawn){
+   mark.innerHTML='';
+   const img=document.createElement('img');img.src=$('drawPad').toDataURL('image/png');
+   img.style.width=Math.round(pos.maxW*viewScale)+'px';img.style.height=Math.round(pos.maxH*viewScale)+'px';img.style.objectFit='contain';img.style.objectPosition='left center';
+   mark.append(img);
+ }else{mark.textContent=''}
+ mark.classList.toggle('hide',!mark.textContent&&!mark.querySelector('img'));
+ date.classList.remove('hide');
+}
 function positionField(el,pos){el.style.left=Math.round(pos.x*viewScale-8)+'px';el.style.top=Math.round((pageHeight-pos.y-pos.maxH)*viewScale-5)+'px';el.style.width=Math.max(90,pos.maxW*viewScale)+'px';el.style.height=Math.max(38,pos.maxH*viewScale+10)+'px'}
 $('onPageField').onclick=()=>{if(!current||current.output||current.kind==='attachment')return;
-$('signatureForm').classList.remove('hide');$('dateReadout').value=new Date().toLocaleString('en-GB',{dateStyle:'full',timeStyle:'short'});$('formTitle').textContent=current.kind==='initials'?'Add your initials':'Add your signature';$('signatureText').value=current.kind==='initials'?$('initials').value:$('signer').value;$('signatureForm').scrollIntoView({behavior:'smooth',block:'center'})};
-$('method').onchange=()=>{$('typedBox').classList.toggle('hide',$('method').value!=='type');$('drawBox').classList.toggle('hide',$('method').value!=='draw')};
+$('signatureForm').classList.remove('hide');$('dateReadout').value=new Date().toLocaleString('en-GB',{dateStyle:'full',timeStyle:'short'});$('formTitle').textContent=current.kind==='initials'?'Add your initials':'Add your signature';$('signatureText').value=current.kind==='initials'?$('initials').value:$('signer').value;showLiveMark();$('signatureForm').scrollIntoView({behavior:'smooth',block:'center'})};
+$('method').onchange=()=>{$('typedBox').classList.toggle('hide',$('method').value!=='type');$('drawBox').classList.toggle('hide',$('method').value!=='draw');showLiveMark()};
+$('signatureText').addEventListener('input',showLiveMark);
 const pad=$('drawPad'),ctx=pad.getContext('2d');ctx.strokeStyle='#183f72';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';
 function padPoint(ev){const r=pad.getBoundingClientRect();return{x:(ev.clientX-r.left)*pad.width/r.width,y:(ev.clientY-r.top)*pad.height/r.height}}
-pad.onpointerdown=ev=>{drag=true;drawn=true;pad.setPointerCapture(ev.pointerId);const p=padPoint(ev);ctx.beginPath();ctx.moveTo(p.x,p.y)};pad.onpointermove=ev=>{if(!drag)return;const p=padPoint(ev);ctx.lineTo(p.x,p.y);ctx.stroke()};pad.onpointerup=pad.onpointercancel=()=>drag=false;
-$('clearDraw').onclick=()=>{ctx.clearRect(0,0,pad.width,pad.height);drawn=false};
-$('cancel').onclick=()=>$('signatureForm').classList.add('hide');
+pad.onpointerdown=ev=>{drag=true;drawn=true;pad.setPointerCapture(ev.pointerId);const p=padPoint(ev);ctx.beginPath();ctx.moveTo(p.x,p.y)};pad.onpointermove=ev=>{if(!drag)return;const p=padPoint(ev);ctx.lineTo(p.x,p.y);ctx.stroke()};pad.onpointerup=pad.onpointercancel=()=>{drag=false;showLiveMark()};
+$('clearDraw').onclick=()=>{ctx.clearRect(0,0,pad.width,pad.height);drawn=false;showLiveMark()};
+$('cancel').onclick=()=>{$('signatureForm').classList.add('hide');showLiveMark()};
 async function signCurrent(){const d=current;if(!d||d.kind==='attachment'||d.output)return;
 if(!$('consent').checked)throw Error('Please confirm that you intend to sign this document.');
 const method=$('method').value,text=$('signatureText').value.trim();if(method==='type'&&!text)throw Error('Enter your signature or initials.');if(method==='draw'&&!drawn)throw Error('Draw your signature in the box first.');

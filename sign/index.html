@@ -93,15 +93,29 @@ $('downloadAll').disabled=!docs.some(d=>d.output);
 }
 function show(name){for(const id of ['dashboard','signingPage','completePage'])$(id).classList.toggle('hide',id!==name);window.scrollTo({top:0,behavior:'instant'})}
 function place(d,role,w,h){const agreement=d.kind==='signature';const left=role==='seller';return agreement?{x:w*(left?.17:.58),y:h-225,maxW:w*.27,maxH:33}:{x:w*(left?.12:.65),y:h-90,maxW:65,maxH:23}}
-async function openDoc(d){current=d;show('signingPage');$('loading').textContent='Opening document…';$('signatureForm').classList.add('hide');$('consent').checked=false;$('stepPill').textContent='Document '+d.number+' of 04';$('docTitle').textContent=d.title;$('instruction').textContent=d.kind==='attachment'?'Invoice is separate. Review it without signing.':d.output?'This PDF is already marked locally. You can review or download it.':'Click Sign Here on the contract page to jump straight to the signing box.';$('onPageField').classList.toggle('hide',d.kind==='attachment'||!!d.output);$('otherField').classList.toggle('hide',d.kind==='attachment'||!!d.output);
+async function openDoc(d){current=d;show('signingPage');$('loading').textContent='Opening document…';$('signatureForm').classList.add('hide');$('consent').checked=false;$('stepPill').textContent='Document '+d.number+' of 04';$('docTitle').textContent=d.title;$('instruction').textContent=d.kind==='attachment'?'Invoice is separate. Read the full PDF below; no signature is needed.':d.output?'Read the complete marked PDF below.':'Read the full contract below. Sign Here jumps to the designated signature page; no other pages are changed.';$('onPageField').classList.toggle('hide',d.kind==='attachment'||!!d.output);$('otherField').classList.toggle('hide',d.kind==='attachment'||!!d.output);
 try{
 if(!window.pdfjsLib)throw Error('PDF viewer library could not load.');if(!window.PDFLib)throw Error('PDF library could not load.');
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-const bytes=d.output?d.output:await d.file.arrayBuffer();const viewer=await pdfjsLib.getDocument({data:new Uint8Array(bytes instanceof ArrayBuffer?bytes:bytes.slice())}).promise;const pg=await viewer.getPage(d.page==='last'?viewer.numPages:1);const native=pg.getViewport({scale:1});pageWidth=native.width;pageHeight=native.height;
+const bytes=d.output?d.output:await d.file.arrayBuffer();
+if(window.signFullUrl)URL.revokeObjectURL(window.signFullUrl);
+window.signFullUrl=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+$('fullPdf').src=window.signFullUrl+'#page=1';
+const viewer=await pdfjsLib.getDocument({data:new Uint8Array(bytes instanceof ArrayBuffer?bytes:bytes.slice())}).promise;
+d.renderedPages=viewer.numPages;
+$('pageCountLabel').textContent=viewer.numPages+' pages available';
+$('signTargetTitle').textContent=d.kind==='attachment'?'Invoice — review only':d.kind==='initials'?'Initials page ('+(d.page==='last'?viewer.numPages:1)+' of '+viewer.numPages+')':'Execution page ('+viewer.numPages+' of '+viewer.numPages+')';
+$('jumpToSign').classList.toggle('hide',d.kind==='attachment'||!!d.output);const pg=await viewer.getPage(d.page==='last'?viewer.numPages:1);const native=pg.getViewport({scale:1});pageWidth=native.width;pageHeight=native.height;
 const max=Math.min(820,Math.max(280,$('pageShell').clientWidth-45));viewScale=Math.min(1.6,max/pageWidth);const viewport=pg.getViewport({scale:viewScale});const canvas=$('pdfPage');canvas.width=Math.round(viewport.width);canvas.height=Math.round(viewport.height);$('pageView').style.width=canvas.width+'px';$('pageView').style.height=canvas.height+'px';await pg.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
 if(d.kind!=='attachment'&&!d.output){const role=$('side').value;const ours=place(d,role,pageWidth,pageHeight),other=place(d,role==='seller'?'buyer':'seller',pageWidth,pageHeight);positionField($('onPageField'),ours);positionField($('otherField'),other);$('onPageField').textContent=d.kind==='initials'?'Initial Here':'Sign Here';$('otherField').textContent=role==='seller'?'Joshua initials/signs here':'Simworx initials/signs here'}
 $('loading').textContent=d.output?'This document is already marked. Return to dashboard to download.':'';
 }catch(e){$('loading').textContent='PDF could not be opened: '+e.message}}
+$('jumpToSign').onclick=()=>{if(!current)return;
+const pg=current.page==='last'?current.renderedPages||1:1;
+$('fullPdf').src=window.signFullUrl+'#page='+pg;
+$('signTargetTitle').scrollIntoView({behavior:'smooth',block:'start'});
+};
+$('readFromStart').onclick=()=>{$('fullPdf').src=window.signFullUrl+'#page=1';$('fullDocumentArea').scrollIntoView({behavior:'smooth',block:'start'})};
 function positionField(el,pos){el.style.left=Math.round(pos.x*viewScale-8)+'px';el.style.top=Math.round((pageHeight-pos.y-pos.maxH)*viewScale-5)+'px';el.style.width=Math.max(90,pos.maxW*viewScale)+'px';el.style.height=Math.max(38,pos.maxH*viewScale+10)+'px'}
 $('onPageField').onclick=()=>{if(!current||current.output||current.kind==='attachment')return;
 $('signatureForm').classList.remove('hide');$('dateReadout').value=new Date().toLocaleString('en-GB',{dateStyle:'full',timeStyle:'short'});$('formTitle').textContent=current.kind==='initials'?'Add your initials':'Add your signature';$('signatureText').value=current.kind==='initials'?$('initials').value:$('signer').value;$('signatureForm').scrollIntoView({behavior:'smooth',block:'center'})};

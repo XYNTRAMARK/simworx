@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Simworx Sign — TEST signing package</title>
+<style>
+:root{color-scheme:dark;--bg:#081625;--panel:#13273c;--line:#35526c;--text:#f2f7fd;--muted:#a9bbcd;--blue:#56baf2;--good:#42cd8b}*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#071422,#0f2942);font:15px/1.5 Arial,Helvetica,sans-serif;color:var(--text)}main{max-width:1120px;margin:0 auto;padding:25px 18px 65px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:8px 0 23px}.logo{font-size:25px;letter-spacing:2px;font-weight:900}.logo b{color:var(--blue)}h1{font-size:29px;margin:25px 0 3px}h2{font-size:21px;margin:0 0 13px}h3{font-size:17px;margin:0 0 4px}p{color:var(--muted)}.muted{font-size:12px;color:var(--muted)}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:23px;margin:18px 0}.notice{border:1px solid #867047;background:#33291d;color:#f0ddb4;padding:13px;border-radius:9px;font-size:12px;margin-top:18px}.two{display:grid;grid-template-columns:1fr 1fr;gap:15px}label{display:block;font-size:12px;color:#cad8e7;margin:11px 0 5px}input,select{width:100%;border:1px solid #4d6d88;background:#081a2b;color:#fff;padding:11px;border-radius:8px;font:inherit}input[type=file]{font-size:12px}button{background:var(--blue);color:#071524;border:0;border-radius:9px;padding:11px 16px;font:bold 14px Arial;cursor:pointer}button.secondary{background:#2a455c;color:#fff;border:1px solid #506e87}button:disabled{opacity:.4;cursor:not-allowed}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:15px}.doc{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:14px;padding:18px 16px;margin:12px 0;border:1px solid #37556e;border-radius:11px;background:#0b1d2e}.index{background:#1b3a53;color:#a8d9f7;border-radius:8px;text-align:center;padding:9px 0;font-weight:800}.doc-right{text-align:right}.state{display:block;font-size:12px;color:#b1c3d5;margin-bottom:7px}.state.done{color:var(--good);font-weight:800}.state.wait{color:#ecc58c}.hide{display:none!important}.preview-shell{display:flex;justify-content:center;overflow:auto;background:#0a192a;border:1px solid var(--line);padding:18px;border-radius:10px;min-height:200px}.page{position:relative;background:white;box-shadow:0 8px 24px #0007;width:max-content;max-width:none}.page canvas{display:block}.field{position:absolute;border:2px dashed #329bdf;background:#c5e9ff9e;color:#073c65;font:700 12px Arial;text-align:center;padding:7px;border-radius:5px;cursor:pointer;min-width:90px;z-index:2}.field.other{border-color:#ad7b32;background:#fff1cd9e;color:#6c4517;cursor:default}.form-section{background:#0c1b2b;border-radius:10px;border:1px solid #41627e;padding:16px;margin-top:16px}.sign-pad{touch-action:none;border-radius:8px;background:white;width:100%;height:145px;display:block;border:1px solid #6d8faa;cursor:crosshair}.pill{font-size:12px;background:#234962;border:1px solid #44738f;border-radius:18px;padding:5px 10px}.complete{border:1px solid #3c9d71;background:#102d29;border-radius:12px;padding:28px;text-align:center}.complete h2{font-size:26px}.tick{font-size:43px;color:var(--good)}#loading{color:#9bdcff;min-height:22px}#downloadStatus{color:#8cdab4}input[type=checkbox]{width:auto;margin-right:9px}.canvaswrap{max-width:600px}#signingPage{scroll-margin-top:24px}@media(max-width:730px){.two{grid-template-columns:1fr}.doc{grid-template-columns:40px 1fr}.doc-right{grid-column:2;text-align:left}.panel{padding:15px}.logo{font-size:20px}}
+</style></head><body><main>
+<header><div class="logo">SIM<b>WORX</b> <small style="font-size:12px">SIGN</small></div><div class="muted">TEST MODE — Not for execution</div></header>
+<section class="panel" id="privateStorage">
+<h2>Private document library</h2>
+<p>Sign in to test using private copies of the NOAA documents. Real Joshua signing records will not be changed.</p>
+<div id="cloudSignIn">
+<label for="cloudEmail">Simworx staff email</label><div class="actions"><input id="cloudEmail" value="mark@sim-worx.com" style="max-width:330px" type="email" autocomplete="email"><button id="sendMagicLink">Email me a secure sign-in link</button></div>
+</div>
+<div id="cloudSignedIn" class="hide"><div class="actions"><b id="staffIdentity"></b><span class="pill" id="activePackage">NOAA package</span><button id="cloudReload" class="secondary">Reload saved documents</button><button id="cloudLogOut" class="secondary">Sign out</button></div>
+<div style="margin-top:16px;padding:15px;border:1px solid #42708a;border-radius:9px;background:#0d2b40">
+<h3 style="margin-bottom:7px">Import the prepared NOAA documents</h3>
+<p class="muted" style="margin-top:0">Choose the NOAA ZIP you already have. The three PDFs will be identified and saved into your private document library automatically. You only do this once.</p>
+<input id="packageZip" type="file" accept=".zip,application/zip" aria-label="Choose NOAA ZIP package">
+<p id="importStatus" class="muted">Select your ZIP once to import it. If the NOAA documents are already listed below, no import is needed.</p>
+</div></div>
+<p id="privateStatus" class="muted">Checking secure storage…</p>
+</section><h1>TEST MODE — Contract dashboard</h1><p style="margin-top:3px">Choose a document, click <b>Sign here</b>, type or draw your signature, and finish. The dashboard shows a green tick when your PDF has been marked.</p>
+
+<div style="border:2px solid #ffcf75;background:#43341b;padding:15px;border-radius:10px;color:#fff0bc;margin:15px 0"><strong>TEST ONLY — NOT A REAL CONTRACT EXECUTION.</strong> This page uses separate PDF copies, sends the invitation only to mark@sim-worx.com and does not alter Joshua's package.</div>
+<section id="dashboard" class="panel"><h2>TEST ONLY — NOAA Signing Package</h2>
+<div style="margin:12px 0;color:#e8cc8f">This TEST package is isolated from the live NOAA contract. Use the button below to create its private document copies.</div>
+<div class="two"><div><label>Signer</label><input id="signer" value="Mark Furber"><label>Email</label><input id="email" value="mark@sim-worx.com" type="email"></div><div><label>Initials</label><input id="initials" value="MF"><label>Signing role</label><select id="side"><option value="seller">Simworx — Seller</option></select></div></div>
+<button id="prepareTest" class="secondary" style="margin:13px 0">Create private TEST copies of all three PDFs</button><div id="docList"></div>
+<div style="margin-top:20px;padding:16px;border:1px solid #506e87;background:#0b2234;border-radius:10px">
+<h3 style="margin:0 0 6px">Joshua's signing invitation</h3><p class="muted">After all three Simworx signatures have been saved securely, create Joshua's personal signing link. Do not share a public document URL.</p>
+<button id="inviteBuyer" disabled>Prepare Joshua's secure signing link</button>
+<p id="inviteMessage" class="muted"></p>
+<div class="hide" id="inviteLinkWrap"><label for="inviteLink">Private signing link for Joshua</label><input id="inviteLink" readonly><div class="actions"><button id="copyInvite" class="secondary">Copy signing link</button><a id="emailInvite" href="#" style="color:#9ad6ff">Open email to Joshua</a></div></div>
+</div>
+<div class="actions"><button class="secondary" id="downloadAll" disabled>Download completed PDFs (ZIP)</button><button class="secondary hide" id="resendCopies">Resend all completed PDFs by email</button><span id="downloadStatus" class="muted"></span></div></section>
+<section id="signingPage" class="panel hide"><div class="actions" style="margin-top:0"><button class="secondary" id="back">← Dashboard</button><span id="stepPill" class="pill">Document</span></div><h2 style="margin-top:18px" id="docTitle"></h2>
+<p id="instruction">Click the highlighted Sign Here field to jump to the signature box.</p>
+<div class="actions"><button type="button" id="jumpToSign">Sign Here ↓</button><button type="button" id="readFromStart" class="secondary">View full document ↑</button><span class="muted" id="pageCountLabel"></span></div>
+<div id="fullDocumentArea"><h3>Complete contract — scroll through every page</h3><div id="fullPdf" role="document" aria-label="All pages of the contract" style="height:70vh;min-height:500px;overflow-y:auto;overflow-x:auto;background:#344558;border:1px solid #4c6b85;border-radius:9px;padding:15px;scroll-behavior:smooth"><div id="fullPages" style="display:flex;flex-direction:column;align-items:center;gap:14px"></div></div><p class="muted">This viewer contains the entire original PDF, not merely the signing page. Use the PDF viewer's page controls to read it.</p></div>
+<h3 id="signTargetTitle" style="margin:20px 0 8px">Designated signature page</h3>
+<div class="preview-shell" id="pageShell"><div class="page" id="pageView"><canvas id="pdfPage"></canvas><button type="button" class="field" id="onPageField">Sign Here</button><div class="field other" id="otherField">Joshua signs here</div><div id="signatureLive" class="hide" aria-live="polite" style="position:absolute;z-index:5;pointer-events:none;color:#173e71;font:italic 20px Georgia,serif;white-space:nowrap;text-shadow:0 0 2px white"></div><div id="dateLive" class="hide" style="position:absolute;z-index:5;pointer-events:none;color:#303d50;font:10px Arial;background:#ffffffc9;padding:1px"></div></div></div>
+<div id="loading"></div>
+<div class="form-section hide" id="signatureForm">
+  <h3 id="formTitle">Sign here</h3><div class="two"><div><label>Signature method</label><select id="method"><option value="type">Type your name</option><option value="draw">Draw with mouse or touchscreen</option></select><div id="typedBox"><label>Signature</label><input id="signatureText" value="Mark Furber"></div><div id="drawBox" class="hide"><label>Draw inside the box</label><div class="canvaswrap"><canvas id="drawPad" class="sign-pad" width="700" height="160"></canvas></div><button type="button" class="secondary" style="margin-top:8px" id="clearDraw">Clear</button></div></div><div><label>Signing date (automatic)</label><input id="dateReadout" disabled><p class="muted">The date is added automatically to the signed PDF. No manual positioning required.</p><p class="muted">Clicking <b>Finish signing</b> confirms your intention to apply the signature shown, saves the marked PDF locally, and returns to the dashboard.</p></div></div>
+  <div id="inlinePreview" style="margin-top:16px;padding:12px;border:1px solid #6e8c9f;border-radius:8px;background:#fff;color:#1a3556"><div style="font:12px Arial;color:#606b79">LIVE PREVIEW — appears on signing page</div><div id="inlineSignature" style="font:italic 23px Georgia,serif;min-height:36px"></div><div id="inlineDate" style="font:12px Arial"></div></div><p id="signError" role="alert" style="color:#ffbb9b;font-size:13px"></p><div class="actions"><button type="button" id="seeOnPage" class="secondary">See signature on contract ↑</button><button id="next">Finish signing → Dashboard</button><button class="secondary" id="cancel">Cancel</button></div>
+</div></section>
+<section class="panel hide" id="completePage"><div class="complete"><div class="tick">✓</div><h2 id="completeTitle">Document finished</h2><p>Your marked PDF has been created. A green tick now appears on the dashboard next to this document.</p><div class="actions" style="justify-content:center"><button id="completeDownload">Download signed PDF</button><button class="secondary" id="finish">Back to dashboard →</button></div><p class="muted">Keep your downloaded PDF and the original file. This is a locally recorded electronic mark, not independently verified remote signing.</p></div></section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const docs=[
+{id:'agreement',title:'Main Supply Agreement',kind:'signature',number:'01',page:'last',file:null,output:null,filename:''},
+{id:'annex01',title:'Annex 01 — Master Proposal',kind:'initials',number:'02',page:'first',file:null,output:null,filename:''},
+{id:'annex16',title:'Annex 16 — Insurance',kind:'initials',number:'03',page:'first',file:null,output:null,filename:''}
+];let current=null,viewScale=1,pageWidth=0,pageHeight=0,drawn=false,drag=false,fieldSpec=null,lastDownload='';
+
+async function importPreparedZip(file) {
+  if (!file) return;
+  const msg=$('importStatus');msg.textContent='Reading prepared package…';
+  if(!window.JSZip || !window.PDFLib) {msg.textContent='PDF/ZIP libraries could not load. Refresh and retry.';return}
+  try{
+    const zip=await JSZip.loadAsync(file),entries=[];
+    for(const [name,entry] of Object.entries(zip.files)){
+      if(entry.dir || !/\.pdf$/i.test(name))continue;
+      const lower=name.toLowerCase();
+      let type = /^(?:.*\/)?01[_-]/.test(lower) || /main.*agreement|supply.*agreement/.test(lower) ? 'agreement' :
+          /^(?:.*\/)?02[_-]/.test(lower) || /annex[_ -]?0?1(?=[_. -]|$)|master[_ -]?proposal/.test(lower) ? 'annex01' :
+          /^(?:.*\/)?03[_-]/.test(lower) || /annex[_ -]?16(?=[_. -]|$)|insurance[_ -]?requirements/.test(lower) ? 'annex16' :
+          null;
+          if(type) entries.push({type,name:name.split('/').pop(),bytes:await entry.async('uint8array')});
+    }
+    const required=['agreement','annex01','annex16'];
+    for(const key of required){if(entries.filter(x=>x.type===key).length!==1)throw Error('Expected exactly one PDF for '+key+'; check the ZIP package.')}
+    const pending=[];
+    for(const item of entries){
+      const pdf=await PDFLib.PDFDocument.load(item.bytes);
+      if(pdf.getPageCount()<1)throw Error('Invalid PDF: '+item.name);
+      const buffer=item.bytes.buffer.slice(item.bytes.byteOffset,item.bytes.byteOffset+item.bytes.byteLength);
+      pending.push({id:item.type,name:item.name,file:{name:item.name,arrayBuffer:async()=>buffer.slice(0),size:item.bytes.length}});
+    }
+    for(const d of docs){const item=pending.find(p=>p.id===d.id);if(item){d.file=item.file;d.filename=item.name;d.output=null}else if(d.id==='invoice'){d.file=null;d.output=null;d.filename=''}}
+    msg.textContent='Three PDFs identified correctly. Saving to private storage…';
+    updateDashboard();
+    if(!window.signCloud?.saveAll) throw Error('Private storage connection is not ready. Sign in and try again.');
+    const result=await window.signCloud.saveAll(docs.filter(d=>d.file));
+    if(!result.ok) throw Error(result.message || 'Private storage upload did not complete.');
+    msg.textContent='✓ All '+result.count+' document PDFs saved privately. They will load automatically when you return.';
+    $('privateStatus').textContent='✓ NOAA signing documents are saved in private storage.';
+  }catch(e){msg.textContent='Unable to load package: '+e.message}
+}
+
+function updateDashboard(){
+const area=$('docList');area.replaceChildren();
+for(const d of docs){const row=document.createElement('div');row.className='doc';const idx=document.createElement('div');idx.className='index';idx.textContent=d.number;row.append(idx);const middle=document.createElement('div');let title=document.createElement('h3');title.textContent=d.title;middle.append(title);let desc=document.createElement('div');desc.className='muted';desc.textContent=d.kind==='attachment'?'Separate attachment · no signature required':d.kind==='signature'?'Both parties sign on execution page':'Both parties initial on first page';middle.append(desc);
+if(d.file){const loaded=document.createElement('div');loaded.style.cssText='margin-top:10px;padding:9px 12px;border:1px solid #3e886d;background:#102e2b;border-radius:8px;color:#92ecc4;font-size:13px';loaded.textContent='✓ Document loaded — '+(d.filename||d.file.name)+' · Ready to '+(d.kind==='attachment'?'view':'sign');middle.append(loaded)}else{const file=document.createElement('input');file.type='file';file.accept='application/pdf,.pdf';file.style.marginTop='9px';file.setAttribute('aria-label','Add PDF for '+d.title);file.onchange=()=>{const selected=file.files[0];if(!selected)return;d.file=selected;d.output=null;d.filename=selected.name;updateDashboard();window.signCloud?.saveRole?.(d)};middle.append(file)}row.append(middle);
+const right=document.createElement('div');right.className='doc-right';const state=document.createElement('span');state.className='state '+(d.output?'done':d.file?'wait':'');state.textContent=d.output?'✓ Signed locally':d.file?(d.kind==='attachment'?'Ready to review':'Awaiting your signature'):'Not selected';right.append(state);const button=document.createElement('button');button.textContent=d.kind==='attachment'?'View document':d.output?'Review signed PDF':'Select document';button.disabled=!d.file;button.onclick=()=>openDoc(d);right.append(button);if(d.output){const down=document.createElement('button');down.className='secondary';down.textContent='Download';down.style.margin='5px';down.onclick=()=>downloadPdf(d);right.append(down)}row.append(right);area.append(row);}
+$('downloadAll').disabled=!docs.some(d=>d.output);
+}
+function show(name){for(const id of ['dashboard','signingPage','completePage'])$(id).classList.toggle('hide',id!==name);window.scrollTo({top:0,behavior:'instant'})}
+function place(d,role,w,h){const agreement=d.kind==='signature';const left=role==='seller';return agreement?{x:w*(left?.17:.58),y:h-225,maxW:w*.27,maxH:33}:{x:w*(left?.12:.65),y:h-90,maxW:65,maxH:23}}
+let pdfPageObserver=null,pdfLoadToken=0;
+async function renderFullPages(pdf){
+  const token=++pdfLoadToken,root=$('fullPdf'),host=$('fullPages');
+  if(pdfPageObserver)pdfPageObserver.disconnect();
+  host.replaceChildren();
+  const first=await pdf.getPage(1);
+  const firstWidth=first.getViewport({scale:1}).width;
+  const scale=Math.min(1.4,Math.max(.35,(root.clientWidth-43)/firstWidth));
+  const items=[];
+  for(let number=1;number<=pdf.numPages;number++){
+    if(token!==pdfLoadToken)return;
+    const sheet=document.createElement('div');
+    sheet.dataset.pdfPage=String(number);
+    sheet.style.cssText='position:relative;flex-shrink:0;background:white;box-shadow:0 4px 18px #0005;min-width:0';
+    const pg=number===1?first:await pdf.getPage(number);
+    const viewport=pg.getViewport({scale});
+    sheet.style.width=Math.ceil(viewport.width)+'px';
+    sheet.style.height=Math.ceil(viewport.height)+'px';
+    const placeholder=document.createElement('div');
+    placeholder.style.cssText='position:absolute;inset:0;display:grid;place-items:center;background:#fff;color:#677;font:14px Arial';
+    placeholder.textContent='Page '+number+' of '+pdf.numPages;
+    sheet.append(placeholder);host.append(sheet);items.push(sheet);
+  }
+  let active=0,queue=[];
+  const draw=async()=>{
+    if(active>=2||!queue.length)return;
+    const sheet=queue.shift(),number=Number(sheet.dataset.pdfPage);
+    if(token!==pdfLoadToken)return;
+    active++;
+    try{
+      const page=await pdf.getPage(number);
+      if(token!==pdfLoadToken)return;
+      const canvas=document.createElement('canvas');
+      const viewport=page.getViewport({scale});
+      canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+      canvas.style.cssText='display:block;width:100%;height:100%';
+      sheet.replaceChildren(canvas);
+      await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+    }catch(e){sheet.textContent='Unable to display page '+number+': '+e.message}
+    finally{active--;if(queue.length)draw();}
+  };
+  pdfPageObserver=new IntersectionObserver(entries=>{
+    for(const e of entries){
+      if(e.isIntersecting && !e.target.dataset.queued){
+        e.target.dataset.queued='1';
+        pdfPageObserver.unobserve(e.target);
+        queue.push(e.target);
+      }
+    }
+    draw();draw();
+  },{root,rootMargin:'750px 0px'});
+  for(const sheet of items)pdfPageObserver.observe(sheet);
+  root.scrollTop=0;
+}
+
+async function openDoc(d){current=d;show('signingPage');$('loading').textContent='Opening document…';$('signatureForm').classList.add('hide');$('signatureLive').classList.add('hide');$('dateLive').classList.add('hide');$('stepPill').textContent='Document '+d.number+' of 03';$('docTitle').textContent=d.title;$('instruction').textContent=d.kind==='attachment'?'Invoice is separate. Read the full PDF below; no signature is needed.':d.output?'Read the complete marked PDF below.':'Read the full contract below. Sign Here jumps to the designated signature page; no other pages are changed.';$('onPageField').classList.toggle('hide',d.kind==='attachment'||!!d.output);$('otherField').classList.toggle('hide',d.kind==='attachment'||!!d.output);
+try{
+if(!window.pdfjsLib)throw Error('PDF viewer library could not load.');if(!window.PDFLib)throw Error('PDF library could not load.');
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+const bytes=d.output?d.output:await d.file.arrayBuffer();
+if(window.signFullUrl)URL.revokeObjectURL(window.signFullUrl);
+window.signFullUrl=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+const viewer=await pdfjsLib.getDocument({data:new Uint8Array(bytes instanceof ArrayBuffer?bytes:bytes.slice())}).promise;
+d.renderedPages=viewer.numPages;
+await renderFullPages(viewer);
+$('pageCountLabel').textContent=viewer.numPages+' pages available';
+$('signTargetTitle').textContent=d.kind==='attachment'?'Invoice — review only':d.kind==='initials'?'Initials page ('+(d.page==='last'?viewer.numPages:1)+' of '+viewer.numPages+')':'Execution page ('+viewer.numPages+' of '+viewer.numPages+')';
+$('jumpToSign').classList.toggle('hide',d.kind==='attachment'||!!d.output);const pg=await viewer.getPage(d.page==='last'?viewer.numPages:1);const native=pg.getViewport({scale:1});pageWidth=native.width;pageHeight=native.height;
+const max=Math.min(820,Math.max(280,$('pageShell').clientWidth-45));viewScale=Math.min(1.6,max/pageWidth);const viewport=pg.getViewport({scale:viewScale});const canvas=$('pdfPage');canvas.width=Math.round(viewport.width);canvas.height=Math.round(viewport.height);$('pageView').style.width=canvas.width+'px';$('pageView').style.height=canvas.height+'px';await pg.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+if(d.kind!=='attachment'&&!d.output){const role=$('side').value;const ours=place(d,role,pageWidth,pageHeight),other=place(d,role==='seller'?'buyer':'seller',pageWidth,pageHeight);positionField($('onPageField'),ours);positionField($('otherField'),other);$('onPageField').textContent=d.kind==='initials'?'Initial Here':'Sign Here';$('otherField').textContent=role==='seller'?'Joshua initials/signs here':'Simworx initials/signs here'}
+$('loading').textContent=d.output?'This document is already marked. Return to dashboard to download.':'';
+}catch(e){$('loading').textContent='PDF could not be opened: '+e.message}}
+$('jumpToSign').onclick=()=>{if(!current)return;
+const pg=current.page==='last'?current.renderedPages||1:1;
+const target=$('fullPages').querySelector('[data-pdf-page="'+pg+'"]');
+if(target){target.scrollIntoView({behavior:'smooth',block:'center'});}
+else $('signTargetTitle').scrollIntoView({behavior:'smooth',block:'start'});
+};
+$('readFromStart').onclick=()=>{$('fullPdf').scrollTop=0;$('fullDocumentArea').scrollIntoView({behavior:'smooth',block:'start'})};
+function showLiveMark(){
+ const d=current,mark=$('signatureLive'),date=$('dateLive');
+ if(!d||d.kind==='attachment'||d.output||$('signatureForm').classList.contains('hide')){
+   mark.classList.add('hide');date.classList.add('hide');return;
+ }
+ const pos=place(d,$('side').value,pageWidth,pageHeight);
+ mark.style.left=Math.round(pos.x*viewScale)+'px';
+ mark.style.top=Math.round((pageHeight-pos.y-21)*viewScale)+'px';
+ mark.style.maxWidth=Math.round(pos.maxW*viewScale)+'px';
+ mark.style.overflow='hidden';
+ mark.style.fontSize=Math.round((d.kind==='initials'?15:19)*viewScale)+'px';
+ date.style.left=Math.round(pos.x*viewScale)+'px';
+ date.style.top=Math.round((pageHeight-pos.y+7)*viewScale)+'px';
+ date.textContent='Date: '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+ $('inlineDate').textContent=date.textContent;
+ if($('method').value==='type'){
+   mark.textContent=$('signatureText').value;
+ }else if(drawn){
+   mark.innerHTML='';
+   const img=document.createElement('img');img.src=$('drawPad').toDataURL('image/png');
+   img.style.width=Math.round(pos.maxW*viewScale)+'px';img.style.height=Math.round(pos.maxH*viewScale)+'px';img.style.objectFit='contain';img.style.objectPosition='left center';
+   mark.append(img);
+ }else{mark.textContent=''}
+ mark.classList.toggle('hide',!mark.textContent&&!mark.querySelector('img'));
+ date.classList.remove('hide');
+ $('inlineSignature').replaceChildren();if(mark.querySelector('img')){$('inlineSignature').append(mark.querySelector('img').cloneNode(true))}else{$('inlineSignature').textContent=mark.textContent}
+}
+function positionField(el,pos){el.style.left=Math.round(pos.x*viewScale-8)+'px';el.style.top=Math.round((pageHeight-pos.y-pos.maxH)*viewScale-5)+'px';el.style.width=Math.max(90,pos.maxW*viewScale)+'px';el.style.height=Math.max(38,pos.maxH*viewScale+10)+'px'}
+$('onPageField').onclick=()=>{if(!current||current.output||current.kind==='attachment')return;
+$('signatureForm').classList.remove('hide');$('dateReadout').value=new Date().toLocaleString('en-GB',{dateStyle:'full',timeStyle:'short'});$('formTitle').textContent=current.kind==='initials'?'Add your initials':'Add your signature';$('signatureText').value=current.kind==='initials'?$('initials').value:$('signer').value;showLiveMark();$('signatureForm').scrollIntoView({behavior:'smooth',block:'center'})};
+$('method').onchange=()=>{$('typedBox').classList.toggle('hide',$('method').value!=='type');$('drawBox').classList.toggle('hide',$('method').value!=='draw');showLiveMark()};
+$('signatureText').addEventListener('input',showLiveMark);
+$('seeOnPage').onclick=()=>{$('signTargetTitle').scrollIntoView({behavior:'smooth',block:'start'})};
+const pad=$('drawPad'),ctx=pad.getContext('2d');ctx.strokeStyle='#183f72';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';
+function padPoint(ev){const r=pad.getBoundingClientRect();return{x:(ev.clientX-r.left)*pad.width/r.width,y:(ev.clientY-r.top)*pad.height/r.height}}
+pad.onpointerdown=ev=>{drag=true;drawn=true;pad.setPointerCapture(ev.pointerId);const p=padPoint(ev);ctx.beginPath();ctx.moveTo(p.x,p.y)};pad.onpointermove=ev=>{if(!drag)return;const p=padPoint(ev);ctx.lineTo(p.x,p.y);ctx.stroke()};pad.onpointerup=pad.onpointercancel=()=>{drag=false;showLiveMark()};
+$('clearDraw').onclick=()=>{ctx.clearRect(0,0,pad.width,pad.height);drawn=false;showLiveMark()};
+$('cancel').onclick=()=>{$('signatureForm').classList.add('hide');showLiveMark()};
+async function signCurrent(){
+ const d=current;if(!d||d.kind==="attachment")return;
+ if(d.output)throw Error("This document has already been signed by Simworx.");
+ const method=$("method").value==="draw"?"drawn":"typed",text=$("signatureText").value.trim();
+ if(method==="typed"&&!text)throw Error("Enter the signature.");
+ if(method==="drawn"&&!drawn)throw Error("Draw the signature first.");
+ if(!window.signCloud?.signDocument)throw Error("Secure signing server is not connected. Please refresh.");
+ const result=await window.signCloud.signDocument(d,method,$("signer").value.trim(),text,method==="drawn"?pad.toDataURL("image/png"):null);
+ d.signedAt=result.signed_at;d.signer=$("signer").value;d.role="seller";lastDownload=d.id;
+ updateDashboard();show("dashboard");
+ $("downloadStatus").textContent="✓ "+d.title+" securely signed and saved. Select the next document.";
+ await window.signCloud.loadExisting();
+}
+$('next').onclick=async()=>{const btn=$('next');try{btn.disabled=true;$('signError').textContent='';await signCurrent()}catch(e){$('signError').textContent=e.message;}finally{btn.disabled=false}};
+function downloadBlob(bytes,name,type){const b=new Blob([bytes],{type}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),20000)}
+function downloadPdf(d){if(!d.output)return;downloadBlob(d.output,(d.filename||d.id+'.pdf').replace(/\.pdf$/i,'')+'_marked.pdf','application/pdf')}
+$('completeDownload').onclick=()=>{const d=docs.find(d=>d.id===lastDownload);if(d)downloadPdf(d)};
+$('finish').onclick=()=>{updateDashboard();show('dashboard')};$('back').onclick=()=>{updateDashboard();show('dashboard')};
+$('downloadAll').onclick=async()=>{if(!window.JSZip)return alert('ZIP library unavailable.');const zip=new JSZip();for(const d of docs){if(d.output)zip.file(d.filename.replace(/\.pdf$/i,'')+'_marked.pdf',d.output)}const b=await zip.generateAsync({type:'blob'});downloadBlob(b,'Simworx_Signed_Documents.zip','application/zip');$('downloadStatus').textContent='Downloaded locally.'};
+$('side').onchange=()=>{for(const d of docs)d.output=null;updateDashboard()};
+
+$('inviteBuyer').onclick=async()=>{
+ const button=$('inviteBuyer');button.disabled=true;
+ $('inviteMessage').textContent='Creating Joshua’s secure invitation and attempting email delivery…';
+ try{
+  const result=await window.signCloud.createBuyerInvite();
+  const safeLink=result.link.replace('?token=','#token=');
+  $('inviteLink').value=safeLink;
+  $('inviteLinkWrap').classList.remove('hide');
+  $('inviteMessage').textContent=result.email_sent?'✓ Invitation accepted by the email server for Joshua. Keep the private link as a fallback.':'Invitation link created, but automatic email delivery was not confirmed. Use Open email to Joshua below to send it manually.';
+  $('emailInvite').textContent=result.email_sent?'Open backup email to Joshua':'Open email to Joshua';
+  const subject='NOAA King Air 360ER — Please sign the agreement';
+  const message='Dear Joshua,\n\nPlease review and sign the Main Agreement, Annex 01 and Annex 16 using this secure Simworx Sign link:\n\n'+safeLink+'\n\nKind regards,\nMark';
+  $('emailInvite').href='mailto:'+encodeURIComponent(result.buyer_email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(message);
+ }catch(e){$('inviteMessage').textContent=e.message}
+ finally{button.disabled=false}
+};
+$('resendCopies').onclick=async()=>{const b=$('resendCopies');b.disabled=true;try{const result=await window.signCloud.resendSignedCopies();$('downloadStatus').textContent=result.email_sent?'The signed PDFs were accepted by the email server.':'Email delivery failed: '+result.email_result}catch(e){$('downloadStatus').textContent=e.message}finally{b.disabled=false}};
+$('copyInvite').onclick=async()=>{try{await navigator.clipboard.writeText($('inviteLink').value);$('inviteMessage').textContent='Signing link copied.'}catch(e){$('inviteMessage').textContent='Select and copy the link manually.'}};
+window.signDocs=docs;window.updateSignDashboard=updateDashboard;window.importPreparedZip=importPreparedZip;
+updateDashboard();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+<script src="test-private-storage.js?v=20261109-test1"></script></body></html>

@@ -41,7 +41,9 @@ async function reload(){
   const state=document.createElement('div');state.className=d.signedByBuyer?'green':'muted';state.textContent=d.signedByBuyer?'✓ Signed':'Awaiting your signature';
   center.append(title,state);
   const b=document.createElement('button');b.textContent=d.signedByBuyer?'View signed document':'Review & sign';b.onclick=()=>openDoc(d);
-  row.append(num,center,b);$('documents').append(row);
+  row.append(num,center,b);
+  if(d.signedByBuyer){const dl=document.createElement('button');dl.className='secondary';dl.textContent='Download signed PDF';dl.onclick=async()=>{try{const rsp=await fetch(d.url);if(!rsp.ok)throw Error('Download unavailable');const blob=await rsp.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=d.filename.replace(/\\.pdf$/i,'')+'_fully_signed.pdf';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)}catch(e){fail(e)}};row.append(dl)}
+  $('documents').append(row);
  }
  $('completeBanner').classList.toggle('hidden',!info.documents.every(d=>d.signedByBuyer));
  show("dashboard");

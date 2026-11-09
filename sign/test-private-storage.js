@@ -38,6 +38,7 @@ async function loadExisting(){
  if(pe)throw pe;if(!p?.length)throw Error("NOAA package not registered.");
  pkg=p[0];el("activePackage").textContent=pkg.title+" · "+pkg.status;
  const info=await requestSign("staff-status");
+ const recipientField=el("recipientEmail");if(recipientField&&document.activeElement!==recipientField)recipientField.value=info.buyer_email||"";
  let count=0;
  for(const record of info.documents){
   const d=findDoc(record.role);if(!d)continue;
@@ -71,9 +72,11 @@ async function signDocument(d,method,name,signature,image){
  window.updateSignDashboard?.();
  return result;
 }
-async function createBuyerInvite(){
+async function createBuyerInvite(recipientEmail){
  if(!authorized||!pkg)throw Error("Sign in to the private document library.");
- return await requestSign("invite");
+ const recipient_email=String(recipientEmail||"").trim().toLowerCase();
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient_email))throw Error("Enter a valid recipient email address.");
+ return await requestSign("invite",{recipient_email});
 }
 async function resendSignedCopies(){return await requestSign("resend-completed");}
 async function saveRole(d){

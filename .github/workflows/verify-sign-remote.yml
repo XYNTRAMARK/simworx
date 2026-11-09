@@ -32,4 +32,9 @@ jobs:
           code=$(curl -sS -o /tmp/relay.txt -w '%{http_code}' --max-time 20             -H 'Content-Type: application/json'             -d '{"token":"invalid"}' "https://sim-worx.com/sign/dispatch.php")
           test "$code" = "400"
           grep -q 'Invalid delivery proof' /tmp/relay.txt
-          echo "Client page, staff link and mail relay protections verified"
+          edge_code=$(curl -sS -o /tmp/sign-api-response.txt -w '%{http_code}' --max-time 25 \
+            -H 'Content-Type: application/json' -d '{"action":"buyer-status","token":"invalid"}' \
+            "https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/simworx-sign-api")
+          test "$edge_code" = "400"
+          grep -q 'Invalid signing link' /tmp/sign-api-response.txt
+          echo "Client page, staff link, signing API and mail relay protections verified"

@@ -1,0 +1,43 @@
+name: Publish approved site-wide menu
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-approved-menu.yml']
+permissions:
+  contents: read
+concurrency:
+  group: simworx-navigation-production
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare header-only patches and verified originals without remote writes
+        run: python3 .menu-release/publish.py plan
+      - name: Encrypt and verify original pages before upload
+        run: |
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in "$RUNNER_TEMP/simworx-approved-menu/before.tar.gz" -out "$RUNNER_TEMP/simworx-approved-menu/before.tar.gz.enc" -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$RUNNER_TEMP/simworx-approved-menu/before.tar.gz.enc" -pass env:FTP_PASSWORD | cmp - "$RUNNER_TEMP/simworx-approved-menu/before.tar.gz"
+      - uses: actions/upload-artifact@v4
+        id: backup
+        with:
+          name: encrypted-pages-before-approved-menu
+          path: ${{ runner.temp }}/simworx-approved-menu/before.tar.gz.enc
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish only prepared menu changes and verify each live page
+        env:
+          BACKUP_ARTIFACT_ID: ${{ steps.backup.outputs.artifact-id }}
+        run: python3 .menu-release/publish.py publish
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: approved-menu-publication-manifest
+          path: ${{ runner.temp }}/simworx-approved-menu/manifest.json
+          retention-days: 14

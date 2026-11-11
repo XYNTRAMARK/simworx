@@ -1,0 +1,45 @@
+name: Preserve configurator copy request details through collection
+on:
+  push:
+    branches: [codex/simworx-tracking-activation]
+    paths: ['website-intelligence/configurator-contact-stats-v2/**', '.github/workflows/configurator-contact-stats-v2.yml']
+permissions:
+  contents: read
+concurrency:
+  group: simworx-tracking-production
+  cancel-in-progress: false
+jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate attribution and consent regressions
+        run: |
+          node --check website-intelligence/configurator-contact-stats-v2/assets/js/simworx-intelligence-configurator-v1.js
+          node --test website-intelligence/configurator-contact-stats-v2/tests/*.test.mjs
+          python3 website-intelligence/configurator-contact-stats-v2/deploy.py validate
+      - name: Back up exact live originals with checksum guards
+        run: python3 website-intelligence/configurator-contact-stats-v2/deploy.py backup
+      - name: Encrypt originals
+        run: |
+          tar -czf /tmp/configurator-contact-originals.tar.gz -C /tmp/configurator-contact-backup .
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in /tmp/configurator-contact-originals.tar.gz -out /tmp/configurator-contact-originals.enc -pass env:FTP_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in /tmp/configurator-contact-originals.enc -pass env:FTP_PASSWORD | cmp - /tmp/configurator-contact-originals.tar.gz
+      - uses: actions/upload-artifact@v4
+        id: backup
+        with:
+          name: encrypted-configurator-contact-stats-v2-originals-${{ github.sha }}
+          path: /tmp/configurator-contact-originals.enc
+          retention-days: 30
+      - name: Install and verify scoped attribution update
+        env:
+          RETAINED_BACKUP_ARTIFACT_ID: ${{ steps.backup.outputs.artifact-id }}
+        run: python3 website-intelligence/configurator-contact-stats-v2/deploy.py publish

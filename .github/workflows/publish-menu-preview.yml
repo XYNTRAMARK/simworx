@@ -26,7 +26,7 @@ jobs:
           from urllib.parse import urlparse
           target = '/htdocs/home-preview.html'
           payload = Path('previews/home-preview.html').read_bytes()
-          assert b'noindex,nofollow' in payload and b'<style>' in payload
+          assert b'noindex,nofollow' in payload and b'<style' in payload
           host = os.environ['FTP_HOST']
           parsed = urlparse(host if '://' in host else 'ftp://' + host)
           ftp = ftplib.FTP_TLS(timeout=45)

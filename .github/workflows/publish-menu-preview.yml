@@ -1,4 +1,4 @@
-name: Publish isolated menu preview only
+name: Publish isolated homepage layout preview only
 on:
   push:
     branches: [main]
@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Create only menu-preview.html and verify production files unchanged
+      - name: Create only home-preview.html and verify production files unchanged
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -24,8 +24,8 @@ jobs:
           import ftplib, io, os, hashlib, urllib.request
           from pathlib import Path
           from urllib.parse import urlparse
-          target = '/htdocs/menu-preview.html'
-          payload = Path('previews/menu-preview.html').read_bytes()
+          target = '/htdocs/home-preview.html'
+          payload = Path('previews/home-preview.html').read_bytes()
           assert b'noindex,nofollow' in payload and b'<style>' in payload
           host = os.environ['FTP_HOST']
           parsed = urlparse(host if '://' in host else 'ftp://' + host)
@@ -37,17 +37,17 @@ jobs:
               result = io.BytesIO()
               ftp.retrbinary('RETR ' + path, result.write)
               return result.getvalue()
-          protected = ['/htdocs/index.html', '/htdocs/assets/css/global-header.css', '/htdocs/assets/js/global-header.js']
+          protected = ['/htdocs/index.html', '/htdocs/assets/css/global-header.css', '/htdocs/assets/js/global-header.js', '/htdocs/assets/css/global-header-approved.css', '/htdocs/assets/js/global-header-approved.js']
           before = {path: hashlib.sha256(read(path)).hexdigest() for path in protected}
           names = ftp.nlst('/htdocs')
-          assert 'menu-preview.html' not in [name.rsplit('/',1)[-1] for name in names], 'Preview already exists; no overwrite'
+          assert 'home-preview.html' not in [name.rsplit('/',1)[-1] for name in names], 'Preview already exists; no overwrite'
           ftp.storbinary('STOR ' + target, io.BytesIO(payload))
           assert read(target) == payload, 'Preview FTP verification failed'
           assert {path: hashlib.sha256(read(path)).hexdigest() for path in protected} == before, 'Protected production files changed'
           ftp.quit()
-          request = urllib.request.Request('https://sim-worx.com/menu-preview.html?verify=' + os.environ['GITHUB_SHA'], headers={'Cache-Control':'no-cache'})
+          request = urllib.request.Request('https://sim-worx.com/home-preview.html?verify=' + os.environ['GITHUB_SHA'], headers={'Cache-Control':'no-cache'})
           with urllib.request.urlopen(request, timeout=45) as response:
               assert response.read() == payload, 'Preview HTTPS verification failed'
-          print('Preview verified at https://sim-worx.com/menu-preview.html. Production homepage, header CSS and header JavaScript are unchanged.')
+          print('Preview verified at https://sim-worx.com/home-preview.html. Production homepage, header CSS and header JavaScript are unchanged.')
           
           PY

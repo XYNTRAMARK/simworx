@@ -41,7 +41,7 @@ def patch(source):
             return line_starts[line-1] + col
         def handle_starttag(self, tag, attrs):
             values = dict(attrs); start = self.byte_offset(); end = start + len(self.get_starttag_text())
-            if tag == 'header' and 'global-header' in values.get('class', '').split():
+            if tag == 'header' and bool({'global-header', 'site-header'} & set(values.get('class', '').split())):
                 self.active_header = start
             if tag == 'link' and re.search(r'(?:^|/)assets/css/global-header(?:-approved)?\.css(?:[?#]|$)', values.get('href', '')):
                 self.removals.append((start, end, b''))
@@ -93,7 +93,9 @@ def plan():
         for path, filename in [(CSS, 'header.css'), (JS, 'header.js')]:
             siblings = ftp.nlst('/htdocs/' + path.rsplit('/', 1)[0])
             if path.rsplit('/', 1)[-1] in [n.rsplit('/', 1)[-1] for n in siblings]:
-                raise RuntimeError('Approved asset already exists; refusing to overwrite')
+                originals[path] = read(ftp, path)
+                if originals[path] != (SOURCE / filename).read_bytes():
+                    raise RuntimeError('Unexpected approved asset content; refusing to overwrite')
             prepared[path] = (SOURCE / filename).read_bytes()
     manifest = {}
     for path, data in prepared.items():

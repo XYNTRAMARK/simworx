@@ -1,4 +1,4 @@
-name: Publish approved site-wide menu
+name: Publish approved site-wide menu including legacy pages
 on:
   push:
     branches: [main]
@@ -18,7 +18,7 @@ jobs:
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare header-only patches and verified originals without remote writes
+      - name: Prepare all current and legacy header patches and verified originals
         run: python3 .menu-release/publish.py plan
       - name: Encrypt and verify original pages before upload
         run: |

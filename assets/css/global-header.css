@@ -84,3 +84,13 @@ html,body{overflow-x:hidden}
   .global-visuals-title{font-size:13px}
   .global-visuals-arrow{top:14px}
 }
+
+/* Readable 10pt navigation; retain existing disclosure and mobile controls. */
+.global-nav>a,.global-nav .global-dropdown-trigger,
+.global-dropdown-menu a,.global-talk{font-size:10pt}
+@media(min-width:981px){
+  .global-nav{display:grid;grid-template-columns:repeat(4,max-content);grid-template-rows:repeat(2,minmax(0,1fr));column-gap:14px;row-gap:0;align-items:stretch;align-content:center}
+  .global-nav>a,.global-nav .global-dropdown-trigger{height:100%;box-sizing:border-box}
+  .global-dropdown{height:auto;min-height:0}
+  .global-dropdown-menu{top:100%}
+}

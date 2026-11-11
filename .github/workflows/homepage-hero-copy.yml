@@ -1,0 +1,69 @@
+name: Homepage hero copy only
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/homepage-hero-copy.yml']
+permissions:
+  contents: read
+concurrency:
+  group: simworx-homepage-copy
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Replace only the two agreed hero text elements
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import ftplib, io, os, urllib.request, time
+          from urllib.parse import urlparse
+          old = b'<h1>Professional Flight<br/>Simulation.<br/>Built in Spain.</h1><p>Complete flight simulators, mission systems and software, cockpit shells and frames, LED visual systems, and custom-built solutions engineered for performance and reliability.</p>'
+          new = "<h1>Flight Simulators.<br/>Bespoke Visual Systems.</h1><p>We design and manufacture professional flight simulators and bespoke visual systems, built around your training and operational requirements.</p>".encode()
+          host = os.environ['FTP_HOST']
+          parsed = urlparse(host if '://' in host else 'ftp://' + host)
+          ftp = ftplib.FTP()
+          ftp.connect(parsed.hostname, parsed.port or 21, timeout=45)
+          ftp.login(os.environ['FTP_USERNAME'], os.environ['FTP_PASSWORD'])
+          def read():
+              data = io.BytesIO()
+              ftp.retrbinary('RETR /htdocs/index.html', data.write)
+              return data.getvalue()
+          before = read()
+          assert before.count(old) == 1, 'Unexpected live hero; no changes made'
+          after = before.replace(old, new, 1)
+          assert after.replace(new, old, 1) == before
+          os.makedirs('backup', exist_ok=True)
+          open('backup/index.html', 'wb').write(before)
+          try:
+              ftp.storbinary('STOR /htdocs/index.html', io.BytesIO(after))
+              assert read() == after, 'Remote file verification failed'
+              for attempt in range(6):
+                  req = urllib.request.Request('https://sim-worx.com/?hero-copy=' + os.environ['GITHUB_SHA'] + str(attempt), headers={'Cache-Control':'no-cache'})
+                  with urllib.request.urlopen(req, timeout=30) as response:
+                      live = response.read()
+                  if live == after:
+                      print('Verified: live homepage differs only in the agreed headline and supporting paragraph.')
+                      break
+                  time.sleep(5)
+              else:
+                  raise RuntimeError('Live HTTP verification failed')
+          except Exception:
+              ftp.storbinary('STOR /htdocs/index.html', io.BytesIO(before))
+              assert read() == before, 'Rollback verification failed'
+              raise
+          finally:
+              ftp.quit()
+          
+          PY
+      - name: Retain original homepage for rollback
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: homepage-before-hero-copy
+          path: backup/index.html
+          retention-days: 14

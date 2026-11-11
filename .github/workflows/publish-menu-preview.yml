@@ -40,7 +40,7 @@ jobs:
           protected = ['/htdocs/index.html', '/htdocs/assets/css/global-header.css', '/htdocs/assets/js/global-header.js', '/htdocs/assets/css/global-header-approved.css', '/htdocs/assets/js/global-header-approved.js']
           before = {path: hashlib.sha256(read(path)).hexdigest() for path in protected}
           names = ftp.nlst('/htdocs')
-          assert 'home-preview.html' not in [name.rsplit('/',1)[-1] for name in names], 'Preview already exists; no overwrite'
+          assert hashlib.sha256(read('/htdocs/home-preview.html')).hexdigest() == '4dbbf18f9fbb5ffb4c8c8b1e819b9ad5e2274beb55431025f3cc3e65cbbc9c35', 'Preview changed; no overwrite'
           ftp.storbinary('STOR ' + target, io.BytesIO(payload))
           assert read(target) == payload, 'Preview FTP verification failed'
           assert {path: hashlib.sha256(read(path)).hexdigest() for path in protected} == before, 'Protected production files changed'

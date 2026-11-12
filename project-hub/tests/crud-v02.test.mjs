@@ -70,7 +70,7 @@ test('archived records disappear from customer projection and progress',()=>{
  const d=seed();const initial=taskProgress('p1',d.tasks);
  archiveRecord(d,'documents','d1');
  assert.equal(clientProjection(d,'noah','p1').documents.some(x=>x.id==='d1'),false);
- const t=d.tasks.find(x=>x.id==='t3');
+ const t=d.tasks.find(x=>x.id==='t6');
  archiveRecord(d,'tasks',t.id);
  assert.notEqual(taskProgress('p1',d.tasks),initial);
 });

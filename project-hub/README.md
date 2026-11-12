@@ -1,42 +1,26 @@
-# Sim-Worx Project Hub — V0.3.0
+# Sim-Worx Project Hub — V0.4.0
 
-**12 November 2026 · Interactive local demo, not production software.** The version badge `V0.3.0` is always displayed in the top bar.
+**12 November 2026 · Local interactive demo — NOT production.** The header badge displays **V0.4.0**. Demo data is fictional. Incremental cost: **€0**. No production deployment, database, workflows or unrelated project modified.
 
-A safely isolated engineer-to-order simulator manufacturing and project-management prototype. It lives wholly under `project-hub/` in the public `XYNTRAMARK/simworx` repository. All demo people, budgets and project details are illustrative, including the NOAH example; **do not enter genuine contracts or other confidential information**.
+## Run and explore
 
-## How to run
+Download the branch source, serve `project-hub/` locally using `python3 -m http.server 8765`, and open `http://localhost:8765`. The standalone manufacturing acceptance preview is supplied separately; it deliberately does **not** contain the full V0.3 application.
 
-1. Simplest: download the supplied single-file `SimWorx_Project_Hub_Interactive_Demo_V0.3.0.html` and open it in Chrome on your PC.
-2. From source: run `python3 -m http.server 8765` inside `project-hub/`, and open `http://localhost:8765`.
-3. Demo changes are saved in the current browser's localStorage. They are *not* synchronised across devices, and clearing browser data will remove them.
+## New in V0.4.0
 
-## Working features
+- **Assembly & component workspace:** nest project-specific assemblies to arbitrary practical depth; add/edit/archive/restore; stable reusable part masters and **multiple occurrence BOM rows** with positions/quantities/make-buy.
+- **Idempotent V0.3 migration:** existing work sections and V0.3 BOM records are imported into distinct V0.4 E-BOM entities without deleting or rewriting the historic V0.3 data. The existing spreadsheet Work Register, Gantt and CSV remain in the original application.
+- **Drawing release states:** draft, in-review, released, superseded and withdrawn. Release freezes a separate M-BOM snapshot. A new revision has no inherited approval; downstream job links can warn about superseded instructions.
+- **Production blockers:** link existing office/workshop jobs to an assembly and work-instruction revision; surface material gaps and unreleased drawings in the assembly view and project overview.
+- **Engineering change records:** capture reason, owner and impact. Internal-only local demo; customer projection allowlist remains unmodified.
 
-- Multi-customer project overview; project, customer, section and workshop/office job creation, editing, archiving and restoration.
-- Nested work breakdowns with job owners, priorities and status controls.
-- **V0.3:** Excel-like work register for in-cell edits; manual start/finish scheduling; multi-predecessor checks and cycle prevention; 16-week Gantt view; schedule baselines and delay warnings; CSV export with planned dates and predecessors.
-- Project-specific BOM entries, stock management, supplier order records and a new **material readiness forecast** showing potential shortages. BOM entries can be attributed to a project section.
-- Internal costing overview, customer publication drafts/withdrawals, simulated customer portal and approvals, demo invitations and activity history.
-- Working light/dark themes and persistent visible release number.
+## Test scope
 
-## Test commands
+`node --test tests/manufacturing-v04.test.mjs` passed **10/10** in the isolated local manufacturing harness. Playwright in-memory browser smoke passed navigation, BOM editing, simulated drawing review/release and job linkage, with zero page errors. The previous V0.3 repository test suite **could not be rerun here** because the connected repository's complete working tree was not available locally; run `node --test tests/*.test.mjs` in a checkout before treating this as a verified integrated release.
 
-- `node --test tests/*.test.mjs` — 22 domain tests passing.
-- `python tests/browser-smoke.py` — original navigation, customers and inventory workflows.
-- `python tests/browser-crud-v02.py` — create/edit/archive regression checks.
-- `python tests/browser-planning-v03.py` — Gantt, work register, validation, baseline, materials and Excel CSV checks.
+## Boundaries
 
-Python browser checks require Playwright and Chromium at `/usr/bin/chromium` in the test environment.
-
-## Current limitations
-
-The application is deliberately a **local demo** with no trusted multi-user identity, backend storage, server permissions, private file upload or email delivery. It does not safely support real customer accounts or real purchasing/stock accounting. The Gantt highlights dependency overlaps but does not auto-reschedule or calculate a validated critical path. Material readiness is an estimate and does not reserve stock. For a complete list see [`docs/release-v03.md`](docs/release-v03.md).
-
-## Absolute project isolation
-
-- Keep changes under `project-hub/` and on a dedicated development branch.
-- Do not change live site root files, `admin/`, `portal/`, `.github/workflows/`, other project files, shared Supabase resources, DNS or production configuration without separate explicit approval.
-- Do not merge or deploy to production without an explicit user approval and independent isolation verification.
-- This public repository must never contain credentials, confidential contracts, supplier prices or personal data from real customers.
-
-Continue with [`docs/roadmap.md`](docs/roadmap.md), [`docs/release-v03.md`](docs/release-v03.md), and [`docs/safety-and-architecture.md`](docs/safety-and-architecture.md).
+- All V0.3 storage remains under the same `simworx-project-hub-demo-v1` localStorage key; browser profiles are not shared or backed up.
+- Legacy V0.3 BOM and the imported V0.4 E-BOM are separate demo registers; later legacy edits are not automatically synchronized. Do not use the project BOM readiness estimate for real purchasing.
+- This version does **not** implement real multi-line PO receipts, atomic stock reservations, tenant-safe authentication, file uploads, QA holds or production customer access. No real financial, private customer, supplier or personnel information belongs in a public repository or local demo.
+- Follow [release notes](docs/release-v04.md), [roadmap](docs/roadmap.md), [handover](docs/handover-v04.md) and [safety rules](docs/safety-and-architecture.md).

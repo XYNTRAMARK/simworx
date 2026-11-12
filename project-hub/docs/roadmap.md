@@ -1,6 +1,6 @@
 # Sim-Worx Project Hub — Development roadmap
 
-**Current delivered milestone: V0.3.0 — local interactive prototype.** All production writes are prohibited without explicit separate approval. The design is multi-customer from the start; NOAH is only a demo example.
+**Current delivered milestone: V0.4.0 — isolated component/manufacturing slice (local demo).** All production writes are prohibited without explicit separate approval. The design is multi-customer from the start; NOAH is only a demo example.
 
 ## Delivered
 
@@ -8,7 +8,13 @@
 - **V0.2:** Add/edit/archive/restore for core records, hierarchical work sections and jobs, predecessor rule, Excel WBS CSV export and visible version chip.
 - **V0.3:** Spreadsheet-style work register, manual dated schedules, 16-week Gantt navigation, multiple predecessor links and cycle checks, opt-in schedule baseline, delay/conflict warnings, assembly-linked BOM and non-reserving material shortage estimates. 22 domain tests and browser checks passing.
 
-## Recommended V0.4 — deepen engineer-to-order workflow (still isolated)
+## V0.4.0 delivered (isolated)
+
+- Distinct reusable part master and repeated assembly BOM occurrence entities; nested engineering assemblies, imported V0.3 sections/BOM, roll-ups and basic manufacture readiness.
+- Drawing revisions with review/release transitions and independent immutable-at-rest manufacturing BOM snapshots; engineering change register and linked job release/shortage warnings.
+- Existing V0.3 screens retained; procurement/stock transactions and controlled live publishing explicitly **not** delivered yet.
+
+## Next: V0.4.1 / V0.5 — deeper manufacturing controls (still isolated)
 
 1. **Component / subassembly register:** engineering structure, multiple reusable occurrences of a part, make/buy classification, revision numbers, build state and required tests. Separate *engineering BOM* and *manufacturing BOM* versions.
 2. **Change control:** immutable released drawing versions, formal change requests, impacts on materials/budget/schedule and release authorisation before workshop use.

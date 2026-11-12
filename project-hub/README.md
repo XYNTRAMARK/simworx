@@ -1,38 +1,42 @@
-> **Current build V0.3.0** — local interactive demo only. See [`docs/release-v03.md`](docs/release-v03.md). No real authentication, storage or customer access.
+# Sim-Worx Project Hub — V0.3.0
 
-# Sim-Worx Project Hub
+**12 November 2026 · Interactive local demo, not production software.** The version badge `V0.3.0` is always displayed in the top bar.
 
-**Current application version: V0.3.0** (12 November 2026)
+A safely isolated engineer-to-order simulator manufacturing and project-management prototype. It lives wholly under `project-hub/` in the public `XYNTRAMARK/simworx` repository. All demo people, budgets and project details are illustrative, including the NOAH example; **do not enter genuine contracts or other confidential information**.
 
-Local interactive prototype for engineer-to-order simulator project and manufacturing management. The version is visible permanently in the top navigation bar.
+## How to run
 
-## Preview
+1. Simplest: download the supplied single-file `SimWorx_Project_Hub_Interactive_Demo_V0.3.0.html` and open it in Chrome on your PC.
+2. From source: run `python3 -m http.server 8765` inside `project-hub/`, and open `http://localhost:8765`.
+3. Demo changes are saved in the current browser's localStorage. They are *not* synchronised across devices, and clearing browser data will remove them.
 
-Open `index.html` using a local HTTP server (`python3 -m http.server 8765` inside this folder, then `http://localhost:8765`). You can also use the supplied single-file `SimWorx_Project_Hub_Interactive_Demo_V0.3.0.html` for offline preview.
+## Working features
 
-The application is a fully isolated frontend demo using browser localStorage, not a live app. None of the sample projects or customers is a real customer data record. Customer access and approvals are simulated and do not provide production permissions or signature assurances.
+- Multi-customer project overview; project, customer, section and workshop/office job creation, editing, archiving and restoration.
+- Nested work breakdowns with job owners, priorities and status controls.
+- **V0.3:** Excel-like work register for in-cell edits; manual start/finish scheduling; multi-predecessor checks and cycle prevention; 16-week Gantt view; schedule baselines and delay warnings; CSV export with planned dates and predecessors.
+- Project-specific BOM entries, stock management, supplier order records and a new **material readiness forecast** showing potential shortages. BOM entries can be attributed to a project section.
+- Internal costing overview, customer publication drafts/withdrawals, simulated customer portal and approvals, demo invitations and activity history.
+- Working light/dark themes and persistent visible release number.
 
-## What works in V0.3.0
+## Test commands
 
-- Project portfolio, customer organisations, controlled customer preview and simulated invitations.
-- Create/edit/archive/restore projects and customer organisations (subject to safeguards).
-- Create/edit/archive/restore major project work sections, workshop/office jobs and nested sub-jobs.
-- Single-predecessor validation, blocked task status changes and WBS CSV download for Excel.
-- Create/edit/archive/restore stock parts and editable project BOM requirements.
-- Stock receipts, issues and manual adjustments with basic available-stock checks.
-- Simulated PO creation and receiving, with protected order archiving rules.
-- Document metadata registration/editing, internal vs customer-view filtering, customer-facing draft creation/edit/publish/withdraw.
-- Dark and light mode, activity history, demo-only notifications and explicit build-version badge.
+- `node --test tests/*.test.mjs` — 22 domain tests passing.
+- `python tests/browser-smoke.py` — original navigation, customers and inventory workflows.
+- `python tests/browser-crud-v02.py` — create/edit/archive regression checks.
+- `python tests/browser-planning-v03.py` — Gantt, work register, validation, baseline, materials and Excel CSV checks.
 
-## Tests
+Python browser checks require Playwright and Chromium at `/usr/bin/chromium` in the test environment.
 
-Run `node --test tests/*.test.mjs` for domain tests (16 passing). Optional browser tests require Python Playwright and a local Chromium executable at `/usr/bin/chromium`: `python tests/browser-smoke.py` and `python tests/browser-crud-v02.py`.
+## Current limitations
 
-## Security and production isolation
+The application is deliberately a **local demo** with no trusted multi-user identity, backend storage, server permissions, private file upload or email delivery. It does not safely support real customer accounts or real purchasing/stock accounting. The Gantt highlights dependency overlaps but does not auto-reschedule or calculate a validated critical path. Material readiness is an estimate and does not reserve stock. For a complete list see [`docs/release-v03.md`](docs/release-v03.md).
 
-- All source and documentation live in `project-hub/` only, within the existing public `XYNTRAMARK/simworx` repo. Never commit secrets, real customers, confidential costs, personnel data or actual contracts.
-- Absolutely no modification to the existing website root, `admin/`, `portal/`, other software, deployment workflows, production resources or Supabase without separate explicit approval.
-- The preview is **not suitable for real customer sign-in or upload**. Production requires isolated, approved database and private file storage with server-enforced access policies.
-- Do **not** deploy this folder to `/htdocs/admin/`, `/htdocs/portal/` or publish root-level changes.
+## Absolute project isolation
 
-Read `docs/industry-audit-v02.md`, `docs/release-v02.md` and `docs/safety-and-architecture.md` before continuing.
+- Keep changes under `project-hub/` and on a dedicated development branch.
+- Do not change live site root files, `admin/`, `portal/`, `.github/workflows/`, other project files, shared Supabase resources, DNS or production configuration without separate explicit approval.
+- Do not merge or deploy to production without an explicit user approval and independent isolation verification.
+- This public repository must never contain credentials, confidential contracts, supplier prices or personal data from real customers.
+
+Continue with [`docs/roadmap.md`](docs/roadmap.md), [`docs/release-v03.md`](docs/release-v03.md), and [`docs/safety-and-architecture.md`](docs/safety-and-architecture.md).

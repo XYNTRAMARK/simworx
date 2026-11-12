@@ -1,16 +1,18 @@
+> **Current build V0.3.0** — local interactive demo only. See [`docs/release-v03.md`](docs/release-v03.md). No real authentication, storage or customer access.
+
 # Sim-Worx Project Hub
 
-**Current application version: V0.2.0** (12 November 2026)
+**Current application version: V0.3.0** (12 November 2026)
 
 Local interactive prototype for engineer-to-order simulator project and manufacturing management. The version is visible permanently in the top navigation bar.
 
 ## Preview
 
-Open `index.html` using a local HTTP server (`python3 -m http.server 8765` inside this folder, then `http://localhost:8765`). You can also use the supplied single-file `SimWorx_Project_Hub_Interactive_Demo_V0.2.0.html` for offline preview.
+Open `index.html` using a local HTTP server (`python3 -m http.server 8765` inside this folder, then `http://localhost:8765`). You can also use the supplied single-file `SimWorx_Project_Hub_Interactive_Demo_V0.3.0.html` for offline preview.
 
 The application is a fully isolated frontend demo using browser localStorage, not a live app. None of the sample projects or customers is a real customer data record. Customer access and approvals are simulated and do not provide production permissions or signature assurances.
 
-## What works in V0.2.0
+## What works in V0.3.0
 
 - Project portfolio, customer organisations, controlled customer preview and simulated invitations.
 - Create/edit/archive/restore projects and customer organisations (subject to safeguards).

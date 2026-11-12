@@ -1,3 +1,5 @@
+> Current baseline: **V0.3.0**. See `release-v03.md`.
+
 > Current baseline: **V0.2.0**. See `industry-audit-v02.md` and `release-v02.md`.
 
 # Development roadmap

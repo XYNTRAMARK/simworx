@@ -122,33 +122,88 @@ export function saveSection(state,{id,projectId,name,weight}){
   if(id){const s=state.sections.find(s=>s.id===id&&!s.archivedAt&&s.projectId===projectId);if(!s)throw Error('Section unavailable');Object.assign(s,{name:n,weight:w});logChange(state,'Section updated',n);return s;}
   const s={id:uid('s'),projectId,name:n,weight:w};state.sections.push(s);logChange(state,'Section created',n);return s;
 }
-export function saveTask(state,{id,projectId,sectionId,title,department,assignee,priority,due,status,parentId,blockedBy}){
+// V0.3 planning model: dependency graph, dated plans and immutable-by-default baselines.
+export function predecessorIds(task){
+  return [...new Set([...(Array.isArray(task.predecessors)?task.predecessors:[]),...(task.blockedBy?[task.blockedBy]:[])].filter(Boolean))];
+}
+const validDate = value => !value || (/^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value+'T12:00:00Z')) && new Date(value+'T12:00:00Z').toISOString().slice(0,10)===value);
+function verifyJobDates(start,due){
+  if(!validDate(start)||!validDate(due))throw Error('Enter valid ISO dates');
+  if(start && due && due<start)throw Error('Finish date cannot precede start date');
+}
+function verifyPredecessors(state, projectId, taskId, ids){
+  const all=[...new Set(ids.filter(Boolean))];
+  for(const id of all){const other=state.tasks.find(t=>t.id===id&&!t.archivedAt);if(!other||other.projectId!==projectId||id===taskId)throw Error('Predecessors must be different jobs from this project');}
+  const adjacency=id=>id===taskId?all:predecessorIds(state.tasks.find(t=>t.id===id)||{});
+  for(const id of all){const seen=new Set();const check=node=>{if(node===taskId)throw Error('Circular predecessor dependency is not permitted');if(seen.has(node))return;seen.add(node);adjacency(node).forEach(check)};check(id);}
+  return all;
+}
+export function saveTask(state,{id,projectId,sectionId,title,department,assignee,priority,due,start,status,parentId,blockedBy,predecessors}){
   if(!state.projects.some(p=>p.id===projectId&&!p.archivedAt))throw Error('Project unavailable');
   if(!state.sections.some(s=>s.id===sectionId&&s.projectId===projectId&&!s.archivedAt))throw Error('Invalid section for project');
   const name=requireText(title,'Job title');
   if(!['Office','Workshop','Purchasing','Quality'].includes(department))throw Error('Invalid department');
   if(!['Normal','High','Critical'].includes(priority))throw Error('Invalid priority');
+  const current=id?state.tasks.find(t=>t.id===id&&!t.archivedAt):null;
+  if(id&&!current)throw Error('Job unavailable');
+  if(id&&current.projectId!==projectId)throw Error('Cannot move a job to another project');
   const parent=parentId?state.tasks.find(t=>t.id===parentId&&!t.archivedAt):null;
-  const dependency=blockedBy?state.tasks.find(t=>t.id===blockedBy&&!t.archivedAt):null;
   if(parentId&&(!parent||parent.projectId!==projectId||parent.sectionId!==sectionId||parent.id===id))throw Error('Parent job must belong to this section');
-  if(blockedBy&&(!dependency||dependency.projectId!==projectId||dependency.id===id))throw Error('Predecessor must be another job in this project');
-  if(id){const t=state.tasks.find(t=>t.id===id&&!t.archivedAt);if(!t)throw Error('Job unavailable');
-    if(sectionId!==t.sectionId && state.tasks.some(child=>!child.archivedAt&&child.parentId===id))throw Error('Move child jobs before moving this parent');
-    // Prevent a task becoming an ancestor of itself.
-    let cursor=parent;const seen=new Set([id]);while(cursor){if(seen.has(cursor.id))throw Error('Circular work breakdown is not permitted');seen.add(cursor.id);cursor=state.tasks.find(x=>x.id===cursor.parentId&&!x.archivedAt)}
-    if(status==='Done'&&dependency&&dependency.status!=='Done')throw Error('Predecessor is not completed');
-    let depCursor=dependency;const dependencySeen=new Set([id]);while(depCursor){if(dependencySeen.has(depCursor.id))throw Error('Circular predecessor dependency is not permitted');dependencySeen.add(depCursor.id);depCursor=state.tasks.find(x=>x.id===depCursor.blockedBy&&!x.archivedAt)}
-    Object.assign(t,{sectionId,title:name,department,assignee:String(assignee||'Unassigned'),priority,due:String(due||''),status:status||t.status,parentId:parentId||null,blockedBy:blockedBy||null});
-    logChange(state,'Job updated',name);return t;
-  }
-  const t={id:uid('t'),projectId,sectionId,title:name,department,assignee:String(assignee||'Unassigned'),priority,due:String(due||''),status:status||'Backlog',parentId:parentId||null,blockedBy:blockedBy||null};
-  state.tasks.push(t);logChange(state,'Job created',name);return t;
+  if(current && sectionId!==current.sectionId&&state.tasks.some(c=>!c.archivedAt&&c.parentId===id))throw Error('Move child jobs before moving this parent');
+  let cursor=parent;const ancestors=new Set(id?[id]:[]);
+  while(cursor){if(ancestors.has(cursor.id))throw Error('Circular work breakdown is not permitted');ancestors.add(cursor.id);cursor=state.tasks.find(t=>t.id===cursor.parentId&&!t.archivedAt)}
+  const startDate=start===undefined?(current?.start||''):String(start||'');
+  const finishDate=String(due||'');verifyJobDates(startDate,finishDate);
+  let requested=Array.isArray(predecessors)?predecessors.slice():blockedBy?[blockedBy]:[];
+  // Backward compatible with V0.2 callers modifying blockedBy while spreading an existing record.
+  if(Array.isArray(predecessors)&&blockedBy && current && blockedBy!==current.blockedBy)requested=[blockedBy,...requested];
+  const dependencies=verifyPredecessors(state,projectId,id,requested);
+  if(status==='Done' && dependencies.some(x=>state.tasks.find(t=>t.id===x)?.status!=='Done'))throw Error('Complete predecessor job first');
+  const fields={sectionId,title:name,department,assignee:String(assignee||'Unassigned'),priority,due:finishDate,start:startDate,status:status||current?.status||'Backlog',parentId:parentId||null,predecessors:dependencies,blockedBy:dependencies[0]||null};
+  if(current){Object.assign(current,fields);logChange(state,'Job updated',name);return current;}
+  const record={id:uid('t'),projectId,...fields};state.tasks.push(record);logChange(state,'Job created',name);return record;
 }
 export function setTaskStatus(state,id,status){
   const t=state.tasks.find(t=>t.id===id&&!t.archivedAt);if(!t)throw Error('Job unavailable');
   if(!['Backlog','Ready','In progress','Blocked','Inspection','Done','Cancelled'].includes(status))throw Error('Invalid job status');
-  if(['Ready','In progress','Inspection','Done'].includes(status)&&t.blockedBy){const dep=state.tasks.find(x=>x.id===t.blockedBy);if(!dep||dep.archivedAt||dep.status!=='Done')throw Error('Complete predecessor job first');}
+  if(['Ready','In progress','Inspection','Done'].includes(status)){
+    const waiting=predecessorIds(t).filter(x=>state.tasks.find(d=>d.id===x&&!d.archivedAt)?.status!=='Done');
+    if(waiting.length)throw Error('Complete predecessor job first');
+  }
   t.status=status;logChange(state,'Job status updated',`${t.title} → ${status}`);return t;
+}
+export function updateTaskPlan(state,taskId,{start,due,predecessors}){
+  const task=state.tasks.find(t=>t.id===taskId&&!t.archivedAt);if(!task)throw Error('Job unavailable');
+  const draft={...task,start:start===undefined?task.start:start,due:due===undefined?task.due:due,predecessors:predecessors===undefined?predecessorIds(task):predecessors,blockedBy:null};
+  return saveTask(state,draft);
+}
+export function captureBaseline(state,projectId,actor='Sim-Worx Project Manager'){
+  const project=state.projects.find(p=>p.id===projectId&&!p.archivedAt);if(!project)throw Error('Project unavailable');
+  const jobs=state.tasks.filter(t=>t.projectId===projectId&&!t.archivedAt&&t.status!=='Cancelled'&&t.start&&t.due);
+  if(!jobs.length)throw Error('Plan start and finish dates for at least one job first');
+  project.baseline={capturedAt:new Date().toISOString(),capturedBy:actor,jobs:Object.fromEntries(jobs.map(t=>[t.id,{start:t.start,due:t.due}]))};
+  logChange(state,'Schedule baseline captured',`${project.code} · ${jobs.length} planned jobs`);return project.baseline;
+}
+export function scheduleSummary(state,projectId,asOf=today()){
+  const jobs=state.tasks.filter(t=>t.projectId===projectId&&!t.archivedAt&&t.status!=='Cancelled');
+  const byId=new Map(jobs.map(t=>[t.id,t]));
+  const project=state.projects.find(p=>p.id===projectId);const base=project?.baseline?.jobs||{};
+  const lagDays=(newDate,oldDate)=>Math.round((Date.parse(newDate+'T12:00:00Z')-Date.parse(oldDate+'T12:00:00Z'))/86400000);
+  const conflicts=[];
+  jobs.forEach(t=>predecessorIds(t).forEach(id=>{const p=byId.get(id);if(p&&t.start&&p.due&&t.start<=p.due)conflicts.push({jobId:t.id,predecessorId:id,job:t.title,predecessor:p.title});}));
+  const slipped=jobs.filter(t=>base[t.id]?.due&&t.due&&t.due>base[t.id].due);
+  const unscheduled=jobs.filter(t=>!t.start||!t.due);
+  const overdue=jobs.filter(t=>t.due&&t.due<asOf&&t.status!=='Done');
+  return {total:jobs.length,planned:jobs.length-unscheduled.length,unscheduled,overdue,conflicts,slipped,baselineAt:project?.baseline?.capturedAt||null,lagDays};
+}
+export function materialReadiness(state,projectId){
+  return state.bom.filter(b=>b.projectId===projectId&&!b.archivedAt).map(b=>{
+    const part=state.parts.find(p=>p.id===b.partId);
+    const outstanding=Math.max(0,Number(b.required||0)-Number(b.issued||0)-Number(b.reserved||0));
+    const freeStock=part?Math.max(0,availableStock(part)):0;
+    const incoming=state.orders.filter(o=>o.projectId===projectId&&!o.archivedAt).reduce((sum,o)=>sum+o.items.filter(i=>i.partId===b.partId).reduce((s,i)=>s+lineOutstanding(i),0),0);
+    return {...b,part,quantityOutstanding:outstanding,freeStock,incoming,estimatedGap:Math.max(0,outstanding-freeStock-incoming)};
+  });
 }
 export function savePart(state,{id,code,name,unit,supplier,location,min,cost}){
   const c=requireText(code,'Part number').toUpperCase(),n=requireText(name,'Part name');
@@ -159,13 +214,14 @@ export function savePart(state,{id,code,name,unit,supplier,location,min,cost}){
   if(id){const p=state.parts.find(p=>p.id===id&&!p.archivedAt);if(!p)throw Error('Part unavailable');Object.assign(p,base);logChange(state,'Part updated',c);return p;}
   const p={id:uid('part'),...base,onHand:0,reserved:0};state.parts.push(p);logChange(state,'Part created',c);return p;
 }
-export function saveBomLine(state,{id,projectId,partId,required}){
+export function saveBomLine(state,{id,projectId,partId,required,sectionId}){
   if(!state.projects.some(p=>p.id===projectId&&!p.archivedAt))throw Error('Project unavailable');
   if(!state.parts.some(p=>p.id===partId&&!p.archivedAt))throw Error('Part unavailable');
+  if(sectionId&&!state.sections.some(s=>s.id===sectionId&&!s.archivedAt&&s.projectId===projectId))throw Error('Assembly section must belong to this project');
   const q=Number(required);if(!Number.isInteger(q)||q<1)throw Error('Required quantity must be a positive whole number');
   if(state.bom.some(b=>!b.archivedAt&&b.id!==id&&b.projectId===projectId&&b.partId===partId))throw Error('This part is already in the project BOM');
-  if(id){const b=state.bom.find(b=>b.id===id&&!b.archivedAt&&b.projectId===projectId);if(!b)throw Error('BOM line unavailable');if(b.partId!==partId)throw Error('Change the quantity or archive this line and add another part');if(q<Number(b.issued||0)+Number(b.reserved||0))throw Error('Cannot reduce below issued and reserved quantity');b.required=q;logChange(state,'BOM quantity updated',`${projectId}: ${partId} × ${q}`);return b;}
-  const b={id:uid('bom'),projectId,partId,required:q,reserved:0,issued:0};state.bom.push(b);logChange(state,'BOM part added',`${projectId}: ${partId} × ${q}`);return b;
+  if(id){const b=state.bom.find(b=>b.id===id&&!b.archivedAt&&b.projectId===projectId);if(!b)throw Error('BOM line unavailable');if(b.partId!==partId)throw Error('Change the quantity or archive this line and add another part');if(q<Number(b.issued||0)+Number(b.reserved||0))throw Error('Cannot reduce below issued and reserved quantity');b.required=q;b.sectionId=sectionId===undefined?b.sectionId:(sectionId||null);logChange(state,'BOM quantity updated',`${projectId}: ${partId} × ${q}`);return b;}
+  const b={id:uid('bom'),projectId,partId,sectionId:sectionId||null,required:q,reserved:0,issued:0};state.bom.push(b);logChange(state,'BOM part added',`${projectId}: ${partId} × ${q}`);return b;
 }
 export function archiveRecord(state,kind,id){
   const whitelist=['organizations','projects','sections','tasks','parts','bom','documents','members','updates','orders'];
@@ -176,7 +232,7 @@ export function archiveRecord(state,kind,id){
   if(kind==='parts'&&(row.onHand!==0||row.reserved!==0||state.bom.some(b=>b.partId===id&&!b.archivedAt)||state.orders.some(o=>!o.archivedAt&&o.items.some(l=>l.partId===id))))throw Error('Part still has stock or is referenced in purchasing/BOM');
   if(kind==='bom'&&(Number(row.issued)>0||Number(row.reserved)>0))throw Error('Cannot archive an issued or reserved BOM line');
   if(kind==='orders'&&row.items.some(l=>Number(l.received)>0))throw Error('Cannot archive an order with received stock');
-  if(kind==='tasks'&&state.tasks.some(t=>!t.archivedAt&&(t.parentId===id||t.blockedBy===id)))throw Error('Archive or unlink dependent jobs first');
+  if(kind==='tasks'&&state.tasks.some(t=>!t.archivedAt&&(t.parentId===id||predecessorIds(t).includes(id))))throw Error('Archive or unlink dependent jobs first');
   if(kind==='updates'&&row.status==='published')throw Error('Published updates require a withdrawal, not deletion');
   row.archivedAt=new Date().toISOString();logChange(state,'Record archived',`${kind}: ${row.title||row.name||row.code||id}`);return row;
 }

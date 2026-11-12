@@ -14,7 +14,7 @@ def run():
   errors=[];page.on('pageerror',lambda err: errors.append(str(err)))
   page.set_content('<style>'+ (ROOT/'styles.css').read_text()+'</style><div id="app"></div>')
   page.evaluate(bundle())
-  assert page.locator('.version-chip').inner_text()=='V0.2.0'
+  assert page.locator('.version-chip').inner_text()=='V0.3.0'
   # Project edit
   page.locator('.sidebar [data-action=nav][data-id=projects]').click()
   page.locator('[data-action=edit-project]').first.click()

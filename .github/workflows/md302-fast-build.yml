@@ -1,0 +1,57 @@
+name: MD302 Fast Review Build
+
+on:
+  push:
+    branches:
+      - feature/md302-stage1
+    paths:
+      - "tools/md302-standalone/**"
+      - ".github/workflows/md302-fast-build.yml"
+  pull_request:
+    paths:
+      - "tools/md302-standalone/**"
+      - ".github/workflows/md302-fast-build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore Windows target
+        run: >
+          dotnet restore tools/md302-standalone/Simworx.MD302.csproj
+          /p:EnableWindowsTargeting=true
+
+      - name: Build Windows target
+        run: >
+          dotnet build tools/md302-standalone/Simworx.MD302.csproj
+          -c Release
+          --no-restore
+          /p:EnableWindowsTargeting=true
+
+      - name: Publish Windows x64 review build
+        run: >
+          dotnet publish tools/md302-standalone/Simworx.MD302.csproj
+          -c Release
+          -r win-x64
+          --self-contained false
+          /p:PublishSingleFile=true
+          /p:DebugType=None
+          /p:DebugSymbols=false
+          /p:EnableWindowsTargeting=true
+          -o artifacts/MD302-review
+
+      - name: Upload complete MD302 review package
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimworxMD302_CoordinateFix
+          path: artifacts/MD302-review/**
+          if-no-files-found: error

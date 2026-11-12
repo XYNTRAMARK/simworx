@@ -1,52 +1,36 @@
-# Sim-Worx Project Hub — working local demo (V0.1)
+# Sim-Worx Project Hub
 
-**Status:** Feature branch / isolated standalone prototype. Not deployed. Not connected to any production customer data, login system or live database.
+**Current application version: V0.2.0** (12 November 2026)
 
-An interactive manufacturing project hub for Sim-Worx, designed around multi-customer projects, engineering/workshop jobs, component BOMs, purchasing and inventory, internal financial oversight, curated customer project updates and approval workflows.
+Local interactive prototype for engineer-to-order simulator project and manufacturing management. The version is visible permanently in the top navigation bar.
 
-## Run locally
+## Preview
 
-Zero npm packages or build service required. From inside `project-hub/` run:
+Open `index.html` using a local HTTP server (`python3 -m http.server 8765` inside this folder, then `http://localhost:8765`). You can also use the supplied single-file `SimWorx_Project_Hub_Interactive_Demo_V0.2.0.html` for offline preview.
 
-```bash
-python -m http.server 8765
-```
+The application is a fully isolated frontend demo using browser localStorage, not a live app. None of the sample projects or customers is a real customer data record. Customer access and approvals are simulated and do not provide production permissions or signature assurances.
 
-Open `http://localhost:8765`. Any ordinary static-file server will work. Browser `localStorage` retains demo actions until reset; browser storage is not a secure database. No source needs to be copied outside this directory.
+## What works in V0.2.0
 
-## Test
+- Project portfolio, customer organisations, controlled customer preview and simulated invitations.
+- Create/edit/archive/restore projects and customer organisations (subject to safeguards).
+- Create/edit/archive/restore major project work sections, workshop/office jobs and nested sub-jobs.
+- Single-predecessor validation, blocked task status changes and WBS CSV download for Excel.
+- Create/edit/archive/restore stock parts and editable project BOM requirements.
+- Stock receipts, issues and manual adjustments with basic available-stock checks.
+- Simulated PO creation and receiving, with protected order archiving rules.
+- Document metadata registration/editing, internal vs customer-view filtering, customer-facing draft creation/edit/publish/withdraw.
+- Dark and light mode, activity history, demo-only notifications and explicit build-version badge.
 
-```bash
-node --test tests/*.test.mjs
-node --check src/app.mjs
-```
+## Tests
 
-## What works in V0.1
+Run `node --test tests/*.test.mjs` for domain tests (16 passing). Optional browser tests require Python Playwright and a local Chromium executable at `/usr/bin/chromium`: `python tests/browser-smoke.py` and `python tests/browser-crud-v02.py`.
 
-- Responsive light/dark application shell with original navy / violet Sim-Worx theme.
-- Multiple independent customers and projects; new customer and template-based project setup.
-- Work breakdown by section; create jobs, assign a department/person, change workflow status in board or list views.
-- Bills of materials, parts, reservations, stock-on-hand, purchase orders, receipts, adjustments and movement history (single-user demo logic).
-- Internal fictional contract value, budget, spending, commitment and projected headroom screens.
-- Curated project update drafting then explicit publication to a customer-facing preview.
-- Separate customer portal projection with customer-scoped projects, published part/milestone updates, revision-labelled approvals, document metadata, messages and team lists.
-- Demo client invitations with project scoping, no actual invitation email.
-- In-app notifications, audit samples, theme preferences and resettable local demonstration data.
+## Security and production isolation
 
-**Intentionally not live yet:** email sending, real authentication, secure uploads/downloads, server-enforced multi-tenant permissions, persistence between users, transactional inventory concurrency, real supplier ordering, integrated payment/ERP, e-signature, QR/barcodes, time logging, deployed hosting. No real passwords or personal/customer information should be entered in this demo.
+- All source and documentation live in `project-hub/` only, within the existing public `XYNTRAMARK/simworx` repo. Never commit secrets, real customers, confidential costs, personnel data or actual contracts.
+- Absolutely no modification to the existing website root, `admin/`, `portal/`, other software, deployment workflows, production resources or Supabase without separate explicit approval.
+- The preview is **not suitable for real customer sign-in or upload**. Production requires isolated, approved database and private file storage with server-enforced access policies.
+- Do **not** deploy this folder to `/htdocs/admin/`, `/htdocs/portal/` or publish root-level changes.
 
-## Safety boundary
-
-The entire app lives under `project-hub/` in `XYNTRAMARK/simworx`. No existing path or deployment workflow is modified. The repository is public, so use only synthetic information and no secrets. Read `docs/safety-and-architecture.md` before making backend or hosting changes.
-
-## Architecture
-
-- `index.html`: isolated static entry
-- `styles.css`: responsive theme system
-- `src/app.mjs`: browser UI with delegated events, local demo persistence, sections and views
-- `src/demo-data.mjs`: **fictional** seed dataset
-- `src/model.mjs`: pure domain logic, customer allowlist projection and invariants
-- `tests/`: Node test runner smoke/domain checks
-- `docs/`: isolation plan, roadmap and production gates
-
-The real product should add an approved isolated Supabase backend with row-level security and separate client/publication views before any customer is allowed to log in.
+Read `docs/industry-audit-v02.md`, `docs/release-v02.md` and `docs/safety-and-architecture.md` before continuing.

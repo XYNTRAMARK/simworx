@@ -1,3 +1,5 @@
+> Current baseline: **V0.2.0**. See `industry-audit-v02.md` and `release-v02.md`.
+
 # Development roadmap
 
 **V0.1 (current):** visual interactive local/demo-first platform with multi-customer, work, inventory, cost and customer projection modules. All data fictional. Email/storage/auth disabled.

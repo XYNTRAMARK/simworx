@@ -1,0 +1,12 @@
+{
+  "name": "simworx-website-intelligence",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Isolated HTML reporting and first-party analytics for Simworx",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs integration/tests/*.test.mjs",
+    "preview": "python3 -m http.server 8765 --directory reports"
+  },
+  "engines": { "node": ">=22" }
+}

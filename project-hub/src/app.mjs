@@ -601,7 +601,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'receive-po':{const po=data.orders.find(x=>x.id===id);if(po&&contractControlled(data,po.projectId))throw Error('Contract-controlled goods must be registered as arrived and accepted by inspection. Open Purchasing → Delivery / inspection.');receiveOrder(data,id);persist();render();toast('Outstanding purchase order quantities received into stock');break;}
   case 'notifications':openModal('notifications');break;
   case 'mark-read':data.notifications.forEach(x=>x.read=true);persist();closeModal();toast('Notifications marked as read');break;
-  case 'reset-demo':if(confirm('Delete every project, material, order, cost and note from this workspace? Export a private backup first. This cannot be undone.')){data=emptyWorkspace();persist();ui.page='overview';ui.project='';ui.projectTab='focus';ui.procurementProject='';ui.v46PurchaseLine=null;ui.clientOrg='';ui.clientProject='';render();toast('Workspace cleared. Import your private NOAH workspace in Settings.')}break;
+  case 'reset-demo':if(confirm('Delete every project, material, order, cost and note from this workspace? Export a private backup first. This cannot be undone.')){data=emptyWorkspace();persist();ui.page='overview';ui.project='';ui.projectTab='focus';ui.procurementProject='';ui.v46PurchaseLine=null;ui.clientOrg='';ui.clientProject='';render();toast('Workspace cleared. Import your private contract workspace in Settings.')}break;
   case 'refresh':render();toast('Workspace view refreshed from local records');break;
   }}catch(err){toast(err.message||'Unable to complete this action',true)}
 }
@@ -721,7 +721,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.7</h2></div><p>Use Restore JSON backup to load the private NOAH contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.7</h2></div><p>Use Restore JSON backup to load the private contract contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;

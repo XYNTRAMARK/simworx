@@ -6,6 +6,8 @@ reservationRemaining,materialReadinessV041,assemblyAllocationReadiness,saveOrder
 addOrderAttachment,removeOrderAttachment,createWorkspaceBackup,parseWorkspaceBackup} from './materials-v041.mjs';
 import {activeAssemblies,saveOccurrence,archiveManufacturing,assemblyRollup} from './manufacturing.mjs';
 import {procurementPlan} from './procurement-planning-v043.mjs';
+import {renderProjectMaterialPlanner} from './planning-ui-v043.mjs';
+import {savePart} from './model.mjs';
 
 const h=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'" :'&#39;'}[c]));
 const fmt=n=>new Intl.NumberFormat('en-GB',{maximumFractionDigits:2}).format(Number(n)||0);
@@ -81,9 +83,21 @@ export function renderProjectSupply(s,ui,projectId){
      btn('Remove','v42-material-remove','data-id="'+h(x.id)+'"','small danger')+
      btn('Edit part master','v42-edit-master','data-id="'+h(x.partId)+'"','small')+'</div></td></tr>';
  }).join('');
+
+ const quickForm=ui.showQuickPart?'<form class="v43-quick-part-form" data-form="v43-quick-part">'+
+   '<input type="hidden" name="projectId" value="'+h(projectId)+'">'+
+   label('Part/SKU number',input('code','','text','required maxlength="80" placeholder="SW-PAN-001"'))+
+   label('Description',input('name','','text','required placeholder="Cut aluminium panel"'))+
+   label('Unit',input('unit','ea','text','required'))+
+   label('Preferred supplier',input('supplier',''))+
+   label('Est. unit cost (€)',input('cost',0,'number','min="0" step="0.01" required'))+
+   label('For project assembly',pick('assemblyId',assemblies.map(a=>[a.id,a.name]),assemblies[0]?.id,'required'))+
+   label('Quantity required',input('quantity',1,'number','min="1" step="1" required'))+
+   '<button class="btn primary" type="submit">Create and add to project</button>'+
+   btn('Cancel','v43-quick-part-cancel','','small')+'</form>':'';
  const archivedReq=s.assemblyBOM.filter(x=>x.projectId===projectId&&x.archivedAt);
  const requirementsPanel=panel('Material requirements · add / edit / remove',
-  '<div class="v41-toolbar">'+btn('+ New part identity','v42-new-part','','small')+
+  '<div class="v41-toolbar">'+btn('+ New part identity','v42-new-part','','small primary')+quickForm+
   '<p class="v41-caption">Changing the selected part here affects only this requirement. Editing the master SKU affects every project using it.</p></div>'+
   (assemblies.length?form:'<p class="v41-notice">Create an assembly first in Assembly control.</p>')+
   '<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part identity</th><th>Assembly</th><th>Qty</th><th>Position</th><th>Controls</th></tr></thead><tbody>'+
@@ -108,9 +122,10 @@ export function renderProjectSupply(s,ui,projectId){
     '<button class="btn small">Consume</button></form>':'';
   return '<tr><td>'+h(p?.code)+'</td><td>'+h(a?.name||'Project allocation')+'</td><td>'+fmt(remain)+'</td><td>'+fmt(r.issued||0)+'</td><td>'+fmt(r.consumed||0)+'</td><td><div class="v41-actions">'+issue+release+consume+'</div></td></tr>';
  }).join('');
- return '<div class="v41"><div class="v41-intro"><div><h2>Project procurement & materials</h2><p>Assembly BOM → shared workshop inventory → reservations → purchasing → receipts → workshop issue.</p></div>'+badge('V0.4.2 local demo')+'</div>'+
+ return '<div class="v41"><div class="v41-intro"><div><h2>Project procurement & materials</h2><p>Assembly BOM → shared workshop inventory → reservations → purchasing → receipts → workshop issue.</p></div>'+badge('V0.4.3 local demo')+'</div>'+
   '<div class="v41-kpis"><div><b>'+rows.length+'</b><span>Required part SKUs</span></div><div><b>'+shortage.length+'</b><span>Materials still to source</span></div><div><b>'+orders.length+'</b><span>Purchase orders for project</span></div><div><b>'+res.filter(x=>reservationRemaining(x)>0).length+'</b><span>Active allocations</span></div></div>'+
   requirementsPanel+
+  renderProjectMaterialPlanner(s,projectId)+
   panel('Stock check & order requirements','<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part</th><th>BOM need</th><th>Reserved here</th><th>Issued here</th><th>Available / other projects</th><th>On order</th><th>Order stage / shortage</th><th>Allocate / order</th></tr></thead><tbody>'+rowsHTML+'</tbody></table></div><p class="v41-caption">Available means on-hand less ALL project and legacy reservations. Goods merely ordered are never counted in on-hand stock. BOM requirements from nested assemblies are rolled up.</p>')+
   panel('Project allocations & workshop issue','<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part</th><th>Assembly</th><th>Reserved</th><th>Issued</th><th>Consumed</th><th>Action</th></tr></thead><tbody>'+(reservationRows||'<tr><td colspan="6">No project-specific stock reservations yet.</td></tr>')+'</tbody></table></div>')+
   '<div class="v41-heading"><h3>Purchase orders linked to this project</h3>'+btn('+ Create purchase order','v41-order-new','data-project="'+h(projectId)+'"','small primary')+'</div>'+
@@ -295,7 +310,9 @@ export function renderInventoryV041(s,ui){
 export function handleMaterialsAction(s,ui,el,confirmFn=()=>true){
  const action=el.dataset.action;
  ensureMaterials(s);
- if(action==='v42-material-edit'){ui.materialEditOccurrence=el.dataset.id;}
+ if(action==='v42-new-part'){ui.showQuickPart=!ui.showQuickPart;}
+ else if(action==='v43-quick-part-cancel'){ui.showQuickPart=false;}
+ else if(action==='v42-material-edit'){ui.materialEditOccurrence=el.dataset.id;}
  else if(action==='v42-material-cancel'){ui.materialEditOccurrence=null;}
  else if(action==='v42-material-remove'){
   if(confirmFn('Remove this project requirement? It stays archived for restoration; historic released manufacturing snapshots are unchanged.')){
@@ -343,7 +360,18 @@ export function handleMaterialsSubmit(s,ui,form){
  const fd=new FormData(form);
  const v=n=>String(fd.get(n)||'').trim();
  const type=form.dataset.form;
- if(type==='v41-requirement'){
+
+ if(type==='v43-quick-part'){
+   const projectId=v('projectId'),assemblyId=v('assemblyId'),qty=Number(v('quantity'));
+   if(!s.assemblies.some(a=>a.id===assemblyId&&a.projectId===projectId&&!a.archivedAt))throw Error('Select an active assembly in this project');
+   if(!Number.isSafeInteger(qty)||qty<=0)throw Error('Quantity must be a positive whole number');
+   const part=savePart(s,{code:v('code'),name:v('name'),unit:v('unit'),supplier:v('supplier'),
+     location:'',min:0,cost:v('cost')});
+   try{saveOccurrence(s,{assemblyId,partId:part.id,quantity:qty,position:'',makeBuy:'Buy'});}
+   catch(err){s.parts=s.parts.filter(p=>p.id!==part.id);throw err;}
+   ui.showQuickPart=false;
+ }
+ else if(type==='v41-requirement'){
    saveOccurrence(s,{assemblyId:v('assemblyId'),partId:v('partId'),quantity:v('quantity'),position:v('position'),makeBuy:'Buy'});
  }
  else if(type==='v42-material-edit'){

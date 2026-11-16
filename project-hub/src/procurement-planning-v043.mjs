@@ -62,8 +62,8 @@ export function exportProcurementReviewCSV(s,projectId,today=new Date().toISOStr
  const csv=v=>{
   let x=String(v??'');
   // Spreadsheet formula injection protection for staff-entered names and notes.
-  if(/^[\\s]*[=+@\\-]/.test(x)&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(x))x="'"+x;
+  if(/^\s*[=+@-]/.test(x)&&!/^\d{4}-\d{2}-\d{2}$/.test(x))x="'"+x;
   return '"'+x.replace(/"/g,'""')+'"';
  };
- return cells.map(row=>row.map(csv).join(',')).join('\\r\\n');
+ return cells.map(row=>row.map(csv).join(',')).join('\r\n');
 }

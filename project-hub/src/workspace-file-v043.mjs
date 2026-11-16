@@ -63,7 +63,14 @@ export function createWorkspaceFileController({onStatus=()=>{}}={}){
    const file=await fileHandle.getFile();
    if(file.size>10000000)throw Error('Linked workspace file exceeds the 10 MB restore limit');
    const recorded=await file.text();
-   if(recorded!==expectedText)throw Error('File contents DO NOT match current browser records. Review your backups before replacing either copy.');
+   // Backup envelopes contain a fresh createdAt timestamp on each export; compare all
+   // persisted project state and schema instead of the export timestamp.
+   const normalize=text=>{
+    const obj=JSON.parse(text);
+    if(obj&&obj.format==='simworx-project-hub-backup')delete obj.createdAt;
+    return JSON.stringify(obj);
+   };
+   if(normalize(recorded)!==normalize(expectedText))throw Error('File contents DO NOT match current browser records. Review your backups before replacing either copy.');
    emit('file-verified','Read-back confirmed: linked file matches the browser workspace');
    return {bytes:file.size,lastSaved};
   }catch(err){

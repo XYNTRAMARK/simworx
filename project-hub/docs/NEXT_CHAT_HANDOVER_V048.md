@@ -20,7 +20,7 @@ V0.4.7 introduced colour-coded work packages, source URL and supplier SKU record
 3. Owner-only department allocations: named department and responsible person, budget envelope drawn from a verified internal project budget, material responsibility linked to a department/person/task. Team tab summarises assigned envelopes, actual order commitments and received costs. **Spending envelopes are tracking only** — automatic per-PO limits and approvals are not yet implemented.
 4. Private photo evidence compressed in browser and stored in local workspace/JSON, attached to work package or job, with gallery, archive and JSON export/backup implications. No cloud uploads.
 5. Future customer visibility allowlist and a local owner-only preview. Default-deny and no actual online customer login or distribution; projection shows only allowlisted section and manually written safe summary.
-6. Owner's NOAA King Air 360ER contract import is private local data. Previously it had 83 planned tasks, 47 engineering materials, 15 work packages, no real supplier POs, no verified progress or budget. Do not hardcode those particulars into generic public code.
+6. The owner's real first contract project exists only in private local JSON and source documents. Do not hardcode project identities, private quantities, commercial terms, supplier records or contract-derived schedules into public code. Any specific real-project audit must read the original private source documents in the owner's workspace.
 
 Read `project-hub/docs/release-v048.md`, `README.md`, `src/app.mjs`, `src/project-control-v046.mjs`, `src/materials-ui-v041.mjs`, `src/team-workspace-v048.mjs`, `src/team-ui-v048.mjs`, `src/model.mjs`, `src/procurement-workflow-v047.mjs`, and the tests to understand the current architecture.
 
@@ -35,7 +35,7 @@ Audit and fix *flows*, not just individual tables:
 - Customer future portal must allow precisely owner-approved progress only and should use a secure server-side permission model when authorized. Do not activate access now.
 - Review UX labels, density, responsive layout, accessibility, task grouping, version visibility, error handling, performance for 100s-1000s of line items, data backup, offline storage quotas and security.
 
-Prioritize bugs and essential daily workflows over cosmetic polish. Independently verify existing features rather than trusting release notes. Use synthetic fixtures; keep actual NOAA data untouched unless the owner specifically requests a reset. Develop V0.4.9 (or next logical version), implement high-impact enhancements within scope, preserve backward compatibility, run tests and deliver full HTML/ZIP for the owner to open. Then provide a structured owner acceptance test and the next handover.
+Prioritize bugs and essential daily workflows over cosmetic polish. Independently verify existing features rather than trusting release notes. Use synthetic fixtures; keep actual private project data untouched unless the owner specifically requests a reset. Develop V0.4.9 (or next logical version), implement high-impact enhancements within scope, preserve backward compatibility, run tests and deliver full HTML/ZIP for the owner to open. Then provide a structured owner acceptance test and the next handover.
 
 ## Known gaps you should address or explicitly defer
 - Department envelopes are NOT yet hard PO approval/spend caps. Need safe confirmation of authorized buyer, assigned budget, overrun safeguards, currency/tax treatment and approval trail. Do not fabricate approval records.

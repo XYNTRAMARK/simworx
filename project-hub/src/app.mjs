@@ -3,7 +3,8 @@ import {createWorkspaceFileController} from './workspace-file-v043.mjs';
 import {createLocalStaffGate} from './staff-access-v043.mjs';
 import {ensureManufacturing,projectManufacturingAlerts,saveAssembly} from './manufacturing.mjs';
 import {renderManufacturing,handleManufacturingAction,handleManufacturingSubmit} from './manufacturing-ui.mjs';
-import {ensureMaterials,materialReadinessV041,createWorkspaceBackup,parseWorkspaceBackup} from './materials-v041.mjs';
+import {ensureMaterials,materialReadinessV041,createWorkspaceBackup,parseWorkspaceBackup,receivePurchaseLine,setPurchaseDispatch,closePurchaseBalance,reopenPurchaseBalance} from './materials-v041.mjs';
+import {contractControlled,specStatus,reviewRequirementSpec,setSourcingStage,procurementState,recordArrival,rejectArrival} from './procurement-workflow-v047.mjs';
 import {renderProjectSupply,renderPurchasingV041,renderInventoryV041,handleMaterialsAction,handleMaterialsSubmit,handleMaterialsProof,updateOrderStage} from './materials-ui-v041.mjs';
 import {projectBudgetSnapshot,updateProjectBudget,setPurchaseExchangeRate} from './projects-v042.mjs';
 import {ensureProgress,progressSnapshot} from './progress-v043.mjs';
@@ -16,7 +17,7 @@ import {renderProjectFocus,renderProjectWorkPlan,renderProjectBuyingReview,proje
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
-const APP_VERSION='V0.4.6'; // Every build carries an explicit visible release number.
+const APP_VERSION='V0.4.7'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
 function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return emptyWorkspace()}
 let data=load();
@@ -24,7 +25,7 @@ ensureManufacturing(data);
 ensureMaterials(data);
 ensureProgress(data);
 ensureExternalWork(data);
-const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null};
+const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null};
 const staffGate=createLocalStaffGate();
 const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
   const el=document.getElementById('workspace-save-state');
@@ -426,6 +427,31 @@ function exportWbs(projectId){
   const url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
   const a=document.createElement('a');a.href=url;a.download=`${project.code}-WBS.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
+function runProcurementStage(id,stage){
+ if(!staffGate.status().unlocked)return;
+ const occ=data.assemblyBOM.find(o=>o.id===id&&!o.archivedAt);if(!occ)throw Error('Material requirement missing');
+ if(['Research','RFQ requested','Quote received','On hold','Change requested','Replacement requested'].includes(stage)){
+  const reason=prompt('Why move this item to "'+stage+'"? Include the actual supplier/engineering reason or evidence reference:','');
+  if(reason===null)return;
+  setSourcingStage(data,{occurrenceId:id,stage,reason});persist();render();
+  toast('Planning stage recorded. Existing POs and receipts are unchanged.');return;
+ }
+ if(stage==='Ordered'){
+  handleAction({dataset:{action:'v46-prepare-po',id}});return;
+ }
+ if(stage==='Out for delivery'){
+  const lines=procurementState(data,id).linked.filter(x=>Number(x.line.quantity||0)>Number(x.line.received||0)+Number(x.line.closedQuantity||0));
+  const unique=[...new Set(lines.map(x=>x.order.id))];
+  if(unique.length!==1)throw Error('Select an actual supplier PO in the order register (zero or multiple active orders found)');
+  if(!confirm('Confirm supplier '+lines[0].order.supplier+' has actually dispatched this order? No inventory will be received.'))return;
+  setPurchaseDispatch(data,{orderId:unique[0],stage:'Out for delivery'});
+  persist();render();toast('Supplier dispatch stage recorded');return;
+ }
+ if(stage==='Arrived'||stage==='Received'){
+  ui.v47ArrivalOccurrence=id;ui.v47SpecOccurrence=null;render();toast('Use the delivery inspection form; receiving stock requires a real arrival and inspection');return;
+ }
+ throw Error('Choose an available sourcing action');
+}
 function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
  if(!staffGate.status().unlocked)return;
  if(action==='v43-staff-logout'){staffGate.logout();render();return;}
@@ -467,7 +493,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    try{
      if(action==='v41-backup'){
        const payload=createWorkspaceBackup(data),url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
-       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.6_'+today()+'.json';
+       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.7_'+today()+'.json';
        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
        toast('JSON workspace backup downloaded · keep it private');return;
      }
@@ -507,6 +533,10 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'v46-prepare-po':{
    const source=data.assemblyBOM.find(x=>x.id===id&&!x.archivedAt);
    if(!source)throw Error('Material requirement unavailable');
+   if(contractControlled(data,source.projectId)&&!specStatus(data,id).approved){
+    ui.v47SpecOccurrence=id;render();
+    throw Error('Contract check required: inspect exact supplier specification before recording an actual PO');
+   }
    if(source.purchaseSource?.responsibility!=='Sim-Worx')throw Error('Confirm Sim-Worx purchasing responsibility before preparing a PO');
    ui.project=source.projectId;ui.procurementProject=source.projectId;ui.page='purchasing';ui.materialPO=null;
    ui.materialOrderEditor=true;ui.materialPrefill={partId:source.partId,quantity:source.quantity,
@@ -515,6 +545,12 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    render();document.querySelector('.v46-purchase-composer')?.scrollIntoView({block:'start'});break;
   }
   case 'v46-edit-buy':ui.v46EditOccurrence=ui.v46EditOccurrence===id?null:id;render();break;
+  case 'v47-spec-open':ui.v47SpecOccurrence=ui.v47SpecOccurrence===id?null:id;ui.v47ArrivalOccurrence=null;render();break;
+  case 'v47-spec-close':ui.v47SpecOccurrence=null;render();break;
+  case 'v47-arrival-open':ui.v47ArrivalOccurrence=ui.v47ArrivalOccurrence===id?null:id;ui.v47SpecOccurrence=null;render();break;
+  case 'v47-arrival-close':ui.v47ArrivalOccurrence=null;render();break;
+  case 'v47-balance-close-open':ui.v47BalanceLine=id;ui.v47BalanceMode='close';render();break;
+  case 'v47-balance-reopen-open':ui.v47BalanceLine=id;ui.v47BalanceMode='reopen';render();break;
   case 'v46-cancel-buy-edit':ui.v46EditOccurrence=null;render();break;
   case 'v43-purchasing':ui.procurementProject=ui.project;ui.page='purchasing';ui.materialPO=null;render();break;
   case 'v42-toggle-project-list':ui.showProjectList=!ui.showProjectList;render();break;
@@ -573,6 +609,50 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
    return;
  }
  if(!staffGate.status().unlocked)return;
+ if(type==='v47-spec-review'){
+  try{
+   reviewRequirementSpec(data,{occurrenceId:get('occurrenceId'),decision:get('decision'),
+    proposedSpecification:get('proposedSpecification'),reviewer:get('reviewer'),evidenceRef:get('evidenceRef'),notes:get('notes')});
+   ui.v47SpecOccurrence=null;persist();render();toast('Specification review saved. Source changes require another review.');
+  }catch(err){toast(err.message||'Technical specification could not be recorded',true)}return;
+ }
+ if(type==='v47-record-arrival'){
+  try{
+   const pair=get('orderLine').split('|');
+   const occ=data.assemblyBOM.find(x=>x.id===get('occurrenceId')&&!x.archivedAt);
+   const line=data.orders.find(x=>x.id===pair[0])?.items?.find(x=>x.id===pair[1]);
+   if(!occ||!line||line.sourceOccurrenceId!==occ.id)throw Error('Select a PO line for this engineering requirement');
+   recordArrival(data,{orderId:pair[0],lineId:pair[1],quantity:get('quantity'),deliveryRef:get('deliveryRef')});
+   persist();render();toast('Goods arrived for inspection; on-hand stock is unchanged.');
+  }catch(err){toast(err.message||'Unable to record goods arrival',true)}return;
+ }
+ if(type==='v47-inspect-arrival'){
+  try{
+   const arrival=data.procurementArrivals?.find(x=>x.id===get('arrivalId'));
+   if(!arrival)throw Error('Arrival record missing');
+   if(get('decision')==='accept'){
+    if(!confirm('Confirm this exact model and quantity passed incoming inspection? This action adds it to usable workshop inventory.'))return;
+    receivePurchaseLine(data,{orderId:arrival.orderId,lineId:arrival.lineId,quantity:arrival.quantity,
+     arrivalId:arrival.id,reviewer:get('reviewer'),evidenceRef:get('evidenceRef')});
+    toast('Accepted receipt recorded; inventory increased by the inspected quantity.');
+   }else{
+    if(!confirm('Reject these arrived goods as non-compliant? They will NOT be added to stock.'))return;
+    rejectArrival(data,{arrivalId:arrival.id,reviewer:get('reviewer'),evidenceRef:get('evidenceRef'),reason:get('notes')});
+    toast('Delivery rejected; replacement requested, no stock movement.');
+   }
+   persist();render();
+  }catch(err){toast(err.message||'Incoming inspection failed',true)}return;
+ }
+ if(type==='v47-balance-change'){
+  try{
+   const command={orderId:get('orderId'),lineId:get('lineId'),reason:get('reason'),evidenceRef:get('evidenceRef')};
+   if(!confirm('Confirm this change has been AGREED by the supplier? The existing PO and receipts remain in audit history.'))return;
+   if(get('mode')==='close')closePurchaseBalance(data,command);
+   else if(get('mode')==='reopen')reopenPurchaseBalance(data,command);
+   else throw Error('Invalid supplier balance action');
+   ui.v47BalanceLine=null;persist();render();toast('Supplier balance change documented in order history.');
+  }catch(err){toast(err.message||'Unable to amend supplier order balance',true)}return;
+ }
  if(type==='v46-buy-plan'){
    try{saveBuyingReviewForm(data,form);ui.v46EditOccurrence=null;persist();render();toast('Planning assumptions saved — no purchase order created');}
    catch(err){toast(err.message||'Could not save material plan',true)}return;
@@ -638,7 +718,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.6</h2></div><p>Use Restore JSON backup to load the private NOAH contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.7</h2></div><p>Use Restore JSON backup to load the private NOAH contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;
@@ -661,6 +741,10 @@ document.addEventListener('change',ev=>{try{if(!staffGate.status().unlocked)retu
  if(el.id==='v41-restore-file'){restoreBackupFile(el.files?.[0]);return;}
  if(el.dataset.v42Delivery){updateOrderStage(data,el.dataset.v42Delivery,el.value);persist();render();toast('Delivery stage changed; stock unchanged');return;}
  const filter=el.dataset.filter;
+ if(filter==='v47-buy-step'){
+  if(el.value)runProcurementStage(el.dataset.id,el.value);
+  return;
+ }
  if(filter==='v46-purchase-project'){
   if(!data.projects.some(x=>x.id===el.value&&!x.archivedAt))throw Error('Unknown project');
   ui.procurementProject=el.value;ui.project=el.value;ui.materialPO=null;ui.materialOrderEditor=false;
@@ -685,6 +769,25 @@ document.addEventListener('change',ev=>{try{if(!staffGate.status().unlocked)retu
  else if(el.dataset.inlineTask){const t=data.tasks.find(x=>x.id===el.dataset.inlineTask&&!x.archivedAt);if(!t)throw Error('Job missing');const field=el.dataset.field;if(field==='status')setTaskStatus(data,t.id,el.value);else if(['start','due'].includes(field))updateTaskPlan(data,t.id,{[field]:el.value});else if(['assignee','department','priority'].includes(field))saveTask(data,{...t,[field]:el.value});else throw Error('Field not editable');persist();render();toast('Work register updated locally')}
  else if(el.dataset.taskStatus){setTaskStatus(data,el.dataset.taskStatus,el.value);persist();render();toast('Job status updated')}
 }catch(err){toast(err.message||'Cannot update status',true);render()}});
+document.addEventListener('dragstart',ev=>{
+ if(!staffGate.status().unlocked)return;
+ const row=ev.target.closest?.('[data-v47-occurrence]');if(!row)return;
+ ui.v47Dragging=row.dataset.v47Occurrence;
+ if(ev.dataTransfer){ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',row.dataset.v47Occurrence);}
+});
+document.addEventListener('dragover',ev=>{
+ if(staffGate.status().unlocked&&ui.v47Dragging&&ev.target.closest?.('[data-v47-drop-stage]')){
+  ev.preventDefault();if(ev.dataTransfer)ev.dataTransfer.dropEffect='move';
+ }
+});
+document.addEventListener('drop',ev=>{
+ if(!staffGate.status().unlocked)return;
+ const target=ev.target.closest?.('[data-v47-drop-stage]');if(!target)return;
+ ev.preventDefault();const id=ui.v47Dragging;ui.v47Dragging=null;
+ if(!id)return;
+ try{runProcurementStage(id,target.dataset.v47DropStage);}catch(err){toast(err.message||'Unable to change sourcing stage',true)}
+});
+document.addEventListener('dragend',()=>{ui.v47Dragging=null;});
 document.addEventListener('keydown',ev=>{
  if(ev.key==='Enter'&&['v46-work-query','v46-buy-query'].includes(ev.target?.dataset?.filter)){
   ev.preventDefault();if(ev.target.dataset.filter==='v46-work-query')ui.v46WorkQuery=ev.target.value;

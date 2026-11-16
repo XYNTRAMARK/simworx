@@ -1,24 +1,31 @@
-# Sim-Worx Project Hub — V0.4.4
+# Sim-Worx Project Hub — V0.4.5
 
-**16 November 2026 · Staff-only local workspace — NOT a cloud database or production website.** The header badge displays **V0.4.4**. Fresh starts have NO fictional customer/project records. Incremental cost: **€0**. No production deployment, database, workflows or unrelated project modified.
+**16 November 2026 · Staff-only local workspace — NOT a cloud database or production website.** The header badge displays **V0.4.5**. Fresh starts have NO fictional customer/project records. Incremental cost: **€0**. No production deployment, database, workflows or unrelated project modified.
 
-## First-use steps for real projects (V0.4.4)
+## First-use steps for real projects (V0.4.5)
 
-1. Download and **extract the entire ZIP**. Double-click \`SimWorx_Project_Hub_Complete_V0.4.4.html\` in current Chrome or Edge. This is the complete offline app, NOT an isolated feature preview.
-2. On first open, create a local username and a password of at least 12 characters. It is only a **local interface lock**; the project JSON file is not encrypted.
+1. Download and **extract the entire ZIP**. Double-click \`SimWorx_Project_Hub_Complete_V0.4.5.html\` in current Chrome or Edge. This is the complete offline app, NOT an isolated feature preview.
+2. Enter the owner-supplied six-digit PIN. No username/password setup is required. This is only a **local convenience lock**; project JSON is not encrypted and the six-digit PIN can be brute-forced from the offline client source.
 3. Open Settings → **Download JSON backup** before replacing any older data. Then click **Restore JSON backup**, choose the PRIVATE project import provided separately and confirm replacement.
 4. In **Projects**, open the imported project. Use the Project control, Materials & dates, Progress steps, External work, Gantt, Budget and Contract scope tabs.
 5. In Settings, **Create & link autosave file** and save a JSON file somewhere that is backed up on your PC. Subsequent edits in that tab save to the browser and attempt to write that file. After opening a new standalone HTML version you MUST use **Open existing workspace file** to relink it. If the browser file picker is unavailable, use Download JSON backup after every session.
 6. Supplier orders and physical receipts must be entered only after they occur. Contract prices and buyer-direct payments are NOT your internal budget or proof of payment.
 7. Keep all customer contracts, NOAH imports, financial data and project JSON OUT of GitHub and away from shared/public links.
 
-**Limitations:** this is single-computer, local-first software. The password does not encrypt files or provide secure multi-user logins; browser storage and file picker permissions can be lost. There is no remote server, authenticated customer portal, distributed database or automatic cloud backup. Do not use it for critical live processes until real-browser file persistence and recovery are proven on your PC.
+**Limitations:** this is single-computer, local-first software. The PIN does not encrypt files or provide secure multi-user logins; browser storage and file picker permissions can be lost. There is no remote server, authenticated customer portal, distributed database or automatic cloud backup. Do not use it for critical live processes until real-browser file persistence and recovery are proven on your PC.
 
-[Detailed V0.4.4 release notes](docs/release-v044.md).
+[Detailed V0.4.5 release notes](docs/release-v045.md).
 
 ## Run and explore
 
-**Owner's simplest route:** download `SimWorx_Project_Hub_Complete_V0.4.4.zip`, extract it, and double-click `SimWorx_Project_Hub_Complete_V0.4.4.html` in Chrome. This is the **entire application**, including all original project, planning, customer, inventory, finance and manufacturing screens—not a separate procurement preview. Developers can also serve this directory locally with `python3 -m http.server 8765` and visit `http://localhost:8765`.
+**Owner's simplest route:** download `SimWorx_Project_Hub_Complete_V0.4.5.zip`, extract it, and double-click `SimWorx_Project_Hub_Complete_V0.4.5.html` in Chrome. This is the **entire application**, including all original project, planning, customer, inventory, finance and manufacturing screens—not a separate procurement preview. Developers can also serve this directory locally with `python3 -m http.server 8765` and visit `http://localhost:8765`.
+
+## V0.4.5 — simplified six-digit local PIN
+
+- Replaces the former username/password screen with a single six-digit PIN input.
+- Keeps prior browser/project data and legacy staff credentials intact in storage (not deleted); no account migration is needed.
+- Uses a salted PBKDF2 verifier in client-side source, rather than displaying the PIN. This **does not make the code secret** from someone who can inspect or brute-force the offline application; use OS folder permissions and disk encryption.
+- No changes to purchasing, QA, version persistence, or private data storage.
 
 ## V0.4.4 — durability, buying schedule review and supplier QA
 

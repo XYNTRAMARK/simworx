@@ -139,14 +139,14 @@ function projectDetail(p){
  const org=projectOrg(p),b=projectBudgetSnapshot(data,p.id);
  const mfg=projectManufacturingAlerts(data,p.id).length,shortage=projectBuyingSnapshot(data,p.id).buy.filter(x=>x.coverage.toSource>0).length;
  const supplierLate=externalRouteSummary(data,p.id).late.length,deadlines=procurementAlerts(data,p.id).overdue.length;
- const top=[['focus','Overview'],['work','Work plan ('+data.tasks.filter(t=>t.projectId===p.id&&!t.archivedAt).length+')'],['buying','Buying review'],['procurement','Materials & stock'],['team','Team & budgets'],['evidence','Photos'],['schedule','Schedule'],['external','Supplier QA'],['progress','Progress'],['budget','Budget'],['contract','Contract scope']];
+ const top=[['focus','Overview'],['work','Work plan ('+data.tasks.filter(t=>t.projectId===p.id&&!t.archivedAt).length+')'],['procurement','Purchasing & materials'],['team','Team & budgets'],['evidence','Photos'],['schedule','Schedule'],['external','Supplier QA'],['progress','Progress'],['budget','Budget'],['contract','Contract scope']];
  const extras=[['register','Work register'],['structure','Work breakdown'],['assembly','Assemblies'],['bom','Legacy BOM'],['materials','Legacy forecast'],['documents','Documents'],['publishing','Client publishing'],['customerPreview','Future customer view']];
  const extraSelected=extras.some(pair=>pair[0]===ui.projectTab);
  // Lazy tab rendering: only render the selected screen, avoiding repeated multi-table work.
  const content={
   focus:()=>renderProjectFocus(data,ui,p.id),
   work:()=>renderProjectWorkPlan(data,ui,p.id),
-  buying:()=>renderProjectBuyingReview(data,ui,p.id),
+  buying:()=>renderPurchasingV041(data,ui,p.id),
   progress:()=>renderProjectProgress(data,ui,p.id),
   external:()=>renderExternalWork(data,ui,p.id),
   contract:()=>renderContractScope(data,p.id),
@@ -154,7 +154,7 @@ function projectDetail(p){
   register:()=>projectRegister(p),
   schedule:()=>projectSchedule(p),
   assembly:()=>renderManufacturing(data,ui,p.id),
-  procurement:()=>renderProjectSupply(data,ui,p.id),
+  procurement:()=>renderPurchasingV041(data,ui,p.id),
   team:()=>renderProjectTeam(data,ui,p.id),
   evidence:()=>renderProjectEvidence(data,ui,p.id),
   customerPreview:()=>renderCustomerPreview(data,ui,p.id),
@@ -176,10 +176,10 @@ function projectDetail(p){
   '<div class="v42-budget-track"><span style="width:'+Math.min(100,Math.max(0,b.percent))+'%;background:'+
   (b.overBudget?'#d94f58':'#6554d9')+'"></span></div>'+button('Manage budget','project-tab','small','data-id="budget"')+'</div></div>';
  const attention=shortage||mfg||supplierLate||deadlines?'<div class="v42-attention">'+
-  (shortage?'<span>'+shortage+' proposed BUY requirements show sourcing gaps — review before ordering '+button('Review buying','project-tab','small','data-id="buying"')+'</span>':'')+
+  (shortage?'<span>'+shortage+' proposed BUY requirements show sourcing gaps — review before ordering '+button('Open purchasing','project-tab','small','data-id="procurement"')+'</span>':'')+
   (mfg?'<span>'+mfg+' engineering blocker(s) '+button('Review assemblies','project-tab','small','data-id="assembly"')+'</span>':'')+
   (supplierLate?'<span>'+supplierLate+' recorded supplier delay(s) '+button('Review handoffs','project-tab','small','data-id="external"')+'</span>':'')+
-  (deadlines?'<span>'+deadlines+' material planning deadlines passed '+button('Review schedule','project-tab','small','data-id="buying"')+'</span>':'')+
+  (deadlines?'<span>'+deadlines+' material planning deadlines passed '+button('Review purchasing','project-tab','small','data-id="procurement"')+'</span>':'')+
   '</div>':'';
  const tabs='<div class="v42-primary-tabs">'+top.map(pair=>
   '<button type="button" data-action="project-tab" data-id="'+pair[0]+'" class="'+(ui.projectTab===pair[0]?'active':'')+'">'+pair[1]+'</button>').join('')+
@@ -376,7 +376,7 @@ function modalContent(){const m=ui.modal||{};let title='Project Hub',form='',hin
     hint='New customer organisations are independent. Additional staff and projects can be added after creation.';
   }else if(m.type==='task'){
     const record=m.id?data.tasks.find(t=>t.id===m.id):null;title=record?'Edit department job':'Assign a new department job';submit=record?'Save job':'Create job';const projectId=record?.projectId||m.project||ui.project||allActiveProjects()[0]?.id;const sections=active(data.sections).filter(x=>x.projectId===projectId);
-    form=`<input type="hidden" name="recordId" value="${e(record?.id||'')}"/><div class="form-grid">${field('Job title','title','text',record?.title||'')}${selectField('Project','projectId',allActiveProjects().map(p=>[p.id,`${p.code} · ${p.name}`]),projectId).replace('name="projectId"',record?'name="projectId" disabled':'name="projectId" data-filter="modalProject"')}${record?`<input type="hidden" name="projectId" value="${record.projectId}"/>`:''}${selectField('Work section','sectionId',sections.map(s=>[s.id,s.name]),record?.sectionId||m.section||sections[0]?.id)}${selectField('Department','department',['Office','Workshop','Purchasing','Quality'].map(x=>[x,x]),record?.department||'Workshop')}${field('Assigned to','assignee','text',record?.assignee||'Unassigned')}${selectField('Priority','priority',['Normal','High','Critical'].map(x=>[x,x]),record?.priority||'Normal')}${selectField('Status','status',['Backlog','Ready','In progress','Blocked','Inspection','Done','Cancelled'].map(x=>[x,x]),record?.status||'Backlog')}${field('Planned start (optional)','start','date',record?.start||'',false)}${field('Planned finish','due','date',record?.due||today())}${selectField('Parent job (optional)','parentId',[['','None'],...active(data.tasks).filter(t=>t.projectId===projectId&&t.id!==record?.id&&t.sectionId===(record?.sectionId||m.section||sections[0]?.id)).map(t=>[t.id,t.title])],record?.parentId||m.parent||'').replace(' required>','>')}<div class="field full"><label for="form-predecessors">Predecessor jobs (Ctrl/Cmd-click for more than one)</label><select id="form-predecessors" name="predecessors" multiple size="4">${active(data.tasks).filter(t=>t.projectId===projectId&&t.id!==record?.id).map(t=>`<option value="${e(t.id)}" ${predecessorIds(record||{}).includes(t.id)?'selected':''}>${e(t.title)}</option>`).join('')}</select></div></div>`;
+    form=`<input type="hidden" name="recordId" value="${e(record?.id||'')}"/><div class="form-grid">${field('Job title','title','text',record?.title||'')}${textareaField('Job description / scope of work','description',record?.description||'')}${selectField('Project','projectId',allActiveProjects().map(p=>[p.id,`${p.code} · ${p.name}`]),projectId).replace('name="projectId"',record?'name="projectId" disabled':'name="projectId" data-filter="modalProject"')}${record?`<input type="hidden" name="projectId" value="${record.projectId}"/>`:''}${selectField('Work section','sectionId',sections.map(s=>[s.id,s.name]),record?.sectionId||m.section||sections[0]?.id)}${selectField('Department','department',['Office','Workshop','Purchasing','Quality'].map(x=>[x,x]),record?.department||'Workshop')}${field('Assigned to','assignee','text',record?.assignee||'Unassigned')}${selectField('Priority','priority',['Normal','High','Critical'].map(x=>[x,x]),record?.priority||'Normal')}${selectField('Status','status',['Backlog','Ready','In progress','Blocked','Inspection','Done','Cancelled'].map(x=>[x,x]),record?.status||'Backlog')}${field('Planned start (optional)','start','date',record?.start||'',false)}${field('Planned finish','due','date',record?.due||today())}${selectField('Parent job (optional)','parentId',[['','None'],...active(data.tasks).filter(t=>t.projectId===projectId&&t.id!==record?.id&&t.sectionId===(record?.sectionId||m.section||sections[0]?.id)).map(t=>[t.id,t.title])],record?.parentId||m.parent||'').replace(' required>','>')}<div class="field full"><label for="form-predecessors">Predecessor jobs (Ctrl/Cmd-click for more than one)</label><select id="form-predecessors" name="predecessors" multiple size="4">${active(data.tasks).filter(t=>t.projectId===projectId&&t.id!==record?.id).map(t=>`<option value="${e(t.id)}" ${predecessorIds(record||{}).includes(t.id)?'selected':''}>${e(t.title)}</option>`).join('')}</select></div></div>`;
     hint='Dates are manually planned. Predecessors must be complete before work proceeds. The Gantt chart flags conflicts instead of silently moving dates.';
   }else if(m.type==='section'){
     const record=m.id?data.sections.find(x=>x.id===m.id):null;title=record?'Edit project section':'New project section';submit=record?'Save section':'Add section';
@@ -531,7 +531,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
  try{switch(action){
   case 'nav':if(id==='purchasing')ui.procurementProject=ui.project;else if(id==='projects')ui.projectTab='focus';changePage(id);break;
   case 'project-open':ui.page='projects';ui.project=id;ui.projectTab='focus';ui.procurementProject=id;ui.showProjectList=false;render();document.getElementById('project-detail')?.scrollIntoView({behavior:'smooth',block:'start'});break;
-  case 'project-tab':ui.page='projects';ui.project=ui.procurementProject||ui.project;ui.projectTab=id;render();
+  case 'project-tab':ui.page='projects';ui.projectTab=id;ui.procurementProject=ui.project;render();
    document.querySelector('.v42-primary-tabs')?.scrollIntoView({block:'start'});break;
   case 'v46-pick-purchase-project':{
    if(!data.projects.some(p=>p.id===id&&!p.archivedAt))throw Error('Project unavailable');
@@ -571,7 +571,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'edit-project':openModal('project',{id});break;
   case 'edit-customer':openModal('customer',{id});break;
   case 'edit-task':openModal('task',{id});break;
-  case 'add-subtask':{const t=data.tasks.find(x=>x.id===id);if(t){ui.projectTab='work';openModal('task',{project:t.projectId,parent:t.id,section:t.sectionId});}break;}
+  case 'add-subtask':{const t=data.tasks.find(x=>x.id===id);if(t){ui.project=t.projectId;ui.projectTab='work';openModal('task',{project:t.projectId,parent:t.id,section:t.sectionId});}break;}
   case 'v48-edit-allocation':{
    const a=data.departmentAllocations?.find(x=>x.id===id&&!x.archivedAt&&x.projectId===ui.project);
    if(!a)throw Error('Allocation not found');
@@ -769,7 +769,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
     const org=saveOrganization(data,{id:get('recordId')||null,name:get('name'),code:get('code'),contact:get('contact'),accent:get('accent')});ui.customerDetail=org.id;ui.page='customers';break;
   }
   case 'task':{
-    const record=saveTask(data,{id:get('recordId')||null,projectId:get('projectId'),sectionId:get('sectionId'),title:get('title'),department:get('department'),assignee:get('assignee'),priority:get('priority'),status:get('status'),due:get('due'),parentId:get('parentId'),blockedBy:null,predecessors:fd.getAll('predecessors').map(String),start:get('start')});ui.project=record.projectId;ui.page='projects';if(!['register','schedule'].includes(ui.projectTab))ui.projectTab='work';break;
+    const record=saveTask(data,{id:get('recordId')||null,projectId:get('projectId'),sectionId:get('sectionId'),title:get('title'),description:get('description'),department:get('department'),assignee:get('assignee'),priority:get('priority'),status:get('status'),due:get('due'),parentId:get('parentId'),blockedBy:null,predecessors:fd.getAll('predecessors').map(String),start:get('start')});ui.project=record.projectId;ui.page='projects';if(!['register','schedule'].includes(ui.projectTab))ui.projectTab='work';break;
   }
   case 'section':{
     const record=saveSection(data,{id:get('recordId')||null,projectId:get('projectId'),name:get('name'),weight:get('weight')});ui.project=record.projectId;ui.page='projects';ui.projectTab='structure';break;

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emptyWorkspace,saveTask} from '../src/model.mjs';
+import {saveTask} from '../src/model.mjs';
+import {emptyWorkspace} from '../src/clean-data-v043.mjs';
 import {ensureMaterials} from '../src/materials-v041.mjs';
 import {ensureTeamWorkspace,saveDepartmentAllocation,allocateRequirement,attachEvidence,archiveEvidence,
  setCustomerShareRule,customerPreviewProjection,departmentOverview} from '../src/team-workspace-v048.mjs';

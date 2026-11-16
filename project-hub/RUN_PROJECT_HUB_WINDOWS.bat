@@ -11,20 +11,22 @@ echo when upgrading versions so the encrypted browser database stays accessible.
 echo.
 where py >nul 2>&1
 if %errorlevel% equ 0 (
+ start "Project Hub local server" cmd /k "cd /d \"%~dp0\" && py -3 -m http.server 8765 --bind 127.0.0.1"
+ timeout /t 2 /nobreak >nul
  start "" "http://127.0.0.1:8765/SimWorx_Project_Hub_Complete_V0.4.3.html"
- py -3 -m http.server 8765 --bind 127.0.0.1
  goto end
 )
 where python >nul 2>&1
 if %errorlevel% equ 0 (
+ start "Project Hub local server" cmd /k "cd /d \"%~dp0\" && python -m http.server 8765 --bind 127.0.0.1"
+ timeout /t 2 /nobreak >nul
  start "" "http://127.0.0.1:8765/SimWorx_Project_Hub_Complete_V0.4.3.html"
- python -m http.server 8765 --bind 127.0.0.1
  goto end
 )
 echo No Python installation detected.
-echo Install free Python 3, or open the included HTML in Chrome directly.
-echo File-based browser storage may not persist across different versions or directories.
-echo To protect work, export an encrypted backup in Project Hub settings.
+echo Use a free Python 3 installation or open the HTML directly with Chrome.
+echo For dependable data across releases, run at a fixed local address.
+echo Always export an encrypted workspace backup.
 pause
 :end
 endlocal

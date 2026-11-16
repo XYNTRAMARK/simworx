@@ -1,3 +1,14 @@
+# Sim-Worx Project Hub — V0.4.9 (development branch)
+**16 November 2026 · Complete offline test build · not approved for real purchase authorization.**
+
+**[Download standalone HTML](./SimWorx_Project_Hub_Complete_V0.4.9.html)** · **[Download complete ZIP](./SimWorx_Project_Hub_Complete_V0.4.9.zip)** · [Release and independent software audit](./docs/release-v049.md).
+
+Purchasing now operates inside **Projects → Purchasing & materials**, not as a competing global sidebar section. Controlled scope mapping, technical verification, owner-entered approvals, total/department envelopes, unique authorization quantities and evidence-linked PO/QA workflow have initial safeguards. Before the first genuine order, execute the owner acceptance checklist, verify actual supplier documents, independently verify the browser/ZIP and protect private JSON backups. No production server, multi-user authentication, invoices or full accounting ledger.
+
+**DATA-SAFETY RULE:** Never use the destructive workspace reset until the new Settings verification control has read back and parsed a matching, separately saved PRIVATE JSON backup. No owner's live workspace was reset during development. The separate contract reconstruction draft is private and not committed here.
+
+---
+
 # Sim-Worx Project Hub — V0.4.8
 
 **16 November 2026 · Staff-only local workspace — NOT a cloud database or production website.** The header badge displays **V0.4.7**. Fresh starts have NO fictional customer/project records. Incremental cost: **€0**. No production deployment, database, workflows or unrelated project modified.

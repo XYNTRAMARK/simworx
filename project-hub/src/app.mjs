@@ -336,11 +336,13 @@ function exportWbs(projectId){
 function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
  if(action?.startsWith('mfg-')){try{handleManufacturingAction(data,ui,el,window.confirm);persist();render();toast('Manufacturing demo updated locally');}catch(err){toast(err.message||'Manufacturing action failed',true)}return;}
 
- if(action?.startsWith('v41-')){
+ if(action==='v42-new-part'){ui.partReturnProject=ui.project;openModal('part');return;}
+ if(action==='v42-edit-master'){ui.partReturnProject=ui.project;openModal('part',{id});return;}
+ if(action?.startsWith('v41-')||action?.startsWith('v42-material-')){
    try{
      if(action==='v41-backup'){
        const payload=createWorkspaceBackup(data),url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
-       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.1_'+today()+'.json';
+       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.2_'+today()+'.json';
        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
        toast('JSON workspace backup downloaded · keep it private');return;
      }
@@ -353,8 +355,9 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
 
  try{switch(action){
   case 'nav':changePage(id);break;
-  case 'project-open':ui.page='projects';ui.project=id;ui.projectTab='structure';render();document.getElementById('project-detail')?.scrollIntoView({behavior:'smooth',block:'start'});break;
+  case 'project-open':ui.page='projects';ui.project=id;ui.projectTab='structure';ui.showProjectList=false;render();document.getElementById('project-detail')?.scrollIntoView({behavior:'smooth',block:'start'});break;
   case 'project-tab':ui.projectTab=id;render();break;
+  case 'v42-toggle-project-list':ui.showProjectList=!ui.showProjectList;render();break;
   case 'client-tab':ui.clientTab=id;render();break;
   case 'task-board':ui.taskView='board';render();break;
   case 'task-list':ui.taskView='list';render();break;
@@ -381,7 +384,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'open-document-modal':openModal('document',{project:el.dataset.project||ui.project});break;
   case 'open-client-document-modal':openModal('client-document');break;
   case 'customer-detail':ui.customerDetail=id;render();break;
-  case 'close-modal':case 'dismiss-modal':closeModal();break;
+  case 'close-modal':case 'dismiss-modal':ui.partReturnProject=null;closeModal();break;
   case 'theme':data.settings.theme=data.settings.theme==='light'?'dark':'light';persist();render();break;
   case 'toggle-task':{const t=data.tasks.find(x=>x.id===id);if(t){setTaskStatus(data,id,t.status==='Done'?'Ready':'Done');persist();render();toast('Job status saved locally')}break;}
   case 'publish':{if(confirm('Publish this exact draft to the customer preview?')){publishUpdate(data,id);persist();render();toast('Update published to the demo customer portal')}break;}
@@ -405,7 +408,15 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
 }
 function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.get(n)||'').trim();const type=form.dataset.form;
  if(type?.startsWith('mfg-')){try{handleManufacturingSubmit(data,ui,form);persist();render();toast('Manufacturing record saved locally');}catch(err){toast(err.message||'Manufacturing form failed',true)}return;}
- if(type?.startsWith('v41-')){try{handleMaterialsSubmit(data,ui,form);persist();render();toast('Procurement saved locally');}catch(err){toast(err.message||'Procurement form failed',true)}return;}
+ if(type?.startsWith('v41-')||type==='v42-material-edit'){try{handleMaterialsSubmit(data,ui,form);persist();render();toast('Procurement saved locally');}catch(err){toast(err.message||'Procurement form failed',true)}return;}
+ if(type==='v42-budget'||type==='v42-exchange'){
+   try{
+     if(type==='v42-budget')updateProjectBudget(data,{projectId:get('projectId'),budget:get('budget'),spent:get('spent'),committed:get('committed')});
+     else setPurchaseExchangeRate(data,{orderId:get('orderId'),eurExchangeRate:get('eurExchangeRate')});
+     persist();render();toast('Budget updated locally');
+   }catch(err){toast(err.message||'Budget update failed',true)}
+   return;
+ }
  try{switch(type){
   case 'project':{
     const existing=get('recordId');const record=saveProject(data,{id:existing||null,orgId:get('orgId'),name:get('name'),template:get('template'),status:get('status'),phase:get('phase'),due:get('due'),budget:get('budget'),contract:get('contract'),lead:get('lead'),description:get('description')});
@@ -424,7 +435,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
     const record=saveSection(data,{id:get('recordId')||null,projectId:get('projectId'),name:get('name'),weight:get('weight')});ui.project=record.projectId;ui.page='projects';ui.projectTab='structure';break;
   }
   case 'part':{
-    savePart(data,{id:get('recordId')||null,code:get('code'),name:get('name'),unit:get('unit'),supplier:get('supplier'),location:get('location'),min:get('min'),cost:get('cost')});ui.page='inventory';break;
+    savePart(data,{id:get('recordId')||null,code:get('code'),name:get('name'),unit:get('unit'),supplier:get('supplier'),location:get('location'),min:get('min'),cost:get('cost')});if(ui.partReturnProject){ui.project=ui.partReturnProject;ui.page='projects';ui.projectTab='procurement';ui.partReturnProject=null;}else ui.page='inventory';break;
   }
   case 'bom':{
     const record=saveBomLine(data,{id:get('recordId')||null,projectId:get('projectId'),partId:get('partId'),required:get('required'),sectionId:get('sectionId')});ui.project=record.projectId;ui.page='projects';ui.projectTab='bom';break;
@@ -441,7 +452,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Workspace backup & restore · V0.4.1</h2></div><p>Download all current demo records, including projects, assemblies, stock, supplier orders, delivery tracking, attachments and internal illustrative financial data. Keep the file private. A restore replaces records in this browser only after confirmation.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Local browser demo only. There is no cloud sync or production database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Workspace backup & restore · V0.4.2</h2></div><p>Download all current demo records, including projects, assemblies, stock, supplier orders, delivery tracking, attachments and internal illustrative financial data. Keep the file private. A restore replaces records in this browser only after confirmation.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Local browser demo only. There is no cloud sync or production database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;
@@ -461,7 +472,10 @@ document.addEventListener('submit',ev=>{const form=ev.target.closest('form[data-
 document.addEventListener('change',ev=>{try{const el=ev.target;
  if(el.dataset.v41Proof){handleMaterialsProof(data,el,()=>{persist();render();toast('Proof document saved locally')},message=>toast(message,true));return;}
  if(el.id==='v41-restore-file'){restoreBackupFile(el.files?.[0]);return;}
+ if(el.dataset.v42Delivery){updateOrderStage(data,el.dataset.v42Delivery,el.value);persist();render();toast('Delivery stage changed; stock unchanged');return;}
  const filter=el.dataset.filter;
+ if(filter==='v42-project'){ui.project=el.value;ui.projectTab='structure';ui.materialEditOccurrence=null;render();return;}
+ if(filter==='v42-project-extra'){if(el.value){ui.projectTab=el.value;render();}return;}
  if(filter==='v41-project'){ui.procurementProject=el.value;ui.materialPO=null;ui.materialOrderEditor=false;render();return;}
  if(filter==='mfgProject'){ui.project=el.value;ui.mfgAssemblyId=null;ui.mfgEditor=null;render()}
  else if(filter==='dept'){ui.dept=el.value;render()}

@@ -113,7 +113,7 @@ function orderRegister(s,ui,projectId='all'){
     '<td>'+o.items.length+'</td><td>'+cost(orderTotal(o),o.currency||'EUR')+'</td>'+
     '<td>'+badge(purchaseStatus(o),purchaseStatus(o)==='Received'?'good':received?'warn':'')+'<small>'+completed+'/'+o.items.length+' lines fully received</small></td>'+
     '<td>'+h(o.shipment?.carrier||'Carrier not set')+'<small>'+h(o.shipment?.trackingCode||'No tracking code')+' · '+(o.attachments?.length||0)+' file(s)</small></td>'+
-    '<td>'+btn('Manage','v41-order-open','data-id="'+h(o.id)+'"','small primary')+'</td></tr>';
+    '<td><div class="v41-actions">'+btn('Manage','v41-order-open','data-id="'+h(o.id)+'"','small primary')+btn('Archive','archive-record','data-kind="orders" data-id="'+h(o.id)+'"','small danger')+'</div></td></tr>';
  }).join('')||'<tr><td colspan="8">No purchase orders for this selection.</td></tr>')+'</tbody></table></div>');
 }
 function orderDetailIfSelected(s,ui,projectId='all'){
@@ -184,7 +184,7 @@ export function renderInventoryV041(s,ui){
     '<td>'+fmt(p.reserved||0)+'</td><td><b>'+fmt(available(p))+'</b></td>'+
     '<td>'+fmt(legacy)+'</td><td>'+badge(available(p)<=Number(p.min||0)?'Reorder':'In stock',available(p)<=Number(p.min||0)?'warn':'good')+'</td>'+
     '<td><small>'+h(assigned||'No new project allocations')+'</small></td>'+
-    '<td>'+btn('Move stock','stock-modal','data-id="'+h(p.id)+'"','small')+'</td></tr>';
+    '<td><div class="v41-actions">'+btn('Move','stock-modal','data-id="'+h(p.id)+'"','small')+btn('Edit','edit-part','data-id="'+h(p.id)+'"','small')+btn('Archive','archive-record','data-kind="parts" data-id="'+h(p.id)+'"','small danger')+'</div></td></tr>';
  }).join('');
  const moves=(s.movements||[]).slice(0,25).map(m=>'<tr><td>'+date(m.date)+'</td><td>'+h(s.parts.find(p=>p.id===m.partId)?.code||m.partId)+'</td><td>'+h(m.type)+'</td><td>'+fmt(m.quantity)+'</td><td>'+h(s.projects.find(p=>p.id===m.projectId)?.code||'—')+'</td></tr>').join('');
  return '<div class="v41"><div class="v41-intro"><div><h2>Workshop stock & allocations</h2><p>One shared part master and one inventory balance, visible to all internal project workspaces.</p></div>'+badge('Local simulation')+'</div>'+

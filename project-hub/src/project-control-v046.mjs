@@ -44,23 +44,29 @@ export function projectBuyingSnapshot(s,projectId){
   const coverage=byPart.get(occ.partId)||{required:0,toSource:0,incoming:0,freeStock:0,reserved:0,issued:0};
   const plan=materialPlanDates(occ);
   const make=String(occ.makeBuy||'Buy').toLowerCase()==='make';
-  const source=occ.purchaseSource||{};
+  const source=occ.purchaseSource||{},responsibility=source.responsibility||'Unverified';
   const supplierKnown=knownSupplier(source.supplier||part.supplier);
   const missingDate=!plan.requiredBy,missingLead=!plan.leadDays;
-  const missingInputs=[missingDate?'need-by date':null,missingLead?'confirmed lead time':null,
-    !supplierKnown&&!make?'supplier':null].filter(Boolean);
+  const missingInputs=[responsibility==='Unverified'&&!make?'purchasing responsibility':null,missingDate?'need-by date':null,
+    missingLead?'supplier lead time':null,!supplierKnown&&!make?'supplier':null].filter(Boolean);
   let stage='Review needed',tone='caution',next='Verify the requirement and request an RFQ';
   if(make){stage='Make in-house';tone='muted';next='Schedule workshop fabrication and release drawings';}
-  else if(coverage.toSource>0&&coverage.incoming>0){stage='Part-covered by PO';tone='caution';next='Review remaining uncovered quantity and confirmed delivery';}
+  else if(responsibility==='Customer-direct'){
+   stage='Customer-direct supply';tone='muted';next='Confirm customer purchasing/delivery evidence';
+  }else if(responsibility==='Subcontractor'){
+   stage='Subcontractor supply';tone='muted';next='Confirm external handoff and purchasing responsibility';
+  }else if(coverage.toSource>0&&coverage.incoming>0){stage='Part-covered by PO';tone='caution';next='Review remaining uncovered quantity and confirmed delivery';}
   else if(coverage.toSource===0&&coverage.incoming>0){stage='Ordered / awaiting receipt';tone='good';next='Track supplier delivery, then record actual receipt';}
   else if(coverage.toSource===0&&coverage.freeStock>0){stage='Workshop stock available';tone='good';next='Verify stock and allocate it to this project';}
   else if(coverage.toSource===0){stage='Covered / verify allocation';tone='good';next='Check reservations, issued stock and PO documents';}
   else if(missingInputs.length){stage='Needs sourcing review';tone='caution';next='Confirm '+missingInputs.join(', ')+' before proposing a PO';}
   else {stage='RFQ / approval required';tone='caution';next='Verify quotation, purchase authority and order terms';}
-  return {occ,part,assembly,coverage,plan,source,make,supplierKnown,missingDate,missingLead,missingInputs,stage,tone,next};
+  return {occ,part,assembly,coverage,plan,source,responsibility,make,supplierKnown,missingDate,missingLead,missingInputs,stage,tone,next};
  });
  const buy=rows.filter(r=>!r.make),manufacture=rows.filter(r=>r.make);
  return {project,rows,buy,manufacture,orders,
+  simworxBuy:buy.filter(r=>r.responsibility==='Sim-Worx'),customerDirect:buy.filter(r=>r.responsibility==='Customer-direct'),
+  ownerUnverified:buy.filter(r=>r.responsibility==='Unverified'),
   unplannedBuy:buy.filter(r=>r.missingInputs.length&&r.coverage.toSource>0),
   coveredBuy:buy.filter(r=>r.coverage.toSource===0),
   unconfirmedLead:buy.filter(r=>r.missingLead),
@@ -75,7 +81,7 @@ export function renderProjectFocus(s,ui,projectId){
  const progressNote=progress.weightTotal>0?'Manual completion, not independently verified':'Progress headings exist but no weights have been confirmed';
  const summary='<div class="v46-metrics">'+
   '<button type="button" data-action="project-tab" data-id="work" class="v46-metric"><small>WORK PLAN</small><strong>'+num(work.jobs.length)+'</strong><span>'+num(work.remaining)+' not done · '+num(work.withoutDates)+' not fully scheduled</span></button>'+
-  '<button type="button" data-action="project-tab" data-id="buying" class="v46-metric"><small>BUYING CANDIDATES</small><strong>'+num(buying.buy.length)+'</strong><span>'+num(buying.manufacture.length)+' make in-house · '+num(buying.unplannedBuy.length)+' need sourcing details</span></button>'+
+  '<button type="button" data-action="project-tab" data-id="buying" class="v46-metric"><small>PURCHASING REQUIREMENTS</small><strong>'+num(buying.buy.length)+'</strong><span>'+num(buying.manufacture.length)+' make in-house · '+num(buying.unplannedBuy.length)+' need sourcing details</span></button>'+
   '<button type="button" data-action="v43-purchasing" class="v46-metric"><small>ACTUAL PURCHASE ORDERS</small><strong>'+num(buying.confirmedPOs)+'</strong><span>Only orders entered by staff</span></button>'+
   '<button type="button" data-action="project-tab" data-id="progress" class="v46-metric"><small>PROJECT PROGRESS</small><strong class="v46-text-value">'+esc(progressLabel)+'</strong><span>'+esc(progressNote)+'</span></button></div>';
  const process='<div class="v46-process">'+
@@ -147,6 +153,8 @@ export function renderProjectBuyingReview(s,ui,projectId){
  const snap=projectBuyingSnapshot(s,projectId),mode=String(ui.v46BuyingMode||'Buy'),query=String(ui.v46BuyingQuery||'').trim().toLowerCase();
  const eligible=snap.rows.filter(r=>(mode==='All'||mode==='Buy'&&!r.make||mode==='Make'&&r.make||
   mode==='Review'&&!r.make&&r.coverage.toSource>0&&r.missingInputs.length>0||
+  mode==='Internal'&&!r.make&&r.responsibility==='Sim-Worx'||
+  mode==='Customer'&&!r.make&&r.responsibility==='Customer-direct'||
   mode==='Covered'&&!r.make&&r.coverage.toSource===0)&&
   (!query||[r.part.code,r.part.name,r.assembly.name,r.source.supplier,r.source.vendorSku,r.part.supplier].some(x=>String(x||'').toLowerCase().includes(query))));
  const stateLine=r=>{
@@ -157,6 +165,9 @@ export function renderProjectBuyingReview(s,ui,projectId){
    '<label>Supplier lead time (days; enter only if verified)<input type="number" name="leadDays" min="0" max="3650" step="1" value="'+esc(r.plan.leadDays)+'"></label>'+
    '<label>Planning buffer (days)<input type="number" name="bufferDays" min="0" max="3650" step="1" value="'+esc(r.plan.bufferDays)+'"></label>'+
    '<label class="v46-note-wide">Internal purchasing note<input type="text" maxlength="800" name="note" value="'+esc(r.plan.purchaseNote)+'"></label>'+
+   '<label>Purchasing responsibility<select name="responsibility">'+
+   [['Unverified','Not yet assigned'],['Sim-Worx','Sim-Worx to purchase'],['Customer-direct','Customer purchases directly'],['Subcontractor','External subcontractor']].map(([v,t])=>
+     '<option value="'+v+'" '+(r.responsibility===v?'selected':'')+'>'+t+'</option>').join('')+'</select></label>'+
    '<label>Supplier / website name<input type="text" maxlength="160" name="supplier" value="'+esc(r.source.supplier||'')+'" placeholder="Supplier not yet confirmed"></label>'+
    '<label class="v46-note-wide">Product URL (HTTPS)<input type="url" maxlength="2048" name="productUrl" value="'+esc(r.source.productUrl||'')+'" placeholder="https://supplier.com/product/..."></label>'+
    '<label>Vendor catalogue code<input type="text" maxlength="120" name="vendorSku" value="'+esc(r.source.vendorSku||'')+'"></label>'+
@@ -171,7 +182,7 @@ export function renderProjectBuyingReview(s,ui,projectId){
    '<td><strong>'+esc(r.part.code||'Uncoded part')+'</strong><small>'+esc(r.part.name||'Unnamed material')+'</small></td>'+
    '<td>'+esc(r.assembly.name||'Unassigned assembly')+'</td>'+
    '<td>'+num(r.occ.quantity)+'<small>per assembly</small></td>'+
-   '<td>'+esc(r.make?'MAKE':'BUY')+'</td>'+
+   '<td>'+esc(r.make?'MAKE':r.responsibility==='Sim-Worx'?'BUY · SIM-WORX':r.responsibility==='Customer-direct'?'CUSTOMER DIRECT':r.responsibility==='Subcontractor'?'SUBCONTRACTOR':'OWNER TO CONFIRM')+'</td>'+
    '<td>'+num(r.coverage.toSource)+'<small>project-wide gap</small></td>'+
    '<td>'+pill(r.stage,r.tone)+'<small>'+esc(warn)+'</small>'+
    (productLink?'<a href="'+esc(productLink)+'" target="_blank" rel="noopener noreferrer" class="v46-source-link">Open product website</a>':'<small>Website not saved</small>')+
@@ -179,15 +190,15 @@ export function renderProjectBuyingReview(s,ui,projectId){
    (r.source.supplier?'<small>Supplier: '+esc(r.source.supplier)+'</small>':'')+'</td>'+
    '<td>'+date(r.plan.requiredBy)+'<small>Order by: '+(r.plan.orderBy?esc(r.plan.orderBy):'not calculable')+'</small></td>'+
    '<td><div class="v46-row-actions"><button type="button" class="btn small" data-action="v46-edit-buy" data-id="'+ref+'">'+(current?'Close':'Edit line')+'</button>'+
-   (!r.make&&r.coverage.toSource>0?'<button type="button" class="btn small" data-action="v46-prepare-po" data-id="'+ref+'">Prepare PO</button>':'')+'</div></td></tr>';
+   (!r.make&&r.responsibility==='Sim-Worx'&&r.coverage.toSource>0?'<button type="button" class="btn small" data-action="v46-prepare-po" data-id="'+ref+'">Prepare PO</button>':'')+'</div></td></tr>';
   return tr+editor;
  };
  return '<section class="v46-buy">'+intro('Buying review · what might we need to source?',
   'Start with engineering requirements; validate each supplier, quotation, schedule and approval before creating any real purchase order.')+
   '<div class="v46-metrics v46-metrics-compact">'+
-  '<div class="v46-metric"><small>PROPOSED BUY ITEMS</small><strong>'+num(snap.buy.length)+'</strong><span>Not automatically approved</span></div>'+
+  '<div class="v46-metric"><small>BUY REQUIREMENTS</small><strong>'+num(snap.buy.length)+'</strong><span>'+num(snap.simworxBuy.length)+' assigned to Sim-Worx</span></div>'+
   '<div class="v46-metric"><small>MAKE IN WORKSHOP</small><strong>'+num(snap.manufacture.length)+'</strong><span>Not supplier purchases</span></div>'+
-  '<div class="v46-metric"><small>MISSING SOURCING INPUTS</small><strong>'+num(snap.unplannedBuy.length)+'</strong><span>Check supplier, date and lead time</span></div>'+
+  '<div class="v46-metric"><small>UNASSIGNED BUYING OWNER</small><strong>'+num(snap.ownerUnverified.length)+'</strong><span>Customer-direct items kept separate</span></div>'+
   '<div class="v46-metric"><small>ACTUAL POS RECORDED</small><strong>'+num(snap.confirmedPOs)+'</strong><span>Placed orders only</span></div></div>'+
   '<div class="v46-steps"><span><b>1</b> Validate requirement</span><span><b>2</b> Obtain quotation</span>'+
   '<span><b>3</b> Authorise purchase</span><span><b>4</b> Record PO & receipt</span></div>'+
@@ -195,7 +206,7 @@ export function renderProjectBuyingReview(s,ui,projectId){
   '<div class="v46-controls"><label class="v46-filter v46-grow"><span>Find a part or assembly</span>'+
   '<input type="search" value="'+esc(ui.v46BuyingQuery||'')+'" data-filter="v46-buy-query" placeholder="Search material code, description, supplier…" aria-label="Search buying requirements"></label>'+
   '<label class="v46-filter"><span>Show</span><select data-filter="v46-buy-mode">'+
-  [['Buy','To buy · review'],['Review','Missing sourcing details'],['Make','Make in-house'],['Covered','Already covered'],['All','All requirements']].map(([k,v])=>
+  [['Buy','All external buy requirements'],['Review','Missing sourcing details'],['Internal','Sim-Worx purchasing'],['Customer','Customer-direct'],['Make','Make in-house'],['Covered','Already covered'],['All','All requirements']].map(([k,v])=>
   '<option value="'+k+'" '+(mode===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
   '<div class="v46-actions">'+button('Detailed materials & stock','procurement')+
   '<button type="button" class="btn small" data-action="v43-purchasing">Open purchasing</button></div></div>'+
@@ -209,7 +220,7 @@ export function renderProjectBuyingReview(s,ui,projectId){
 }
 export function saveBuyingReviewForm(s,form){
  const f=new FormData(form),value=key=>String(f.get(key)||'').trim();
- const source=sourceInput({supplier:value('supplier'),productUrl:value('productUrl'),vendorSku:value('vendorSku'),
+ const source=sourceInput({responsibility:value('responsibility')||'Unverified',supplier:value('supplier'),productUrl:value('productUrl'),vendorSku:value('vendorSku'),
   quoteRef:value('quoteRef'),notes:value('sourceNotes')});
  const plan=saveRequirementPlan(s,{occurrenceId:value('occurrenceId'),requiredBy:value('requiredBy'),
   leadDays:value('leadDays'),bufferDays:value('bufferDays'),linkedTaskId:value('linkedTaskId'),

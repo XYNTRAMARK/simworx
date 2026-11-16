@@ -32,7 +32,7 @@ export function requirementBaseline(s,occurrenceId){
 export function specFingerprint(s,occurrenceId){
  const b=requirementBaseline(s,occurrenceId),occ=b.occ;
  return JSON.stringify([b.partCode,b.label,b.notes,b.requirementNotes,b.quantity,b.makeBuy,
-  sourceKey(occ.purchaseSource)]);
+  sourceKey(occ.purchaseSource),JSON.stringify(occ.sourceTrace||null)]);
 }
 export function specStatus(s,occurrenceId){
  const b=requirementBaseline(s,occurrenceId),v=b.occ.specReview;

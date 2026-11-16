@@ -1,0 +1,36 @@
+
+/* Offline staff workspace visual language — no customer-facing portal */
+.staff-gate{min-height:100vh;display:grid;place-items:center;background:linear-gradient(145deg,#102744,#162f55);padding:24px;font-family:Manrope,system-ui,sans-serif}
+.staff-gate-card{max-width:470px;width:100%;background:#fff;border-radius:16px;padding:35px;box-shadow:0 25px 60px #06162955;color:#13213d;display:grid;gap:15px}
+.staff-gate-card .staff-logo{font-size:12px;font-weight:900;letter-spacing:.11em;color:#6859d8}
+.staff-gate-card h1{font-size:26px;letter-spacing:-.045em;margin:0;color:#14243d}
+.staff-gate-card p{font-size:12px;line-height:1.6;color:#58667d;margin:0}
+.staff-gate-card form{display:grid;gap:12px}
+.staff-gate-card label{display:grid;gap:6px;font-size:11px;font-weight:750;color:#495772}
+.staff-gate-card input{padding:12px;border:1px solid #dce1e9;border-radius:8px;background:#f6f8fb;color:#122744;font:inherit;font-size:12px}
+.staff-gate-card button{min-height:42px;justify-content:center}
+.staff-gate-card .staff-gate-small{border-top:1px solid #eceff5;padding-top:12px;font-size:10px}
+.workspace-save-state{font-size:10px;white-space:nowrap;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:210px;overflow:hidden;text-overflow:ellipsis}
+.v43-contract-scope{display:grid;gap:16px;padding:20px 22px;color:var(--ink)}
+.v43-contract-scope h3{font-size:13px;font-weight:850;margin:0 0 10px}
+.v43-contract-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.v43-contract-stats>div{border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:14px;display:grid;gap:7px;min-width:0}
+.v43-contract-stats small{font-size:10px;color:var(--muted)}
+.v43-contract-stats strong{font-size:17px;font-weight:850;overflow-wrap:anywhere}
+.v43-contract-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.v43-contract-grid>div,.v43-contract-block{border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--panel);min-width:0}
+.v43-contract-grid p{font-size:11px;color:var(--muted);line-height:1.7;margin:0 0 10px}
+.v43-contract-grid form{display:grid;gap:10px;margin:10px 0}
+.v43-contract-grid label{display:grid;gap:6px;font-size:11px}
+.v43-contract-grid input[type=date],.v43-contract-block input,.v43-contract-block select{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px;color:var(--ink);font:inherit;font-size:11px}
+.v43-contract-confirm{display:flex!important;align-items:center;gap:8px}
+.v43-contract-exclusion{padding:9px 0;border-bottom:1px solid var(--line);font-size:11px;display:grid;gap:5px}
+.v43-contract-exclusion small{font-size:10px;color:var(--muted)}
+.v43-contract-chips{display:flex;gap:7px;flex-wrap:wrap}
+.v43-contract-chips span{font-size:10px;padding:6px 9px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+.v43-contract-block .v43-table{min-width:800px}
+.v43-contract-block .v43-table td form{display:grid;grid-template-columns:minmax(160px,1fr) minmax(120px,1fr) auto;gap:6px;align-items:end}
+.v43-contract-block .v43-table td small{color:var(--muted)}
+.v43-contract-block .btn{white-space:nowrap}
+@media(max-width:900px){.v43-contract-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.v43-contract-grid{grid-template-columns:1fr}.workspace-save-state{max-width:140px}}
+@media(max-width:600px){.v43-contract-stats{grid-template-columns:1fr}.v43-contract-scope{padding:12px}.staff-gate-card{padding:23px}.v43-contract-block .v43-table td form{grid-template-columns:1fr}}

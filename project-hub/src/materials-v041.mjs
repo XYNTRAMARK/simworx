@@ -21,11 +21,11 @@ const required = (value,label) => {
 };
 const note = (s,action,detail) => {
   s.audit??=[];
-  s.audit.unshift({id:uid('audit'),action,detail,actor:'Sim-Worx Demo',at:timestamp()});
+  s.audit.unshift({id:uid('audit'),action,detail,actor:'Internal staff',at:timestamp()});
 };
 const recordMovement = (s,partId,type,quantity,projectId,ref='') => {
   s.movements??=[];
-  s.movements.unshift({id:uid('mv'),partId,type,quantity,projectId,reference:ref,actor:'Demo Stores',date:timestamp()});
+  s.movements.unshift({id:uid('mv'),partId,type,quantity,projectId,reference:ref,actor:'Workshop stores',date:timestamp()});
 };
 const partById = (s,partId) => {
   const p=s.parts?.find(p=>live(p)&&p.id===partId);

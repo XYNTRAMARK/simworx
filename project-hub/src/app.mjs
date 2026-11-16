@@ -674,8 +674,11 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
       const ctx=canvas.getContext('2d');if(!ctx)throw Error('Canvas image compression unavailable');
       ctx.drawImage(image,0,0,canvas.width,canvas.height);
       const encoded=canvas.toDataURL('image/jpeg',0.66);
-      attachEvidence(data,{projectId,sectionId,taskId,title,kind:'Photo',dataUrl:encoded,filename:file.name});
-      if(!persist())throw Error('Browser storage full. Archive a photo and export your workspace backup before adding more');
+      const photo=attachEvidence(data,{projectId,sectionId,taskId,title,kind:'Photo',dataUrl:encoded,filename:file.name});
+      if(!persist()){
+       data.projectEvidence=data.projectEvidence.filter(x=>x.id!==photo.id);
+       throw Error('Browser storage full. The photo was not saved. Export your workspace and use smaller photos.');
+      }
       render();toast('Private photo added to project evidence');
      }catch(err){toast(err.message||'Cannot attach photo',true)}
     };

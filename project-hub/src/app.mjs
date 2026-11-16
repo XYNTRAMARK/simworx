@@ -436,7 +436,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    try{
     const projectId=el.dataset.project||ui.project;
     const csv=exportProcurementReviewCSV(data,projectId);
-    const url=URL.createObjectURL(new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+    const url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
     const link=document.createElement('a');link.href=url;link.download='SimWorx-Buying-Schedule-'+projectId+'.csv';
     document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
    }catch(err){toast(err.message||'Schedule export failed',true)}

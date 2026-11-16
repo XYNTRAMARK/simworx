@@ -2,16 +2,17 @@ import {seed} from './demo-data.mjs';
 import {ensureManufacturing,projectManufacturingAlerts,saveAssembly} from './manufacturing.mjs';
 import {renderManufacturing,handleManufacturingAction,handleManufacturingSubmit} from './manufacturing-ui.mjs';
 import {ensureMaterials,materialReadinessV041,createWorkspaceBackup,parseWorkspaceBackup} from './materials-v041.mjs';
-import {renderProjectSupply,renderPurchasingV041,renderInventoryV041,handleMaterialsAction,handleMaterialsSubmit,handleMaterialsProof} from './materials-ui-v041.mjs';
+import {renderProjectSupply,renderPurchasingV041,renderInventoryV041,handleMaterialsAction,handleMaterialsSubmit,handleMaterialsProof,updateOrderStage} from './materials-ui-v041.mjs';
+import {projectBudgetSnapshot,updateProjectBudget,setPurchaseExchangeRate} from './projects-v042.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
-const APP_VERSION='V0.4.1'; // Every build carries an explicit visible release number.
+const APP_VERSION='V0.4.2'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
 function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return seed()}
 let data=load();
 ensureManufacturing(data);
 ensureMaterials(data);
-const ui={page:'overview',project:'p1',projectTab:'structure',dept:'All',taskView:'board',clientOrg:'noah',clientProject:'p1',clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:'all',materialOrderProject:null};
+const ui={page:'overview',project:'p1',projectTab:'structure',dept:'All',taskView:'board',clientOrg:'noah',clientProject:'p1',clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:'all',materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null};
 const persist=()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch{toast('Local storage is full; changes may not persist.',true)}};
 const findProject=id=>data.projects.find(x=>x.id===id);
 const findOrg=id=>data.organizations.find(x=>x.id===id);
@@ -70,12 +71,86 @@ function overview(){
   ${card('Recent activity',`<div class="card-body" style="padding-top:0"><div class="activity">${data.audit.slice(0,4).map(a=>`<div class="activity-row"><strong>${e(a.action)}</strong><span>${e(a.detail)}<br>${e(a.actor)} · ${day(a.at)}</span></div>`).join('')}</div></div>`)}</div></div>`;
 }
 function manufacturingPage(){const p=findProject(ui.project)&&!findProject(ui.project).archivedAt?findProject(ui.project):allActiveProjects()[0];if(!p)return head('Assemblies & components','Create a simulator project first.');ui.project=p.id;return head('Assemblies & components','Revision-gated parts and subassemblies for each simulator project.')+`<div class="toolbar" style="margin-bottom:12px"><span class="subtle">Select simulator project</span>${projectSelect(p.id,'data-filter="mfgProject"')}</div>`+renderManufacturing(data,ui,p.id);}
-function projectsPage(){const p=findProject(ui.project);const list=allActiveProjects().map(x=>`<tr><td>${projectTitle(x)}</td><td>${e(projectOrg(x)?.name||'Archived customer')}</td><td>${badge(x.status)}</td><td><div class="progress-line">${meter(taskProgress(x.id,active(data.tasks)))}<span>${taskProgress(x.id,active(data.tasks))}%</span></div></td><td>${day(x.due)}</td><td><div class="row-actions">${button('Open '+ico('chevron'),'project-open','small',`data-id="${x.id}"`)}${button('Edit','edit-project','small',`data-id="${x.id}"`)}${button('Archive','archive-record','small danger',`data-kind="projects" data-id="${x.id}"`)}</div></td></tr>`).join('');
-  const chosen=p&&!p.archivedAt?p:allActiveProjects()[0];
-  return head('Projects','A single source of truth for every simulator build.',button(`${ico('plus')} Create project`,'open-project-modal','primary'))+`<div class="card" style="margin-bottom:19px"><div class="card-head"><h2>All active projects</h2><span class="subtle">${allActiveProjects().length} active records</span></div><div class="table-wrap"><table class="table"><thead><tr><th>Project</th><th>Customer</th><th>Status</th><th>Internal completion</th><th>Target delivery</th><th>Management</th></tr></thead><tbody>${list||'<tr><td colspan="6" class="subtle">No active projects. Create your first one.</td></tr>'}</tbody></table></div></div>${chosen?projectDetail(chosen):''}`;
+
+function projectsPage(){
+ const all=allActiveProjects(),original=findProject(ui.project),p=original&&!original.archivedAt?original:all[0];
+ if(p)ui.project=p.id;
+ const rows=all.map(x=>'<tr><td>'+projectTitle(x)+'</td><td>'+e(projectOrg(x)?.name||'Customer')+'</td>'+
+  '<td>'+badge(x.status)+'</td><td>'+taskProgress(x.id,active(data.tasks))+'%</td><td>'+day(x.due)+'</td>'+
+  '<td><div class="row-actions">'+button('Open','project-open','small','data-id="'+x.id+'"')+
+  button('Edit','edit-project','small','data-id="'+x.id+'"')+
+  button('Archive','archive-record','small danger','data-kind="projects" data-id="'+x.id+'"')+'</div></td></tr>').join('');
+ const chooser=p?'<div class="v42-project-switch"><div><span class="v42-eyebrow">SELECT PROJECT</span>'+
+  projectSelect(p.id,'data-filter="v42-project" aria-label="Select project"')+'</div><div class="v42-project-actions">'+
+  button(ui.showProjectList?'Hide portfolio':'Browse all projects','v42-toggle-project-list','small')+
+  button('New project','open-project-modal','small primary')+'</div></div>':'';
+ const list=ui.showProjectList?card('All active projects',
+  '<div class="table-wrap"><table class="table"><thead><tr><th>Project</th><th>Customer</th><th>Status</th>'+
+  '<th>Progress</th><th>Due</th><th>Manage</th></tr></thead><tbody>'+rows+'</tbody></table></div>',
+  '','Switch projects or edit their details'):'';
+ return '<div class="v42-project-page">'+head('Projects','Focus on one project; browse the portfolio only when needed.')+
+  chooser+list+(p?projectDetail(p):'<div class="empty">Create a project to begin.</div>')+'</div>';
 }
-function projectDetail(p){const org=projectOrg(p);const mfgAlerts=projectManufacturingAlerts(data,p.id);const mfgBanner=mfgAlerts.length?`<div class="plan-warning"><b>Manufacturing attention:</b> ${mfgAlerts.length} linked job(s) have drawing or material warnings. <button type="button" class="btn small" data-action="project-tab" data-id="assembly">Open assembly control</button></div>`:'';const supplyGaps=materialReadinessV041(data,p.id).filter(r=>r.toSource>0);const supplyBanner=supplyGaps.length?`<div class="plan-warning"><b>Procurement:</b> ${supplyGaps.length} part(s) still need sourcing. <button type="button" class="btn small" data-action="project-tab" data-id="procurement">Open project procurement</button></div>`:'';const nav=['structure','register','schedule','bom','assembly','procurement','materials','documents','publishing'];const labels=['Work breakdown','Work register','Gantt plan','Bill of materials','Assembly control','Project procurement','Legacy materials','Documents','Client publishing'];const contents={structure:projectStructure(p),register:projectRegister(p),schedule:projectSchedule(p),bom:projectBom(p),assembly:ui.projectTab==='assembly'?renderManufacturing(data,ui,p.id):'',procurement:ui.projectTab==='procurement'?renderProjectSupply(data,ui,p.id):'',materials:projectMaterials(p),documents:projectDocuments(p),publishing:projectPublishing(p)};
- return `<div id="project-detail" class="project-hero"><div class="project-hero-art">${glyph(p.template)}</div><div class="project-meta"><div class="eyebrow">${e(p.code)} · ${e(org?.name||"Customer")}</div><div class="project-hero-title"><h2>${e(p.name)}</h2>${button('Edit project','edit-project','small',`data-id="${p.id}"`)}</div><p>${e(p.description)}</p><div class="meta-row"><div>Project lead<strong>${e(p.lead)}</strong></div><div>Current phase<strong>${e(p.phase)}</strong></div><div>Target delivery<strong>${day(p.due)}</strong></div><div>Internal progress<strong>${taskProgress(p.id,data.tasks)}%</strong></div></div></div></div>${mfgBanner}${supplyBanner}<div class="card"><div class="tabs">${nav.map((n,i)=>`<button data-action="project-tab" data-id="${n}" class="${ui.projectTab===n?'active':''}">${labels[i]}</button>`).join('')}</div>${contents[ui.projectTab]||contents.structure}</div>`;
+function projectDetail(p){
+ const org=projectOrg(p),b=projectBudgetSnapshot(data,p.id);
+ const mfg=projectManufacturingAlerts(data,p.id).length,shortage=materialReadinessV041(data,p.id).filter(x=>x.toSource>0).length;
+ const top=[['structure','Work breakdown'],['register','Work register'],['schedule','Gantt'],
+  ['assembly','Assemblies'],['procurement','Procurement'],['budget','Budget']];
+ const extras=[['bom','Legacy BOM'],['materials','Legacy forecast'],['documents','Documents'],['publishing','Client publishing']];
+ const extraSelected=extras.some(pair=>pair[0]===ui.projectTab);
+ const content={structure:projectStructure(p),register:projectRegister(p),schedule:projectSchedule(p),
+  assembly:ui.projectTab==='assembly'?renderManufacturing(data,ui,p.id):'',
+  procurement:ui.projectTab==='procurement'?renderProjectSupply(data,ui,p.id):'',
+  budget:ui.projectTab==='budget'?projectBudgetPage(p):'',
+  bom:projectBom(p),materials:projectMaterials(p),documents:projectDocuments(p),publishing:projectPublishing(p)};
+ const meta='<div class="v42-project-summary"><div class="v42-project-identity"><span class="v42-eyebrow">'+
+  e(p.code)+' · '+e(org?.name||'Customer')+'</span><h2>'+e(p.name)+'</h2><p>'+e(p.description||'No description')+'</p>'+
+  '<div class="v42-project-mini">'+badge(p.status)+'<span>Lead: <b>'+e(p.lead||'Unassigned')+'</b></span>'+
+  '<span>Due: <b>'+day(p.due)+'</b></span><span>Progress: <b>'+taskProgress(p.id,active(data.tasks))+'%</b></span>'+
+  button('Edit details','edit-project','small','data-id="'+p.id+'"')+'</div></div>'+
+  '<div class="v42-summary-budget"><span class="v42-eyebrow">BUDGET REMAINING</span>'+
+  '<strong class="'+(b.overBudget?'danger-text':'')+'">'+money(b.headroom)+'</strong>'+
+  '<span>'+money(b.forecast)+' forecast / '+money(b.budget)+' allocated</span>'+
+  '<div class="v42-budget-track"><span style="width:'+Math.min(100,Math.max(0,b.percent))+'%;background:'+
+  (b.overBudget?'#d94f58':'#6554d9')+'"></span></div>'+button('Manage budget','project-tab','small','data-id="budget"')+'</div></div>';
+ const attention=shortage||mfg?'<div class="v42-attention">'+
+  (shortage?'<span>'+shortage+' material sourcing shortfall(s) '+button('Open procurement','project-tab','small','data-id="procurement"')+'</span>':'')+
+  (mfg?'<span>'+mfg+' engineering blocker(s) '+button('Review assemblies','project-tab','small','data-id="assembly"')+'</span>':'')+
+  '</div>':'';
+ const tabs='<div class="v42-primary-tabs">'+top.map(pair=>
+  '<button type="button" data-action="project-tab" data-id="'+pair[0]+'" class="'+(ui.projectTab===pair[0]?'active':'')+'">'+pair[1]+'</button>').join('')+
+  '<select data-filter="v42-project-extra" aria-label="Additional project sections" class="'+(extraSelected?'active':'')+'">'+
+  '<option value="">More...</option>'+extras.map(pair=>'<option value="'+pair[0]+'" '+(ui.projectTab===pair[0]?'selected':'')+'>'+pair[1]+'</option>').join('')+
+  '</select></div>';
+ return '<div id="project-detail" class="v42-project-detail">'+meta+attention+
+  '<div class="card v42-project-work">'+tabs+'<div class="v42-project-content">'+(content[ui.projectTab]||content.structure)+'</div></div></div>';
+}
+function projectBudgetPage(p){
+ const b=projectBudgetSnapshot(data,p.id);
+ const stats=[['Project budget',money(b.budget)],['Actual & received',money(b.actual)],
+  ['Open commitments',money(b.commitment)],[b.overBudget?'Forecast overrun':'Budget remaining',money(b.headroom)]];
+ const tiles=stats.map(([label,value])=>'<div class="v42-budget-tile"><small>'+label+'</small><strong>'+value+'</strong></div>').join('');
+ const conversions=b.unconverted.map(o=>'<form data-form="v42-exchange" class="v42-exchange-row">'+
+  '<input type="hidden" name="orderId" value="'+e(o.id)+'"><span>'+e(o.code)+' · '+e(o.currency)+'</span>'+
+  '<label>EUR per 1 '+e(o.currency)+'<input name="eurExchangeRate" type="number" min="0.000001" step="any" required placeholder="Rate"></label>'+
+  '<button class="btn small" type="submit">Apply rate</button></form>').join('');
+ const form='<form data-form="v42-budget" class="v42-budget-editor"><input type="hidden" name="projectId" value="'+e(p.id)+'">'+
+  '<label>Allocated budget (€)<input name="budget" type="number" min="0" step="0.01" required value="'+e(b.budget)+'"></label>'+
+  '<label>Previously recorded costs (€)<input name="spent" type="number" min="0" step="0.01" required value="'+e(b.legacySpent)+'"></label>'+
+  '<label>Existing/manual commitments (€)<input name="committed" type="number" min="0" step="0.01" required value="'+e(b.legacyCommitted)+'"></label>'+
+  '<button class="btn primary" type="submit">Save budget</button></form>';
+ const breakdown=[['Previously recorded costs',b.legacySpent],['New PO goods received',b.poReceived],
+  ['Existing/manual commitments',b.legacyCommitted],['New PO balances outstanding',b.poOpen]];
+ return '<section class="v42-budget-workspace"><div class="v42-budget-intro"><div><h3>Project budget control</h3>'+
+  '<p>Set the project allowance and follow costs against it.</p></div>'+badge(b.overBudget?'Over budget':'Within budget',b.overBudget?'red':'green')+'</div>'+
+  '<div class="v42-budget-grid">'+tiles+'</div><div class="v42-budget-track"><span style="width:'+
+  Math.min(100,Math.max(0,b.percent))+'%;background:'+(b.overBudget?'#d94f58':'#6554d9')+'"></span></div>'+
+  '<p class="v41-caption">'+b.percent+'% of the allocated budget forecast to be used.</p>'+form+
+  '<div class="v42-cost-breakdown"><h4>Forecast cost breakdown</h4>'+
+  breakdown.map(([label,value])=>'<div><span>'+label+'</span><b>'+money(value)+'</b></div>').join('')+
+  '<div class="v42-budget-total"><span>Forecast cost</span><b>'+money(b.forecast)+'</b></div></div>'+
+  (conversions?'<div class="v42-budget-warning"><strong>Foreign-currency orders excluded until converted to EUR</strong>'+conversions+'</div>':'')+
+  '<p class="v41-caption">Previously recorded costs and commitments are manually maintained. New purchase orders are counted separately; receipts move PO costs from outstanding commitments to actuals without adding them twice. Legacy imported orders are excluded because they may already be in the manual totals. Not an accounting ledger.</p></section>';
 }
 function projectStructure(p){
  const sections=active(data.sections).filter(s=>s.projectId===p.id);

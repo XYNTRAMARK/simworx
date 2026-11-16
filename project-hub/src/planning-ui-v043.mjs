@@ -23,6 +23,7 @@ export function renderProjectMaterialPlanner(s,projectId){
  }).join('');
  return '<div class="v43-planning"><div class="v43-focus-heading"><div><h3>Plan purchasing before parts are needed</h3>'+
   '<p>Set when the material must arrive, supplier lead time and a safety buffer. We calculate the latest order date.</p></div></div>'+
+  '<div><button type="button" class="btn small" data-action="v44-export-buying-schedule" data-project="'+h(projectId)+'">Export buying schedule CSV</button></div>'+ 
   '<div class="v43-planning-kpis">'+
   '<div><b>'+stats.overdue.length+'</b><span>Order deadlines passed</span></div>'+
   '<div><b>'+stats.thisWeek.length+'</b><span>Order within 7 days</span></div>'+
@@ -31,7 +32,7 @@ export function renderProjectMaterialPlanner(s,projectId){
   '<th>Order no later than</th><th>Planning status</th><th>Linked job / notes</th><th></th></tr></thead><tbody>'+
   (formRows||'<tr><td colspan="8">Create assembly material requirements above to schedule orders.</td></tr>')+
   '</tbody></table></div>'+
-  '<p class="v43-note">Lead times and buffers use calendar days. Changing a project Gantt task does not silently change a material date; link the task for traceability and update the dates explicitly. Dates only signal a need to order; they do not place an order or modify stock.</p></div>';
+  '<p class="v43-note">Lead times and buffers use calendar days. A zero-day lead time is a planning placeholder until independently confirmed; exported schedules flag these for review. Changing a project Gantt task does not silently change a material date; link the task for traceability and update the dates explicitly. Dates only signal a need to order; they do not place an order or modify stock.</p></div>';
 }
 export function handleMaterialPlanningForm(s,form){
  const f=new FormData(form),v=k=>String(f.get(k)||'').trim();

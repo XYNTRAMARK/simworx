@@ -1,6 +1,23 @@
 # Sim-Worx Project Hub — Development roadmap
 
-**Current delivered milestone: V0.4.0 — isolated component/manufacturing slice (local demo).** All production writes are prohibited without explicit separate approval. The design is multi-customer from the start; NOAH is only a demo example.
+**Current delivered milestone: V0.4.1 — project procurement, shared workshop stock and order tracking (local interactive demo).** All production writes are prohibited without explicit separate approval. The design is multi-customer from the start; NOAH is only a demo example.
+
+## V0.4.1 delivered (separate development branch)
+
+- **Project-level procurement:** add assembly material requirements, check current free workshop stock, see allocations to other projects and legacy reservations, allocate stock, issue/consume goods, create linked purchase orders and identify outstanding shortage.
+- **Purchasing:** multi-line orders, per-line partial receipts/backorders/returns, ETA, currency and tax assumptions, carrier/tracking reference, HTTPS tracking link, local proof-of-order/receipt attachments.
+- **Inventory:** physical on-hand, global and project reservation ledger, available stock and clear warnings; order quantities not counted as received until actual goods receipt is recorded in the demo.
+- **Backup:** complete local workspace JSON export and validated restore with confirmation, including any local proof attachments.
+- **Continuity:** V0.3/Gantt, V0.4 assemblies, customer previews, internal financials, theme and mandatory version badge preserved.
+- **Verification:** 45/45 original and new domain tests passed in a JavaScript harness; 30/30 render paths and 10/10 integrated action flows passed with an emulated DOM. Full Playwright/Node CLI tests are still pending a complete local checkout.
+
+## Next recommended: V0.5.0 — quality and inspection
+
+1. QA checklists and inspection hold points linked to assembly, drawing revision and work order.
+2. Non-conformance, corrective/rework, retest and approved-release workflow.
+3. Assembly readiness combining material allocation, released engineering instruction and QA clearance.
+4. Audited customer-facing milestone publication after independent internal approval.
+5. Optional source/data export and project templates — preserving current structure and costs.
 
 ## Delivered
 
@@ -14,7 +31,7 @@
 - Drawing revisions with review/release transitions and independent immutable-at-rest manufacturing BOM snapshots; engineering change register and linked job release/shortage warnings.
 - Existing V0.3 screens retained; procurement/stock transactions and controlled live publishing explicitly **not** delivered yet.
 
-## Next: V0.4.1 / V0.5 — deeper manufacturing controls (still isolated)
+## Historical planned V0.4.1 / V0.5 items (superseded by the delivered sections above)
 
 1. **Component / subassembly register:** engineering structure, multiple reusable occurrences of a part, make/buy classification, revision numbers, build state and required tests. Separate *engineering BOM* and *manufacturing BOM* versions.
 2. **Change control:** immutable released drawing versions, formal change requests, impacts on materials/budget/schedule and release authorisation before workshop use.

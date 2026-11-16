@@ -9,20 +9,20 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
-      - name: Verify live authentication and complete snapshot using aggregate-only temporary diagnostic
+      - name: Verify version 9 live authentication and full snapshot
         run: |
           python3 - <<'PY'
           import json,urllib.request
-          # Expiring diagnostic nonce; not a reporting login/session credential.
+          # Expiring aggregate-only diagnostic, not a login/session credential.
           url='https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/simworx-reports-repair-check?check=f5ec175a4606b3bd461c869b8a972e6b4db7627793514c57886f210dca326f3d'
-          with urllib.request.urlopen(url,timeout=75) as response:
+          with urllib.request.urlopen(url,timeout=180) as response:
               result=json.loads(response.read())
           print(json.dumps(result,sort_keys=True))
           assert result.get('success') is True, 'Live report verification failed'
           assert result.get('test_session_closed') is True
           assert result.get('unauthenticated_status')==401
           assert result.get('login_status')==200 and result.get('snapshot_status')==200
-          assert result.get('seconds',999)<45
+          assert result.get('seconds',999)<45,'Live snapshot exceeded existing browser timeout'
           PY

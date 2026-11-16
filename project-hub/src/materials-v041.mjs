@@ -89,10 +89,10 @@ function normalizedLine(s,projectId,input){
   const sourceOccurrenceId=String(input.sourceOccurrenceId||'').trim();
   if(sourceOccurrenceId&&!s.assemblyBOM?.some(x=>x.id===sourceOccurrenceId&&!x.archivedAt&&x.projectId===projectId&&x.partId===part.id))
     throw Error('Purchase source must match a live requirement for this project and part');
-  const vendorSku=String(input.vendorSku||'').trim(),notes=String(input.notes||'').trim();
-  if(vendorSku.length>120||notes.length>800)throw Error('Supplier code or purchase note too long');
+  const vendorSku=String(input.vendorSku||'').trim(),quoteRef=String(input.quoteRef||'').trim(),notes=String(input.notes||'').trim();
+  if(vendorSku.length>120||quoteRef.length>120||notes.length>800)throw Error('Supplier code, quote reference or purchase note too long');
   return {id:uid('pol'),partId:part.id,assemblyId:input.assemblyId||null,quantity,received:0,unitCost,eta,
-    sourceOccurrenceId:sourceOccurrenceId||null,productUrl:safeProductURL(input.productUrl||''),vendorSku,notes};
+    sourceOccurrenceId:sourceOccurrenceId||null,productUrl:safeProductURL(input.productUrl||''),vendorSku,quoteRef,notes};
 }
 export function createPurchaseOrder(s,input){
   ensureMaterials(s);

@@ -140,6 +140,9 @@ function orderLineEditor(s,projectId,seed={},idx=0){
    label('Qty',input('poQty',seed.quantity||1,'number','min="1" step="1" required'))+
    label('Cost each',input('poCost',seed.unitCost??0,'number','min="0" step="0.01" required'))+
    label('ETA',input('poEta',seed.eta||'','date'))+
+   label('Product website (HTTPS)',input('poProductUrl',seed.productUrl||'','url','placeholder="https://..." maxlength="2048"'))+
+   label('Vendor product code',input('poVendorSku',seed.vendorSku||'','text','maxlength="120"'))+
+   input('poSourceOcc',seed.sourceOccurrenceId||'','hidden')+
    btn('Remove line','v41-remove-po-line','','small danger')+'</div>';
 }
 export function renderOrderComposer(s,ui,projectId){
@@ -153,8 +156,8 @@ export function renderOrderComposer(s,ui,projectId){
  label('Tax assumption (%)',input('taxRate',0,'number','min="0" max="100" step="0.01" required'))+'</div>'+
  '<div id="v41-order-lines">'+orderLineEditor(s,projectId,pref)+'</div>'+
  '<div class="v41-actions">'+btn('+ Another line','v41-add-po-line','data-project="'+h(projectId)+'"','small')+
- '<button type="submit" class="btn primary">Create purchase order</button>'+btn('Cancel','v41-order-cancel','','small')+'</div>'+
- '</form><p class="v41-caption">Amounts are internal demonstration values. Order lines are attributed to the project and optional assembly; receipt is separately recorded after delivery.</p>');
+ '<button type="submit" class="btn primary">Record actual supplier PO</button>'+btn('Cancel','v41-order-cancel','','small')+'</div>'+
+ '</form><p class="v41-caption">Only record a supplier order when it is actually authorised and placed. The entered quantity, price, vendor code and product URL are saved in the PO history. Creating this record does not receive stock.</p>');
 }
 function orderRegister(s,ui,projectId='all'){
  const list=activeOrders(s).filter(o=>projectId==='all'||o.projectId===projectId);
@@ -174,21 +177,39 @@ function orderRegister(s,ui,projectId='all'){
 }
 function orderDetailIfSelected(s,ui,projectId='all'){
  const o=s.orders.find(o=>!o.archivedAt&&o.id===ui.materialPO);
- return o&&(projectId==='all'||o.projectId===projectId)?renderOrderDetail(s,o):'';
+ return o&&(projectId==='all'||o.projectId===projectId)?renderOrderDetail(s,ui,o):'';
 }
-function renderOrderDetail(s,o){
+function renderOrderDetail(s,ui,o){
  const p=s.projects.find(p=>p.id===o.projectId);
  const sh=o.shipment||{};
  const lineRows=o.items.map(l=>{
   const p=s.parts.find(p=>p.id===l.partId);
   const left=outstanding(l);
-  return '<tr><td><b>'+h(p?.code)+'</b><small>'+h(p?.name)+'</small></td>'+
+  const editing=ui.v46PurchaseLine===l.id;
+  const last=l.revisions||[];
+  const savedURL=l.productUrl?'<a href="'+h(l.productUrl)+'" target="_blank" rel="noopener noreferrer">Product website</a>':'<small>No website recorded</small>';
+  const edits=editing?'<tr class="v46-editor-row"><td colspan="8"><form data-form="v46-po-line-update" class="v46-inline-form">'+
+   input('orderId',o.id,'hidden')+input('lineId',l.id,'hidden')+
+   label('Ordered quantity',input('quantity',l.quantity,'number','min="'+Math.max(1,Number(l.received||0))+'" step="1" required'))+
+   label('Unit cost ('+o.currency+')',input('unitCost',l.unitCost,'number','min="0" step="0.01" required'))+
+   label('Delivery ETA',input('eta',l.eta||'','date'))+
+   label('Supplier product URL',input('productUrl',l.productUrl||'','url','maxlength="2048" placeholder="https://..."'))+
+   label('Vendor part number',input('vendorSku',l.vendorSku||'','text','maxlength="120"'))+
+   label('PO line notes',input('notes',l.notes||'','text','maxlength="800"'))+
+   label('Reason for amendment',input('reason','','text','minlength="5" maxlength="300" required placeholder="Supplier revised the delivery date..."'))+
+   '<button class="btn small primary" type="submit">Save PO line amendment</button></form>'+
+   '<p class="v46-small">Edits are recorded in the PO line history. Already-received quantity and its unit price cannot be rewritten here.</p></td></tr>':'';
+  return '<tr><td><b>'+h(p?.code)+'</b><small>'+h(p?.name)+'</small>'+savedURL+
+   (l.vendorSku?'<small>Vendor code: '+h(l.vendorSku)+'</small>':'')+'</td>'+
    '<td>'+fmt(l.quantity)+'</td><td>'+fmt(l.received||0)+'</td><td>'+badge(left?fmt(left)+' backordered':'Complete',left?'warn':'good')+'</td>'+
    '<td>'+cost(l.unitCost,o.currency||'EUR')+'</td><td>'+date(l.eta)+'</td>'+
    '<td>'+(left?'<form class="v41-table-form" data-form="v41-receive">'+
     '<input type="hidden" name="orderId" value="'+h(o.id)+'"><input type="hidden" name="lineId" value="'+h(l.id)+'">'+
     input('quantity',left,'number','min="1" max="'+left+'" required aria-label="Goods received quantity"')+
-    '<button class="btn primary small">Receive</button></form>':'Received in full')+'</td></tr>';
+    '<button class="btn primary small">Receive</button></form>':'Received in full')+'</td>'+
+    '<td>'+btn(editing?'Close edit':'Edit line','v46-po-line-edit','data-id="'+h(l.id)+'"','small')+
+    (last.length?'<details><summary>'+last.length+' amendment(s)</summary>'+last.slice(-8).map(v=>'<p><b>'+h(v.reason)+'</b><small>'+h(v.at)+'</small></p>').join('')+'</details>':'')+
+    '</td></tr>'+edits;
  }).join('');
  const receipts=s.procurementReceipts.filter(x=>x.orderId===o.id);
  const receiptRows=receipts.map(r=>{
@@ -210,13 +231,15 @@ function renderOrderDetail(s,o){
    '<button type="submit" class="btn primary">Save tracking</button></div></form>'+
    (sh.trackingUrl?'<p class="v41-caption"><a href="'+h(sh.trackingUrl)+'" target="_blank" rel="noopener noreferrer">View carrier tracking ↗</a> · Tracking reference: '+h(sh.trackingCode)+'</p>':'');
  return '<div class="v41-detail">'+panel('Purchase order · '+o.code,'<p class="v41-caption">'+h(o.supplier)+' · '+h(p?.code)+' · '+h(o.currency||'EUR')+' · '+h(o.taxRate??0)+'% VAT/tax assumption</p>'+
- '<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part</th><th>Ordered</th><th>Received</th><th>Backorder</th><th>Unit cost</th><th>ETA</th><th>Record receipt</th></tr></thead><tbody>'+lineRows+'</tbody></table></div>'+
+ '<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part</th><th>Ordered</th><th>Received</th><th>Backorder</th><th>Unit cost</th><th>ETA</th><th>Record receipt</th><th>Edit / history</th></tr></thead><tbody>'+lineRows+'</tbody></table></div>'+
 
  '<form data-form="v41-add-po-line" class="v41-inline-form"><input type="hidden" name="orderId" value="'+h(o.id)+'">'+
  label('Add part',pick('partId',sku(s),'','required'))+
  label('Quantity',input('quantity',1,'number','min="1" required'))+
  label('Cost each',input('unitCost',0,'number','min="0" step="0.01" required'))+
  label('ETA',input('eta','','date'))+
+ label('Product URL',input('productUrl','','url','maxlength="2048" placeholder="https://..."'))+
+ label('Vendor code',input('vendorSku','','text','maxlength="120"'))+
  '<button type="submit" class="btn small primary">Add PO line</button></form>'+
 
  '<p class="v41-caption">Partial receipts immediately increase on-hand workshop inventory; future deliveries do not. Supplier returns decrease received and reopen backorders.</p>'+
@@ -245,11 +268,6 @@ export function renderPurchasingV041(s,ui){
   '<button type="button" data-action="v46-pick-purchase-project" data-id="'+h(x.id)+'" class="'+(x.id===projectId?'active':'')+'">'+
   '<small>'+h(x.code)+'</small><b>'+h(x.name)+'</b><span>'+s.tasks.filter(t=>!t.archivedAt&&t.projectId===x.id).length+
   ' work items</span></button>').join('')+'</div>':'';
- const actual='<div class="v46-purchase-orders"><div class="v46-panel-heading"><div><h3>Actual supplier orders</h3>'+
-  '<p>Orders are entered only after a real supplier commitment. This is different from the engineering buying review above.</p></div>'+
-  btn('Record actual purchase order','v41-order-new','data-project="'+h(projectId)+'"','small primary')+'</div>'+
-  (ui.materialOrderEditor?'<div id="v46-po-composer">'+renderOrderComposer(s,ui,projectId)+'</div>':'')+
-  orderRegister(s,ui,projectId)+orderDetailIfSelected(s,ui,projectId)+'</div>';
  return '<div class="v41 v46-purchasing">'+selected+projectCards+
   '<div class="v46-purchase-intro"><strong>How purchasing works</strong><span>Engineering need → Supplier/product research → Quote & authorisation → Actual PO → Receipt / inspection</span>'+
   '<p>Do not place an order just because a requirement shows a sourcing gap. Product websites and references can be saved without creating orders or changing stock.</p></div>'+
@@ -299,7 +317,8 @@ export function handleMaterialsAction(s,ui,el,confirmFn=()=>true){
   }
  }
  else if(action==='v42-material-restore'){archiveManufacturing(s,'occurrence',el.dataset.id,true);}
- else if(action==='v41-order-open'){ui.materialPO=el.dataset.id;ui.materialOrderEditor=false;}
+ else if(action==='v41-order-open'){ui.materialPO=el.dataset.id;ui.materialOrderEditor=false;ui.v46PurchaseLine=null;}
+ else if(action==='v46-po-line-edit'){ui.v46PurchaseLine=ui.v46PurchaseLine===el.dataset.id?null:el.dataset.id;}
  else if(action==='v41-order-new'){ui.materialOrderEditor=true;ui.materialPrefill=null;ui.materialOrderProject=el.dataset.project||ui.materialOrderProject;}
  else if(action==='v41-order-prefill'){ui.materialOrderEditor=true;ui.materialPrefill={partId:el.dataset.part,quantity:el.dataset.qty};ui.materialOrderProject=el.dataset.project;}
  else if(action==='v41-order-cancel'){ui.materialOrderEditor=false;ui.materialPrefill=null;}
@@ -365,13 +384,22 @@ export function handleMaterialsSubmit(s,ui,form){
  }
  else if(type==='v41-po'){
    const projectId=v('projectId'),parts=fd.getAll('poPart').map(String),quantities=fd.getAll('poQty').map(String),
-    costs=fd.getAll('poCost').map(String),assemblies=fd.getAll('poAssembly').map(String),etas=fd.getAll('poEta').map(String);
+    costs=fd.getAll('poCost').map(String),assemblies=fd.getAll('poAssembly').map(String),etas=fd.getAll('poEta').map(String),
+    links=fd.getAll('poProductUrl').map(String),vendorSkus=fd.getAll('poVendorSku').map(String),
+    sourceOccurrences=fd.getAll('poSourceOcc').map(String);
    if(!parts.length||!parts.every((_,i)=>quantities[i]!==undefined&&costs[i]!==undefined))throw Error('Please complete every order line');
    const order=createPurchaseOrder(s,{projectId,supplier:v('supplier'),currency:v('currency'),taxRate:v('taxRate'),
-     items:parts.map((partId,i)=>({partId,quantity:quantities[i],unitCost:costs[i],assemblyId:assemblies[i],eta:etas[i]}))});
+     items:parts.map((partId,i)=>({partId,quantity:quantities[i],unitCost:costs[i],assemblyId:assemblies[i],
+       eta:etas[i],productUrl:links[i]||'',vendorSku:vendorSkus[i]||'',sourceOccurrenceId:sourceOccurrences[i]||''}))});
    ui.materialPO=order.id;ui.materialOrderEditor=false;ui.materialPrefill=null;
  }
- else if(type==='v41-add-po-line')addPurchaseLine(s,v('orderId'),{partId:v('partId'),quantity:v('quantity'),unitCost:v('unitCost'),assemblyId:v('assemblyId'),eta:v('eta')});
+ else if(type==='v41-add-po-line')addPurchaseLine(s,v('orderId'),{partId:v('partId'),quantity:v('quantity'),
+  unitCost:v('unitCost'),assemblyId:v('assemblyId'),eta:v('eta'),productUrl:v('productUrl'),vendorSku:v('vendorSku')});
+ else if(type==='v46-po-line-update'){
+  updatePurchaseLineRecord(s,{orderId:v('orderId'),lineId:v('lineId'),quantity:v('quantity'),unitCost:v('unitCost'),
+   eta:v('eta'),productUrl:v('productUrl'),vendorSku:v('vendorSku'),notes:v('notes'),reason:v('reason')});
+  ui.v46PurchaseLine=null;
+ }
  else if(type==='v41-receive')receivePurchaseLine(s,{orderId:v('orderId'),lineId:v('lineId'),quantity:v('quantity')});
  else if(type==='v41-return')returnPurchaseReceipt(s,{receiptId:v('receiptId'),quantity:v('quantity')});
  else if(type==='v41-tracking')saveOrderShipment(s,{orderId:v('orderId'),carrier:v('carrier'),trackingCode:v('trackingCode'),trackingUrl:v('trackingUrl'),eta:v('eta'),note:v('note')});

@@ -125,7 +125,7 @@ export function renderProjectSupply(s,ui,projectId){
     '<button class="btn small">Consume</button></form>':'';
   return '<tr><td>'+h(p?.code)+'</td><td>'+h(a?.name||'Project allocation')+'</td><td>'+fmt(remain)+'</td><td>'+fmt(r.issued||0)+'</td><td>'+fmt(r.consumed||0)+'</td><td><div class="v41-actions">'+issue+release+consume+'</div></td></tr>';
  }).join('');
- return '<div class="v41"><div class="v41-intro"><div><h2>Project procurement & materials</h2><p>Assembly BOM → shared workshop inventory → reservations → purchasing → receipts → workshop issue.</p></div>'+badge('V0.4.7 · Local workspace')+'</div>'+
+ return '<div class="v41"><div class="v41-intro"><div><h2>Project procurement & materials</h2><p>Assembly BOM → shared workshop inventory → reservations → purchasing → receipts → workshop issue.</p></div>'+badge('V0.4.8 · Local workspace')+'</div>'+
   '<div class="v41-kpis"><div><b>'+rows.length+'</b><span>Required part SKUs</span></div><div><b>'+shortage.length+'</b><span>Materials still to source</span></div><div><b>'+orders.length+'</b><span>Purchase orders for project</span></div><div><b>'+res.filter(x=>reservationRemaining(x)>0).length+'</b><span>Active allocations</span></div></div>'+
   requirementsPanel+
   renderProjectMaterialPlanner(s,projectId)+
@@ -272,9 +272,9 @@ function renderOrderDetail(s,ui,o){
  (attachments||'<p class="v41-muted">No proof documents attached.</p>'));
 }
 /* Purchaser sees the project as a whole, not the engineering assembly breakdown. */
-export function renderPurchasingV041(s,ui){
+export function renderPurchasingV041(s,ui,forcedProjectId=null){
  ensureMaterials(s);
- const projects=proj(s),requested=ui.procurementProject;
+ const projects=proj(s),requested=forcedProjectId||ui.procurementProject;
  const projectId=projects.some(p=>p.id===requested)?requested:
    projects.some(p=>p.id===ui.project)?ui.project:projects[0]?.id;
  ui.procurementProject=projectId;
@@ -290,9 +290,9 @@ export function renderPurchasingV041(s,ui){
   '<button type="button" data-action="v46-pick-purchase-project" data-id="'+h(x.id)+'" class="'+(x.id===projectId?'active':'')+'">'+
   '<small>'+h(x.code)+'</small><b>'+h(x.name)+'</b><span>'+s.tasks.filter(t=>!t.archivedAt&&t.projectId===x.id).length+
   ' work items</span></button>').join('')+'</div>':'';
- return '<div class="v41 v46-purchasing">'+selected+projectCards+
-  '<div class="v46-purchase-intro"><strong>How purchasing works</strong><span>Engineering need → Supplier/product research → Quote & authorisation → Actual PO → Receipt / inspection</span>'+
-  '<p>Do not place an order just because a requirement shows a sourcing gap. Product websites and references can be saved without creating orders or changing stock.</p></div>'+
+ return '<div class="v41 v46-purchasing v48-project-purchasing">'+(forcedProjectId?'':selected+projectCards)+
+  '<div class="v46-purchase-intro"><strong>Purchasing for '+h(p.name)+'</strong><span>1. Department requirement → 2. Supplier and specification check → 3. Approved PO → 4. Delivery and inspection</span>'+
+  '<p>All proposed purchases are linked to this project. Save a source link or assign a buyer first; these actions do not create orders or change stock.</p></div>'+
   '<div class="v46-purchase-overview"><span>'+requirements.buy.length+' proposed BUY lines</span>'+
   '<span>'+requirements.manufacture.length+' MAKE requirements</span><span>'+requirements.unplannedBuy.length+' missing sourcing details</span>'+
   '<span>'+orders.length+' actual POs</span></div>'+

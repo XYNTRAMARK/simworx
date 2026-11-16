@@ -160,6 +160,8 @@ export function saveTask(state,{id,projectId,sectionId,title,description='',depa
   if(Array.isArray(predecessors)&&blockedBy && current && blockedBy!==current.blockedBy)requested=[blockedBy,...requested];
   const dependencies=verifyPredecessors(state,projectId,id,requested);
   if(status==='Done' && dependencies.some(x=>state.tasks.find(t=>t.id===x)?.status!=='Done'))throw Error('Complete predecessor job first');
+  if(id&&status==='Done'&&state.tasks.some(child=>!child.archivedAt&&child.parentId===id&&!['Done','Cancelled'].includes(child.status)))
+    throw Error('Complete the child jobs before marking the parent job Done');
   const fields={sectionId,title:name,description:details,department,assignee:String(assignee||'Unassigned'),priority,due:finishDate,start:startDate,status:status||current?.status||'Backlog',parentId:parentId||null,predecessors:dependencies,blockedBy:dependencies[0]||null};
   if(current){Object.assign(current,fields);logChange(state,'Job updated',name);return current;}
   const record={id:uid('t'),projectId,...fields};state.tasks.push(record);logChange(state,'Job created',name);return record;
@@ -171,6 +173,8 @@ export function setTaskStatus(state,id,status){
     const waiting=predecessorIds(t).filter(x=>state.tasks.find(d=>d.id===x&&!d.archivedAt)?.status!=='Done');
     if(waiting.length)throw Error('Complete predecessor job first');
   }
+  if(status==='Done'&&state.tasks.some(child=>!child.archivedAt&&child.parentId===id&&!['Done','Cancelled'].includes(child.status)))
+    throw Error('Complete the child jobs before marking the parent job Done');
   t.status=status;logChange(state,'Job status updated',`${t.title} → ${status}`);return t;
 }
 export function updateTaskPlan(state,taskId,{start,due,predecessors}){

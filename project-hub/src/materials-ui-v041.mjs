@@ -265,7 +265,7 @@ export function renderPurchasingV041(s,ui){
  const total=orders.length,done=orders.filter(o=>purchaseStatus(o)==='Received').length;
  return '<div class="v41 v43-buyer"><div class="v41-intro"><div><h2>Project purchasing</h2>'+
    '<p>Choose the main project. One combined buying list — no assembly information required.</p></div>'+
-   badge('V0.4.3 · Local demo')+'</div>'+
+   badge('STAFF · LOCAL')+'</div>'+
    '<div class="v43-buyer-heading">'+label('Project purchasing list',
      pick('procurementProject',projectOptions(s),projectId,'data-filter="v41-project" aria-label="Select main project"'))+
    btn('+ Create purchase order','v41-order-new','data-project="'+h(projectId)+'"','primary')+'</div>'+

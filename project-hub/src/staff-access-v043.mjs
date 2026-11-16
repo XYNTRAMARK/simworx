@@ -1,48 +1,39 @@
-/* Local staff gate for an OFFLINE application.
- * This is a convenience lock, NOT server-authentication or confidentiality protection.
- * Browser data are not encrypted. Do not treat the gate as secure multi-user access. */
-const CONFIG_KEY='simworx-project-hub-local-staff-v1';
-const SESSION_KEY='simworx-project-hub-session-v1';
-const encode=buf=>Array.from(new Uint8Array(buf),v=>v.toString(16).padStart(2,'0')).join('');
-async function derive(password,saltHex){
- const salt=new Uint8Array(saltHex.match(/../g).map(x=>parseInt(x,16)));
- const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);
- const hash=await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'},material,256);
- return encode(hash);
-}
-const getCfg=()=>{
- try {const v=JSON.parse(localStorage.getItem(CONFIG_KEY));
-  if(v?.version===1&&typeof v.username==='string'&&/^[a-f0-9]{32}$/.test(v.salt)&&/^[a-f0-9]{64}$/.test(v.verifier))return v;
- }catch{}return null;
+/* Six-digit local convenience gate for the complete OFFLINE application.
+ * This is NOT an authentication service and does NOT encrypt private workspace files.
+ * The stored verifier is extractable from public client-side source: use OS/file security.
+ * Previous local username/password credentials and all project data remain untouched.
+ */
+const SESSION_KEY='simworx-project-hub-pin-session-v1';
+const PIN_CONFIG={
+ version:1,
+ salt:'f76bb20f3f607494a68f6301ab747964',
+ verifier:'94e66b20259c138e8cd8914a8c61a2b85bd3c216daf4cc3fe2eb9eaeee5c521c'
 };
+const digits=pin=>/^[0-9]{6}$/.test(String(pin??''));
+const toHex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+async function derive(pin,saltHex){
+ if(typeof crypto==='undefined'||!crypto.subtle)throw Error('This browser does not support PIN verification');
+ const salt=new Uint8Array(saltHex.match(/../g).map(x=>parseInt(x,16)));
+ const input=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
+ const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'},input,256);
+ return toHex(new Uint8Array(bits));
+}
 export function localStaffStatus(){
- const cfg=getCfg();
- const unlocked=!!cfg&&sessionStorage.getItem(SESSION_KEY)==='unlocked';
- return {configured:!!cfg,unlocked,username:cfg?.username||'',secure:false};
+ return {configured:true,unlocked:sessionStorage.getItem(SESSION_KEY)==='unlocked',secure:false,mode:'pin'};
 }
 export function createLocalStaffGate(){
  return {
   status:localStaffStatus,
-  async setup(username,password,confirmation){
-   if(getCfg())throw Error('A local staff sign-in already exists. Use Sign in.');
-   if(!crypto?.subtle||!crypto?.getRandomValues)throw Error('This browser does not support the local password verifier');
-   const name=String(username||'').trim();
-   if(name.length<3||name.length>80)throw Error('Username must be 3–80 characters');
-   if(String(password||'').length<12)throw Error('Use a password of at least 12 characters');
-   if(password!==confirmation)throw Error('Passwords do not match');
-   const salt=crypto.getRandomValues(new Uint8Array(16));
-   const cfg={version:1,username:name,salt:encode(salt),verifier:await derive(password,encode(salt))};
-   localStorage.setItem(CONFIG_KEY,JSON.stringify(cfg));
+  async signIn(pin){
+   const supplied=String(pin??'').trim();
+   if(!digits(supplied))throw Error('Enter exactly six digits');
+   const verifier=await derive(supplied,PIN_CONFIG.salt);
+   if(verifier!==PIN_CONFIG.verifier){
+    sessionStorage.removeItem(SESSION_KEY);
+    throw Error('Incorrect six-digit code');
+   }
    sessionStorage.setItem(SESSION_KEY,'unlocked');
    return localStaffStatus();
-  },
-  async signIn(username,password){
-   const cfg=getCfg();if(!cfg)throw Error('Set up staff access first');
-   const verifier=await derive(String(password||''),cfg.salt);
-   if(cfg.username!==String(username||'').trim()||verifier!==cfg.verifier){
-     sessionStorage.removeItem(SESSION_KEY);throw Error('Incorrect username or password');
-   }
-   sessionStorage.setItem(SESSION_KEY,'unlocked');return localStaffStatus();
   },
   logout(){sessionStorage.removeItem(SESSION_KEY);return localStaffStatus();}
  };

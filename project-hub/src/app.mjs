@@ -4,21 +4,31 @@ import {renderManufacturing,handleManufacturingAction,handleManufacturingSubmit}
 import {ensureMaterials,materialReadinessV041,createWorkspaceBackup,parseWorkspaceBackup} from './materials-v041.mjs';
 import {renderProjectSupply,renderPurchasingV041,renderInventoryV041,handleMaterialsAction,handleMaterialsSubmit,handleMaterialsProof,updateOrderStage} from './materials-ui-v041.mjs';
 import {projectBudgetSnapshot,updateProjectBudget,setPurchaseExchangeRate} from './projects-v042.mjs';
+import {ensureProgress,progressSnapshot} from './progress-v043.mjs';
+import {renderProjectProgress,handleProgressForm,handleProgressAction} from './progress-ui-v043.mjs';
+import {ensureExternalWork,externalRouteSummary} from './external-work-v043.mjs';
+import {renderExternalWork,handleExternalForm,handleExternalAction} from './external-ui-v043.mjs';
+import {procurementAlerts} from './procurement-planning-v043.mjs';
+import {handleMaterialPlanningForm} from './planning-ui-v043.mjs';
+import {renderProjectFocus} from './focus-ui-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
-const APP_VERSION='V0.4.2'; // Every build carries an explicit visible release number.
+const APP_VERSION='V0.4.3'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
 function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return seed()}
 let data=load();
 ensureManufacturing(data);
 ensureMaterials(data);
-const ui={page:'overview',project:'p1',projectTab:'structure',dept:'All',taskView:'board',clientOrg:'noah',clientProject:'p1',clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:'all',materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null};
+ensureProgress(data);
+ensureExternalWork(data);
+const ui={page:'overview',project:'p1',projectTab:'focus',dept:'All',taskView:'board',clientOrg:'noah',clientProject:'p1',clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:'p1',materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null};
 const persist=()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch{toast('Local storage is full; changes may not persist.',true)}};
 const findProject=id=>data.projects.find(x=>x.id===id);
 const findOrg=id=>data.organizations.find(x=>x.id===id);
 const findPart=id=>data.parts.find(x=>x.id===id);
 const active=activeRecords;
 const allActiveProjects=()=>active(data.projects).filter(p=>!findOrg(p.orgId)?.archivedAt);
+const managedProgress=id=>{const r=progressSnapshot(data,id);return r.configured?r.earned:null};
 const activeOrgProjects=id=>allActiveProjects().filter(p=>p.orgId===id);
 const projectOrg=p=>findOrg(p.orgId);
 const day=s=>{if(!s)return 'Not set';const d=new Date(String(s).slice(0,10)+'T12:00:00Z');return Number.isNaN(+d)?String(s):d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})};
@@ -56,11 +66,11 @@ function render(){
 function bindGlobalSearch(){const el=document.getElementById('global-search');if(!el)return;el.value=ui.query;el.addEventListener('keydown',ev=>{if(ev.key==='Enter'){const q=el.value.trim().toLowerCase();const p=data.projects.find(p=>`${p.name} ${p.code} ${projectOrg(p)?.name}`.toLowerCase().includes(q));if(p){ui.project=p.id;ui.page='projects';ui.projectTab='structure';ui.query='';render();}else toast('No matching project found',true)}})}
 function pageContent(){switch(ui.page){case 'overview':return overview();case 'projects':return projectsPage();case 'assemblies':return manufacturingPage();case 'tasks':return tasksPage();case 'purchasing':return renderPurchasingV041(data,ui);case 'inventory':return renderInventoryV041(data,ui);case 'customers':return customersPage();case 'client':return clientPage();case 'finance':return financePage();case 'reports':return reportsPage();case 'settings':return settingsPageV041();default:return overview()}}
 function overview(){
-  const runningProjects=allActiveProjects().filter(p=>p.status!=='Delivered');const avg=Math.round(runningProjects.reduce((a,p)=>a+taskProgress(p.id,active(data.tasks)),0)/(runningProjects.length||1));
+  const runningProjects=allActiveProjects().filter(p=>p.status!=='Delivered');const avg=Math.round(runningProjects.reduce((a,p)=>a+(managedProgress(p.id)||0),0)/(runningProjects.length||1));
   const pending=data.approvals.filter(a=>a.status==='Pending'&&!a.archivedAt&&allActiveProjects().some(p=>p.id===a.projectId)).length,blocked=active(data.tasks).filter(t=>t.status==='Blocked'&&allActiveProjects().some(p=>p.id===t.projectId)).length;
   const kpis=[['Active projects',runningProjects.length,'projects','Across '+data.organizations.length+' customers'],['Internal progress',avg+'%','reports','Weighted job status snapshot'],['Open production jobs',active(data.tasks).filter(t=>!['Done','Cancelled'].includes(t.status)&&allActiveProjects().some(p=>p.id===t.projectId)).length,'tasks','Office & workshop tasks'],['Client approvals',pending,'shield','Decisions awaiting clients']];
   const kpiHtml=kpis.map(([label,value,icon,note])=>`<div class="kpi"><div><div class="kpi-label">${e(label)}</div><div class="kpi-value mono">${e(value)}</div><div class="kpi-note">${e(note)}</div></div><div class="kpi-icon">${ico(icon,23)}</div></div>`).join('');
-  const rows=allActiveProjects().map(p=>`<tr><td class="clickable" data-action="project-open" data-id="${p.id}">${projectTitle(p)}</td><td><div style="display:flex;gap:7px;align-items:center">${chip(projectOrg(p))}<b>${e(projectOrg(p).name)}</b></div></td><td><div class="progress-line">${meter(taskProgress(p.id,data.tasks))}<span class="mono">${taskProgress(p.id,data.tasks)}%</span></div></td><td>${badge(p.status)}</td><td class="subtle">${day(p.due)}</td><td>${button(ico('chevron'),'project-open','small',`data-id="${p.id}" aria-label="Open ${e(p.name)}"`)}</td></tr>`).join('');
+  const rows=allActiveProjects().map(p=>`<tr><td class="clickable" data-action="project-open" data-id="${p.id}">${projectTitle(p)}</td><td><div style="display:flex;gap:7px;align-items:center">${chip(projectOrg(p))}<b>${e(projectOrg(p).name)}</b></div></td><td><div class="progress-line">${meter(managedProgress(p.id)||0)}<span class="mono">${managedProgress(p.id)===null?'Not set':managedProgress(p.id)+'%'}</span></div></td><td>${badge(p.status)}</td><td class="subtle">${day(p.due)}</td><td>${button(ico('chevron'),'project-open','small',`data-id="${p.id}" aria-label="Open ${e(p.name)}"`)}</td></tr>`).join('');
   const spotlight=allActiveProjects()[0];
   const pipelines=[['Engineering','Office',active(data.tasks).filter(t=>t.department==='Office'&&t.status!=='Done').length,'projects'],['Workshop floor','Workshop',active(data.tasks).filter(t=>t.department==='Workshop'&&t.status!=='Done').length,'inventory'],['Procurement','Purchasing',active(data.tasks).filter(t=>t.department==='Purchasing'&&t.status!=='Done').length,'purchasing'],['Quality control','Quality',active(data.tasks).filter(t=>t.department==='Quality'&&t.status!=='Done').length,'shield']];
   return head('Good morning, Sim-Worx','Your manufacturing and delivery overview for '+day(today()),button(`${ico('plus')} New project`,'open-project-modal','primary'))+
@@ -76,7 +86,7 @@ function projectsPage(){
  const all=allActiveProjects(),original=findProject(ui.project),p=original&&!original.archivedAt?original:all[0];
  if(p)ui.project=p.id;
  const rows=all.map(x=>'<tr><td>'+projectTitle(x)+'</td><td>'+e(projectOrg(x)?.name||'Customer')+'</td>'+
-  '<td>'+badge(x.status)+'</td><td>'+taskProgress(x.id,active(data.tasks))+'%</td><td>'+day(x.due)+'</td>'+
+  '<td>'+badge(x.status)+'</td><td>'+(managedProgress(x.id)===null?'Not set':managedProgress(x.id)+'%')+'</td><td>'+day(x.due)+'</td>'+
   '<td><div class="row-actions">'+button('Open','project-open','small','data-id="'+x.id+'"')+
   button('Edit','edit-project','small','data-id="'+x.id+'"')+
   button('Archive','archive-record','small danger','data-kind="projects" data-id="'+x.id+'"')+'</div></td></tr>').join('');
@@ -94,11 +104,11 @@ function projectsPage(){
 function projectDetail(p){
  const org=projectOrg(p),b=projectBudgetSnapshot(data,p.id);
  const mfg=projectManufacturingAlerts(data,p.id).length,shortage=materialReadinessV041(data,p.id).filter(x=>x.toSource>0).length;
- const top=[['structure','Work breakdown'],['register','Work register'],['schedule','Gantt'],
-  ['assembly','Assemblies'],['procurement','Procurement'],['budget','Budget']];
- const extras=[['bom','Legacy BOM'],['materials','Legacy forecast'],['documents','Documents'],['publishing','Client publishing']];
+ const supplierLate=externalRouteSummary(data,p.id).late.length,deadlines=procurementAlerts(data,p.id).overdue.length;
+ const top=[['focus','Project control'],['procurement','Materials & dates'],['progress','Progress steps'],['external','External work'],['schedule','Gantt'],['budget','Budget']];
+ const extras=[['register','Work register'],['structure','Work breakdown'],['assembly','Assemblies'],['bom','Legacy BOM'],['materials','Legacy forecast'],['documents','Documents'],['publishing','Client publishing']];
  const extraSelected=extras.some(pair=>pair[0]===ui.projectTab);
- const content={structure:projectStructure(p),register:projectRegister(p),schedule:projectSchedule(p),
+ const content={focus:ui.projectTab==='focus'?renderProjectFocus(data,ui,p.id):'',progress:ui.projectTab==='progress'?renderProjectProgress(data,ui,p.id):'',external:ui.projectTab==='external'?renderExternalWork(data,ui,p.id):'',structure:projectStructure(p),register:projectRegister(p),schedule:projectSchedule(p),
   assembly:ui.projectTab==='assembly'?renderManufacturing(data,ui,p.id):'',
   procurement:ui.projectTab==='procurement'?renderProjectSupply(data,ui,p.id):'',
   budget:ui.projectTab==='budget'?projectBudgetPage(p):'',
@@ -106,16 +116,18 @@ function projectDetail(p){
  const meta='<div class="v42-project-summary"><div class="v42-project-identity"><span class="v42-eyebrow">'+
   e(p.code)+' · '+e(org?.name||'Customer')+'</span><h2>'+e(p.name)+'</h2><p>'+e(p.description||'No description')+'</p>'+
   '<div class="v42-project-mini">'+badge(p.status)+'<span>Lead: <b>'+e(p.lead||'Unassigned')+'</b></span>'+
-  '<span>Due: <b>'+day(p.due)+'</b></span><span>Progress: <b>'+taskProgress(p.id,active(data.tasks))+'%</b></span>'+
+  '<span>Due: <b>'+day(p.due)+'</b></span><span>Manual progress: <b>'+(managedProgress(p.id)===null?'Not set':managedProgress(p.id)+'%')+'</b></span>'+
   button('Edit details','edit-project','small','data-id="'+p.id+'"')+'</div></div>'+
   '<div class="v42-summary-budget"><span class="v42-eyebrow">BUDGET REMAINING</span>'+
   '<strong class="'+(b.overBudget?'danger-text':'')+'">'+money(b.headroom)+'</strong>'+
   '<span>'+money(b.forecast)+' forecast / '+money(b.budget)+' allocated</span>'+
   '<div class="v42-budget-track"><span style="width:'+Math.min(100,Math.max(0,b.percent))+'%;background:'+
   (b.overBudget?'#d94f58':'#6554d9')+'"></span></div>'+button('Manage budget','project-tab','small','data-id="budget"')+'</div></div>';
- const attention=shortage||mfg?'<div class="v42-attention">'+
+ const attention=shortage||mfg||supplierLate||deadlines?'<div class="v42-attention">'+
   (shortage?'<span>'+shortage+' material sourcing shortfall(s) '+button('Open procurement','project-tab','small','data-id="procurement"')+'</span>':'')+
   (mfg?'<span>'+mfg+' engineering blocker(s) '+button('Review assemblies','project-tab','small','data-id="assembly"')+'</span>':'')+
+  (supplierLate?'<span>'+supplierLate+' recorded supplier delay(s) '+button('Review handoffs','project-tab','small','data-id="external"')+'</span>':'')+
+  (deadlines?'<span>'+deadlines+' missed order-by date(s) '+button('See materials','project-tab','small','data-id="procurement"')+'</span>':'')+
   '</div>':'';
  const tabs='<div class="v42-primary-tabs">'+top.map(pair=>
   '<button type="button" data-action="project-tab" data-id="'+pair[0]+'" class="'+(ui.projectTab===pair[0]?'active':'')+'">'+pair[1]+'</button>').join('')+
@@ -273,7 +285,7 @@ function financePage(){
    '<th>Committed</th><th>Forecast</th><th>Headroom</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>',
    '','The new purchasing ledger supplements manually entered historic costs; foreign currencies require an explicit exchange rate.');
 }
-function reportsPage(){const rows=allActiveProjects().map(p=>{const prog=taskProgress(p.id,data.tasks);const done=data.tasks.filter(t=>t.projectId===p.id&&t.status==='Done').length;return `<div class="bar-group"><div class="bar-label"><span>${e(p.name)}</span><span>${prog}% · ${done} completed</span></div>${meter(prog)}</div>`}).join('');const states=['Done','In progress','Ready','Blocked','Inspection','Backlog'];const counts=states.map(s=>active(data.tasks).filter(t=>t.status===s&&allActiveProjects().some(p=>p.id===t.projectId)).length);const max=Math.max(...counts,1);
+function reportsPage(){const rows=allActiveProjects().map(p=>{const prog=managedProgress(p.id)||0;const done=data.tasks.filter(t=>t.projectId===p.id&&t.status==='Done').length;return `<div class="bar-group"><div class="bar-label"><span>${e(p.name)}</span><span>${prog}% · ${done} completed</span></div>${meter(prog)}</div>`}).join('');const states=['Done','In progress','Ready','Blocked','Inspection','Backlog'];const counts=states.map(s=>active(data.tasks).filter(t=>t.status===s&&allActiveProjects().some(p=>p.id===t.projectId)).length);const max=Math.max(...counts,1);
   return head('Reports & progress','See workload, completed jobs and project milestones across customers.',button(`${ico('refresh')} Refresh view`,'refresh',''))+`<div class="grid-even">${card('Project completion',`<div class="card-body" style="padding-top:0">${rows}</div>`,'','Internal task-derived progress')}${card('Production job pipeline',`<div class="card-body" style="padding-top:0"><div class="report-chart"><div class="skeleton-chart">${counts.map((count,i)=>`<div class="bar" style="height:${Math.max(9,count/max*100)}%"><span>${e(states[i].split(' ')[0])}</span></div>`).join('')}</div></div><p class="form-hint">${data.tasks.length} tracked department jobs across ${data.projects.length} projects.</p></div>`,'','Task statuses across the workshop')}</div>${card('Recent audit history',`<div class="table-wrap"><table class="table"><thead><tr><th>Action</th><th>Description</th><th>Actor</th><th>Time</th></tr></thead><tbody>${data.audit.slice(0,20).map(a=>`<tr><td><b>${e(a.action)}</b></td><td>${e(a.detail)}</td><td>${e(a.actor)}</td><td>${day(a.at)}</td></tr>`).join('')}</tbody></table></div>`,'','Event records for this browser-based demo')}`;
 }
 function settingsPage(){return head('Workspace settings','Your Project Hub experience and development-stage safeguards.')+`<div class="grid-even">${card('Appearance',`<div class="card-body"><div class="split-header"><div><b>Display theme</b><p class="form-hint">Choose a clean, light workspace or dark mode.</p></div>${button(data.settings.theme==='light'?`${ico('moon')} Dark mode`:`${ico('sun')} Light mode`,'theme','soft')}</div></div>`)}${card('Demo environment',`<div class="card-body"><b>No production connection</b><p class="form-hint">Your changes are stored in this browser. There is no login, database connection, email provider, file upload storage or shared access. This demo is suitable for product evaluation only.</p>${button(`${ico('refresh')} Reset demo data`,'reset-demo','danger')}</div>`)}${card('Email delivery',`<div class="card-body"><b>Disabled by design</b><p class="form-hint">No sending account has been approved. Approval events and invitations remain in the on-screen demo. We will enable email only after isolating and verifying a no-additional-cost route.</p>${badge('Not configured','amber')}</div>`)}${card('Archive & restore',`<div class="card-body"><p class="form-hint">Archiving retains history and references. Restore records here; nothing is permanently deleted.</p>${['organizations','projects','sections','tasks','parts','bom','documents','members','updates','orders'].flatMap(kind=>data[kind].filter(row=>row.archivedAt).map(row=>`<div class="archive-row"><div><b>${e(row.title||row.name||row.code||row.id)}</b><small>${e(kind)} · ${day(row.archivedAt)}</small></div>${button('Restore','restore-record','small',`data-kind="${kind}" data-id="${row.id}"`)}</div>`)).join('')||'<div class="subtle">No archived records</div>'}</div>`)}${card('Production readiness',`<div class="card-body">${['Customer login & RLS','Private document storage','Secure staff invitations','Transactional stock allocation','Automated emails','Independent deployment'].map(x=>`<div class="pipeline-item"><span class="pipe-main"><strong>${e(x)}</strong></span>${badge('Pending','amber')}</div>`).join('')}</div>`,'','These features require a separately approved backend') }</div>`;
@@ -355,13 +367,12 @@ function exportWbs(projectId){
 function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
  if(action?.startsWith('mfg-')){try{handleManufacturingAction(data,ui,el,window.confirm);persist();render();toast('Manufacturing demo updated locally');}catch(err){toast(err.message||'Manufacturing action failed',true)}return;}
 
- if(action==='v42-new-part'){ui.partReturnProject=ui.project;openModal('part');return;}
- if(action==='v42-edit-master'){ui.partReturnProject=ui.project;openModal('part',{id});return;}
- if(action?.startsWith('v41-')||action?.startsWith('v42-material-')){
+  if(action==='v42-edit-master'){ui.partReturnProject=ui.project;openModal('part',{id});return;}
+ if(action?.startsWith('v41-')||action?.startsWith('v42-material-')||action==='v42-new-part'||action==='v43-quick-part-cancel'){
    try{
      if(action==='v41-backup'){
        const payload=createWorkspaceBackup(data),url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
-       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.2_'+today()+'.json';
+       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.3_'+today()+'.json';
        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
        toast('JSON workspace backup downloaded · keep it private');return;
      }
@@ -372,10 +383,27 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    return;
  }
 
+
+ if(action?.startsWith('v43-progress-')||action?.startsWith('v43-external-')){
+   try{
+     const outcome=action.startsWith('v43-progress-')?
+       handleProgressAction(data,ui,el,window.confirm):
+       handleExternalAction(data,ui,el,window.confirm);
+     if(outcome&&typeof outcome==='object'&&outcome.download!==undefined){
+       const url=URL.createObjectURL(new Blob(['\ufeff'+outcome.download],{type:'text/csv;charset=utf-8'}));
+       const link=document.createElement('a');link.href=url;link.download=outcome.name;
+       document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+     }else if(outcome!==null&&outcome!=='ui')persist();
+     render();
+   }catch(err){toast(err.message||'Unable to update project tracking',true)}
+   return;
+ }
+
  try{switch(action){
-  case 'nav':changePage(id);break;
-  case 'project-open':ui.page='projects';ui.project=id;ui.projectTab='structure';ui.showProjectList=false;render();document.getElementById('project-detail')?.scrollIntoView({behavior:'smooth',block:'start'});break;
+  case 'nav':if(id==='purchasing')ui.procurementProject=ui.project;else if(id==='projects')ui.projectTab='focus';changePage(id);break;
+  case 'project-open':ui.page='projects';ui.project=id;ui.projectTab='focus';ui.procurementProject=id;ui.showProjectList=false;render();document.getElementById('project-detail')?.scrollIntoView({behavior:'smooth',block:'start'});break;
   case 'project-tab':ui.projectTab=id;render();break;
+  case 'v43-purchasing':ui.procurementProject=ui.project;ui.page='purchasing';ui.materialPO=null;render();break;
   case 'v42-toggle-project-list':ui.showProjectList=!ui.showProjectList;render();break;
   case 'client-tab':ui.clientTab=id;render();break;
   case 'task-board':ui.taskView='board';render();break;
@@ -421,13 +449,24 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'receive-po':{receiveOrder(data,id);persist();render();toast('Outstanding purchase order quantities received into stock');break;}
   case 'notifications':openModal('notifications');break;
   case 'mark-read':data.notifications.forEach(x=>x.read=true);persist();closeModal();toast('Notifications marked as read');break;
-  case 'reset-demo':if(confirm('Reset all local demo records and changes? This cannot be undone.')){data=seed();persist();ui.page='overview';ui.project='p1';ui.clientOrg='noah';ui.clientProject='p1';render();toast('Demo reset to original sample data')}break;
+  case 'reset-demo':if(confirm('Reset all local demo records and changes? This cannot be undone.')){data=seed();ensureManufacturing(data);ensureMaterials(data);ensureProgress(data);ensureExternalWork(data);persist();ui.page='overview';ui.project='p1';ui.projectTab='focus';ui.procurementProject='p1';ui.clientOrg='noah';ui.clientProject='p1';render();toast('Demo reset to original sample data')}break;
   case 'refresh':render();toast('Dashboard refreshed from local demo records');break;
   }}catch(err){toast(err.message||'Unable to complete this action',true)}
 }
 function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.get(n)||'').trim();const type=form.dataset.form;
  if(type?.startsWith('mfg-')){try{handleManufacturingSubmit(data,ui,form);persist();render();toast('Manufacturing record saved locally');}catch(err){toast(err.message||'Manufacturing form failed',true)}return;}
- if(type?.startsWith('v41-')||type==='v42-material-edit'){try{handleMaterialsSubmit(data,ui,form);persist();render();toast('Procurement saved locally');}catch(err){toast(err.message||'Procurement form failed',true)}return;}
+ if(type?.startsWith('v41-')||type==='v42-material-edit'||type==='v43-quick-part'){try{handleMaterialsSubmit(data,ui,form);persist();render();toast('Procurement saved locally');}catch(err){toast(err.message||'Procurement form failed',true)}return;}
+
+ if(type?.startsWith('v43-step-')||type?.startsWith('v43-external-')||type==='v43-material-plan'){
+  try{
+   if(type==='v43-material-plan')handleMaterialPlanningForm(data,form);
+   else if(type.startsWith('v43-step-'))handleProgressForm(data,ui,form);
+   else handleExternalForm(data,ui,form);
+   persist();render();toast('Project tracking saved locally');
+  }catch(err){toast(err.message||'Project update could not be saved',true)}
+  return;
+ }
+
  if(type==='v42-budget'||type==='v42-exchange'){
    try{
      if(type==='v42-budget')updateProjectBudget(data,{projectId:get('projectId'),budget:get('budget'),spent:get('spent'),committed:get('committed')});
@@ -471,7 +510,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Workspace backup & restore · V0.4.2</h2></div><p>Download all current demo records, including projects, assemblies, stock, supplier orders, delivery tracking, attachments and internal illustrative financial data. Keep the file private. A restore replaces records in this browser only after confirmation.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Local browser demo only. There is no cloud sync or production database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Workspace backup & restore · V0.4.3</h2></div><p>Download all current demo records, including projects, assemblies, stock, supplier orders, delivery tracking, attachments and internal illustrative financial data. Keep the file private. A restore replaces records in this browser only after confirmation.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Local browser demo only. There is no cloud sync or production database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;
@@ -493,9 +532,11 @@ document.addEventListener('change',ev=>{try{const el=ev.target;
  if(el.id==='v41-restore-file'){restoreBackupFile(el.files?.[0]);return;}
  if(el.dataset.v42Delivery){updateOrderStage(data,el.dataset.v42Delivery,el.value);persist();render();toast('Delivery stage changed; stock unchanged');return;}
  const filter=el.dataset.filter;
- if(filter==='v42-project'){ui.project=el.value;ui.projectTab='structure';ui.materialEditOccurrence=null;render();return;}
+ if(filter==='v43-route'){ui.externalRouteId=el.value;ui.externalEditStage=null;render();return;}
+ if(filter==='v43-progress-search'){ui.progressQuery=el.value;ui.progressPage=0;render();return;}
+ if(filter==='v42-project'){ui.project=el.value;ui.procurementProject=el.value;ui.projectTab='focus';ui.materialEditOccurrence=null;render();return;}
  if(filter==='v42-project-extra'){if(el.value){ui.projectTab=el.value;render();}return;}
- if(filter==='v41-project'){ui.procurementProject=el.value;ui.materialPO=null;ui.materialOrderEditor=false;render();return;}
+ if(filter==='v41-project'){ui.procurementProject=el.value;ui.project=el.value;ui.materialPO=null;ui.materialOrderEditor=false;render();return;}
  if(filter==='mfgProject'){ui.project=el.value;ui.mfgAssemblyId=null;ui.mfgEditor=null;render()}
  else if(filter==='dept'){ui.dept=el.value;render()}
  else if(filter==='taskProject'){ui.taskProject=el.value;render()}

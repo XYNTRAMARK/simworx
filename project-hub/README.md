@@ -1,10 +1,10 @@
-# Sim-Worx Project Hub — V0.4.7
+# Sim-Worx Project Hub — V0.4.8
 
 **16 November 2026 · Staff-only local workspace — NOT a cloud database or production website.** The header badge displays **V0.4.7**. Fresh starts have NO fictional customer/project records. Incremental cost: **€0**. No production deployment, database, workflows or unrelated project modified.
 
 ## First-use steps for real projects (V0.4.7)
 
-1. Download and **extract the entire ZIP**. Double-click \`SimWorx_Project_Hub_Complete_V0.4.7.html\` in current Chrome or Edge. This is the complete offline app, NOT an isolated feature preview.
+1. Download and **extract the entire ZIP**. Double-click \`SimWorx_Project_Hub_Complete_V0.4.8.html\` in current Chrome or Edge. This is the complete offline app, NOT an isolated feature preview.
 2. Enter the owner-supplied six-digit PIN. No username/password setup is required. This is only a **local convenience lock**; project JSON is not encrypted and the six-digit PIN can be brute-forced from the offline client source.
 3. Open Settings → **Download JSON backup** before replacing any older data. Then click **Restore JSON backup**, choose the PRIVATE project import provided separately and confirm replacement.
 4. In **Projects**, open the imported project. Use the Project control, Materials & dates, Progress steps, External work, Gantt, Budget and Contract scope tabs.
@@ -14,11 +14,20 @@
 
 **Limitations:** this is single-computer, local-first software. The PIN does not encrypt files or provide secure multi-user logins; browser storage and file picker permissions can be lost. There is no remote server, authenticated customer portal, distributed database or automatic cloud backup. Do not use it for critical live processes until real-browser file persistence and recovery are proven on your PC.
 
-[Detailed V0.4.7 release notes](docs/release-v047.md).
+[Detailed V0.4.7 release notes](docs/release-v048.md).
 
 ## Run and explore
 
-**Owner's simplest route:** download `SimWorx_Project_Hub_Complete_V0.4.7.zip`, extract it, and double-click `SimWorx_Project_Hub_Complete_V0.4.7.html` in Chrome. This is the **entire application**, including all original project, planning, customer, inventory, finance and manufacturing screens—not a separate procurement preview. Developers can also serve this directory locally with `python3 -m http.server 8765` and visit `http://localhost:8765`.
+**Owner's simplest route:** download `SimWorx_Project_Hub_Complete_V0.4.8.zip`, extract it, and double-click `SimWorx_Project_Hub_Complete_V0.4.8.html` in Chrome. This is the **entire application**, including all original project, planning, customer, inventory, finance and manufacturing screens—not a separate procurement preview. Developers can also serve this directory locally with `python3 -m http.server 8765` and visit `http://localhost:8765`.
+
+## V0.4.8 — Owner-managed complete project workspace
+
+- **Projects now owns Purchasing:** the project has one `Purchasing & materials` tab with the full sourcing, specification, real supplier order, arrival and inspection screens. The former standalone Buying review primary tab is removed to avoid duplication; its legacy route is preserved as an alias.
+- **Work package → job → sub-job:** add a job directly in a coloured work package or add a sub-job beneath an existing task. Edit job descriptions and retain task hierarchy. Planned dates are optional until genuinely decided.
+- **Team & budgets:** allocate a verified internal project purchasing envelope to named departments/roles, link purchasing material lines to a department, person and work item, and view recorded PO committed/received costs. These allocations are owner-managed planning data, **not yet enforced PO approval limits**.
+- **Private photos:** upload compressed JPEG evidence under a section or task, and archive it. Photos live in local JSON, not a server; back up frequently and keep original full-resolution photos separately.
+- **Future customer view:** owner-only preview of explicitly allowlisted work sections. No customer or employee sign-ins have been activated and no remote distribution is supported. Actual progress publication remains a future secure service.
+- No public repository private project records, no new costs, no deployment, and no changes outside `project-hub/`.
 
 ## V0.4.7 — contract specification safeguards, colour sections and reversible procurement
 

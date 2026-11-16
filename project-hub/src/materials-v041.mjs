@@ -112,6 +112,13 @@ export function createPurchaseOrder(s,input){
   if(taxRate>100)throw Error('Tax percentage cannot exceed 100');
   if(!Array.isArray(input.items)||!input.items.length)throw Error('A purchase order needs at least one line');
   const items=input.items.map(x=>normalizedLine(s,project.id,x,supplier)); // Validate all before mutation
+  if(contractControlled(s,project.id)){
+   const gaps=new Map(materialReadinessV041(s,project.id).map(r=>[r.partId,r.toSource]));
+   const proposed=new Map();
+   for(const line of items)proposed.set(line.partId,(proposed.get(line.partId)||0)+line.quantity);
+   for(const [partId,qty] of proposed)
+    if(qty>(gaps.get(partId)||0))throw Error('Purchase quantity exceeds uncovered engineering requirement. Review existing orders, stock, or create an authorised extra BOM requirement');
+  }
   const code='PO-'+new Date().getFullYear()+'-'+String(s.orders.length+1).padStart(4,'0');
   const order={id:uid('po'),code,projectId:project.id,supplier,currency,taxRate,
     date:timestamp().slice(0,10),status:'Ordered',dispatchState:'Ordered',origin:'v042',items};
@@ -124,6 +131,10 @@ export function addPurchaseLine(s,orderId,line){
   const o=s.orders.find(x=>live(x)&&x.id===orderId);
   if(!o)throw Error('Purchase order unavailable');
   const row=normalizedLine(s,o.projectId,line,o.supplier);
+  if(contractControlled(s,o.projectId)){
+   const available=materialReadinessV041(s,o.projectId).find(r=>r.partId===row.partId)?.toSource||0;
+   if(row.quantity>available)throw Error('Added PO quantity exceeds the remaining engineering sourcing gap');
+  }
   o.items.push(row);o.status=purchaseStatus(o);
   note(s,'Purchase order line added',o.code);
   return row;
@@ -352,6 +363,9 @@ export function auditMaterials(s){
     if(tracked>p.reserved)throw Error('Unbalanced reservation ledger for '+p.code);
   }
   for(const o of s.orders)for(const l of o.items){
+    if(!Number.isSafeInteger(Number(l.closedQuantity||0))||Number(l.closedQuantity||0)<0||
+       Number(l.closedQuantity||0)+Number(l.received||0)>Number(l.quantity||0))
+      throw Error('Inconsistent supplier closed/received quantities on order '+o.code);
     if(!Number.isSafeInteger(Number(l.quantity))||l.quantity<=0||!Number.isSafeInteger(Number(l.received||0))||l.received<0||l.received>l.quantity)
       throw Error('Invalid PO quantity for '+o.code);
   }

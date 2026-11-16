@@ -35,7 +35,7 @@ export function saveRequirementSource(s,{occurrenceId,...data}){
 const positive=(v,label)=>{const n=Number(v);if(!Number.isSafeInteger(n)||n<=0||n>1e7)throw Error(label+' must be a positive whole number');return n;};
 const price=(v)=>{const n=Number(v);if(!Number.isFinite(n)||n<0||n>1e10||Math.abs(n*100-Math.round(n*100))>0.00001)throw Error('Unit cost must be a non-negative amount with at most two decimals');return Math.round(n*100)/100;};
 const etaDate=value=>{const s=max(value,10,'ETA');if(s&&!/^\d{4}-\d{2}-\d{2}$/.test(s))throw Error('ETA must be YYYY-MM-DD');if(s&&new Date(s+'T12:00:00Z').toISOString().slice(0,10)!==s)throw Error('Invalid ETA');return s;};
-export function updatePurchaseLineRecord(s,{orderId,lineId,quantity,unitCost,eta,productUrl='',vendorSku='',notes='',reason=''}){
+export function updatePurchaseLineRecord(s,{orderId,lineId,quantity,unitCost,eta,productUrl='',vendorSku='',quoteRef='',notes='',reason=''}){
  const order=s.orders?.find(o=>o.id===orderId&&!o.archivedAt);
  if(!order)throw Error('Purchase order not found');
  const line=order.items?.find(l=>l.id===lineId);
@@ -45,7 +45,7 @@ export function updatePurchaseLineRecord(s,{orderId,lineId,quantity,unitCost,eta
  if(Number(line.received||0)>0&&cost!==Number(line.unitCost||0))
   throw Error('Received items have locked unit prices; keep history and handle price corrections separately');
  const next={quantity:qty,unitCost:cost,eta:etaDate(eta),productUrl:safeProductURL(productUrl),
-  vendorSku:max(vendorSku,120,'Vendor part number'),notes:max(notes,800,'Purchase note')};
+  vendorSku:max(vendorSku,120,'Vendor part number'),quoteRef:max(quoteRef,120,'Supplier quote reference'),notes:max(notes,800,'Purchase note')};
  const prior=Object.fromEntries(Object.keys(next).map(k=>[k,line[k]??'']));
  if(JSON.stringify(prior)===JSON.stringify(next))return line;
  const explanation=max(reason,300,'Change reason');

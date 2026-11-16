@@ -14,10 +14,12 @@ import {renderExternalWork,handleExternalForm,handleExternalAction} from './exte
 import {procurementAlerts,exportProcurementReviewCSV} from './procurement-planning-v043.mjs';
 import {handleMaterialPlanningForm} from './planning-ui-v043.mjs';
 import {renderProjectFocus,renderProjectWorkPlan,renderProjectBuyingReview,projectBuyingSnapshot,saveBuyingReviewForm} from './project-control-v046.mjs';
+import {ensureTeamWorkspace,saveDepartmentAllocation,allocateRequirement,attachEvidence,archiveEvidence,setCustomerShareRule} from './team-workspace-v048.mjs';
+import {renderProjectTeam,renderProjectEvidence,renderCustomerPreview} from './team-ui-v048.mjs';
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
-const APP_VERSION='V0.4.7'; // Every build carries an explicit visible release number.
+const APP_VERSION='V0.4.8'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
 function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return emptyWorkspace()}
 let data=load();
@@ -25,7 +27,8 @@ ensureManufacturing(data);
 ensureMaterials(data);
 ensureProgress(data);
 ensureExternalWork(data);
-const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null};
+ensureTeamWorkspace(data);
+const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All'};
 const staffGate=createLocalStaffGate();
 const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
   const el=document.getElementById('workspace-save-state');
@@ -136,8 +139,8 @@ function projectDetail(p){
  const org=projectOrg(p),b=projectBudgetSnapshot(data,p.id);
  const mfg=projectManufacturingAlerts(data,p.id).length,shortage=projectBuyingSnapshot(data,p.id).buy.filter(x=>x.coverage.toSource>0).length;
  const supplierLate=externalRouteSummary(data,p.id).late.length,deadlines=procurementAlerts(data,p.id).overdue.length;
- const top=[['focus','Overview'],['work','Work plan ('+data.tasks.filter(t=>t.projectId===p.id&&!t.archivedAt).length+')'],['buying','Buying review'],['procurement','Materials & stock'],['schedule','Schedule'],['external','Supplier QA'],['progress','Progress'],['budget','Budget'],['contract','Contract scope']];
- const extras=[['register','Work register'],['structure','Work breakdown'],['assembly','Assemblies'],['bom','Legacy BOM'],['materials','Legacy forecast'],['documents','Documents'],['publishing','Client publishing']];
+ const top=[['focus','Overview'],['work','Work plan ('+data.tasks.filter(t=>t.projectId===p.id&&!t.archivedAt).length+')'],['buying','Buying review'],['procurement','Materials & stock'],['team','Team & budgets'],['evidence','Photos'],['schedule','Schedule'],['external','Supplier QA'],['progress','Progress'],['budget','Budget'],['contract','Contract scope']];
+ const extras=[['register','Work register'],['structure','Work breakdown'],['assembly','Assemblies'],['bom','Legacy BOM'],['materials','Legacy forecast'],['documents','Documents'],['publishing','Client publishing'],['customerPreview','Future customer view']];
  const extraSelected=extras.some(pair=>pair[0]===ui.projectTab);
  // Lazy tab rendering: only render the selected screen, avoiding repeated multi-table work.
  const content={
@@ -152,6 +155,9 @@ function projectDetail(p){
   schedule:()=>projectSchedule(p),
   assembly:()=>renderManufacturing(data,ui,p.id),
   procurement:()=>renderProjectSupply(data,ui,p.id),
+  team:()=>renderProjectTeam(data,ui,p.id),
+  evidence:()=>renderProjectEvidence(data,ui,p.id),
+  customerPreview:()=>renderCustomerPreview(data,ui,p.id),
   budget:()=>projectBudgetPage(p),
   bom:()=>projectBom(p),
   materials:()=>projectMaterials(p),
@@ -495,7 +501,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    try{
      if(action==='v41-backup'){
        const payload=createWorkspaceBackup(data),url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
-       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.7_'+today()+'.json';
+       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.8_'+today()+'.json';
        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
        toast('JSON workspace backup downloaded · keep it private');return;
      }
@@ -565,7 +571,21 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'edit-project':openModal('project',{id});break;
   case 'edit-customer':openModal('customer',{id});break;
   case 'edit-task':openModal('task',{id});break;
-  case 'add-subtask':{const t=data.tasks.find(x=>x.id===id);if(t)openModal('task',{project:t.projectId,parent:t.id,section:t.sectionId});break;}
+  case 'add-subtask':{const t=data.tasks.find(x=>x.id===id);if(t){ui.projectTab='work';openModal('task',{project:t.projectId,parent:t.id,section:t.sectionId});}break;}
+  case 'v48-edit-allocation':{
+   const a=data.departmentAllocations?.find(x=>x.id===id&&!x.archivedAt&&x.projectId===ui.project);
+   if(!a)throw Error('Allocation not found');
+   Object.assign(ui,{v48EditAllocation:a.id,v48AllocationDepartment:a.department,v48AllocationPerson:a.assignee,
+    v48AllocationAmount:String(a.amount),v48AllocationNote:a.note||''});render();break;
+  }
+  case 'v48-clear-allocation':Object.assign(ui,{v48EditAllocation:null,v48AllocationDepartment:'IT',
+   v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:''});render();break;
+  case 'v48-edit-material':ui.v48EditMaterial=id;render();break;
+  case 'v48-cancel-material':ui.v48EditMaterial=null;render();break;
+  case 'v48-archive-photo':{
+   if(!confirm('Archive this photo from the active evidence gallery? It will remain in your private JSON backup history.'))return;
+   archiveEvidence(data,id);persist();render();toast('Photo archived');break;
+  }
   case 'add-section':openModal('section',{project:el.dataset.project||ui.project});break;
   case 'edit-section':openModal('section',{id});break;
   case 'add-part':openModal('part');break;
@@ -612,6 +632,57 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
    return;
  }
  if(!staffGate.status().unlocked)return;
+ if(type==='v48-budget-allocation'){
+  try{
+   saveDepartmentAllocation(data,{projectId:get('projectId'),id:get('allocationId')||null,
+    department:get('department'),assignee:get('assignee'),amount:get('amount'),note:get('note')});
+   Object.assign(ui,{v48EditAllocation:null,v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:''});
+   persist();render();toast('Department purchasing envelope saved. No supplier purchase created.');
+  }catch(err){toast(err.message||'Department allocation failed',true)}return;
+ }
+ if(type==='v48-material-assignment'){
+  try{
+   allocateRequirement(data,{projectId:get('projectId'),occurrenceId:get('occurrenceId'),
+    department:get('department'),owner:get('owner'),taskId:get('taskId')});
+   ui.v48EditMaterial=null;persist();render();toast('Material linked to department and job');
+  }catch(err){toast(err.message||'Material assignment failed',true)}return;
+ }
+ if(type==='v48-customer-rule'){
+  try{
+   setCustomerShareRule(data,{projectId:get('projectId'),sectionId:get('sectionId'),
+    visible:fd.has('visible'),summary:get('summary')});
+   persist();render();toast('Future customer preview rule saved privately — no access enabled');
+  }catch(err){toast(err.message||'Cannot save customer visibility rule',true)}return;
+ }
+ if(type==='v48-photo'){
+  try{
+   const file=fd.get('photo');if(!file||!file.type?.startsWith('image/'))throw Error('Select an image file');
+   if(file.size>10*1024*1024)throw Error('Source photo is larger than 10 MB; resize it first');
+   const projectId=get('projectId'),sectionId=get('sectionId'),taskId=get('taskId');
+   const title=get('title');
+   const read=new FileReader();
+   read.onerror=()=>toast('Cannot read this photo',true);
+   read.onload=()=>{
+    const image=new Image();
+    image.onerror=()=>toast('Cannot decode image',true);
+    image.onload=()=>{
+     try{
+      const max=1000,scale=Math.min(1,max/Math.max(image.width,image.height));
+      const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));
+      canvas.height=Math.max(1,Math.round(image.height*scale));
+      const ctx=canvas.getContext('2d');if(!ctx)throw Error('Canvas image compression unavailable');
+      ctx.drawImage(image,0,0,canvas.width,canvas.height);
+      const encoded=canvas.toDataURL('image/jpeg',0.66);
+      attachEvidence(data,{projectId,sectionId,taskId,title,kind:'Photo',dataUrl:encoded,filename:file.name});
+      if(!persist())throw Error('Browser storage full. Archive a photo and export your workspace backup before adding more');
+      render();toast('Private photo added to project evidence');
+     }catch(err){toast(err.message||'Cannot attach photo',true)}
+    };
+    image.src=read.result;
+   };
+   read.readAsDataURL(file);
+  }catch(err){toast(err.message||'Cannot attach photo',true)}return;
+ }
  if(type==='v47-spec-review'){
   try{
    reviewRequirementSpec(data,{occurrenceId:get('occurrenceId'),decision:get('decision'),
@@ -698,7 +769,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
     const org=saveOrganization(data,{id:get('recordId')||null,name:get('name'),code:get('code'),contact:get('contact'),accent:get('accent')});ui.customerDetail=org.id;ui.page='customers';break;
   }
   case 'task':{
-    const record=saveTask(data,{id:get('recordId')||null,projectId:get('projectId'),sectionId:get('sectionId'),title:get('title'),department:get('department'),assignee:get('assignee'),priority:get('priority'),status:get('status'),due:get('due'),parentId:get('parentId'),blockedBy:null,predecessors:fd.getAll('predecessors').map(String),start:get('start')});ui.project=record.projectId;ui.page='projects';if(!['register','schedule'].includes(ui.projectTab))ui.projectTab='structure';break;
+    const record=saveTask(data,{id:get('recordId')||null,projectId:get('projectId'),sectionId:get('sectionId'),title:get('title'),department:get('department'),assignee:get('assignee'),priority:get('priority'),status:get('status'),due:get('due'),parentId:get('parentId'),blockedBy:null,predecessors:fd.getAll('predecessors').map(String),start:get('start')});ui.project=record.projectId;ui.page='projects';if(!['register','schedule'].includes(ui.projectTab))ui.projectTab='work';break;
   }
   case 'section':{
     const record=saveSection(data,{id:get('recordId')||null,projectId:get('projectId'),name:get('name'),weight:get('weight')});ui.project=record.projectId;ui.page='projects';ui.projectTab='structure';break;
@@ -721,7 +792,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.7</h2></div><p>Use Restore JSON backup to load the private contract contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.8</h2></div><p>Use Restore JSON backup to load the private contract contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;
@@ -748,6 +819,9 @@ document.addEventListener('change',ev=>{try{if(!staffGate.status().unlocked)retu
   if(el.value)runProcurementStage(el.dataset.id,el.value);
   return;
  }
+ if(filter==='v48-dept'){ui.v48Dept=el.value;render();return;}
+ if(filter==='v48-evidence-section'){ui.v48EvidenceSection=el.value;render();return;}
+ if(filter==='v48-photo-section'){ui.v48PhotoSection=el.value;render();return;}
  if(filter==='v46-purchase-project'){
   if(!data.projects.some(x=>x.id===el.value&&!x.archivedAt))throw Error('Unknown project');
   ui.procurementProject=el.value;ui.project=el.value;ui.materialPO=null;ui.materialOrderEditor=false;

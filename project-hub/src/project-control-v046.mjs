@@ -1,4 +1,4 @@
-/* V0.4.6 — project-first workspace, work plan, and buying decision review.
+/* V0.4.7 — project-first workspace, work plan, and buying decision review.
    Views are projections of existing staff records. No actual orders, approvals,
    supplier confirmations, financials, stock or contract dates are fabricated. */
 import {materialReadinessV041,purchaseStatus} from './materials-v041.mjs';

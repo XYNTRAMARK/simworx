@@ -2,6 +2,7 @@
    This is NOT a multi-user inventory database or financial/accounting system. */
 import {ensureManufacturing,activeAssemblies,assemblyRollup} from './manufacturing.mjs';
 import {safeProductURL} from './procurement-sourcing-v046.mjs';
+import {assertContractPOGate,contractControlled,acceptArrivalRecord} from './procurement-workflow-v047.mjs';
 const uid = prefix => prefix+'-'+Math.random().toString(36).slice(2,11);
 const timestamp = () => new Date().toISOString();
 const live = x => x && !x.archivedAt;
@@ -49,6 +50,7 @@ export function ensureMaterials(s){
   s.stockReservations??=[];
   s.procurementReceipts??=[];
   s.procurementReturns??=[];
+  s.procurementArrivals??=[];
   s.orders??=[];
   s.movements??=[];
   for(const o of s.orders){
@@ -59,11 +61,15 @@ export function ensureMaterials(s){
   return s;
 }
 export const available = part => Math.max(0,Number(part.onHand||0)-Number(part.reserved||0));
-export const outstanding = line => Math.max(0,Number(line.quantity||0)-Number(line.received||0));
+export const outstanding = line => Math.max(0,Number(line.quantity||0)-Number(line.received||0)-Number(line.closedQuantity||0));
 export const purchaseStatus = order => {
   if(!order.items?.length)return 'Draft';
   const all=order.items.every(l=>outstanding(l)===0);
-  if(all)return 'Received';
+  if(all){
+   if(order.items.every(l=>Number(l.received||0)===Number(l.quantity||0)))return 'Received';
+   if(order.items.every(l=>!Number(l.received||0)))return 'Closed';
+   return 'Part received · closed';
+  }
   if(order.items.some(l=>Number(l.received||0)>0))return 'Part received';
   return order.dispatchState==='Out for delivery'?'Out for delivery':'Ordered';
 };
@@ -73,13 +79,13 @@ export function setPurchaseDispatch(state,{orderId,stage}){
   const o=state.orders.find(x=>live(x)&&x.id===orderId);
   if(!o)throw Error('Purchase order unavailable');
   if(!['Ordered','Out for delivery'].includes(stage))throw Error('Choose Ordered or Out for delivery');
-  if(purchaseStatus(o)==='Received')throw Error('Received order cannot be changed to an earlier delivery stage');
+  if(['Received','Closed','Part received · closed'].includes(purchaseStatus(o)))throw Error('Closed or fully received order cannot be changed to an earlier delivery stage');
   o.dispatchState=stage;
   o.status=purchaseStatus(o);
   note(state,'Order delivery stage updated',o.code+' / '+stage);
   return o;
 }
-function normalizedLine(s,projectId,input){
+function normalizedLine(s,projectId,input,supplier){
   const part=partById(s,input.partId);
   assemblyForProject(s,input.assemblyId,projectId);
   const quantity=integer(input.quantity,'Order quantity');
@@ -89,10 +95,12 @@ function normalizedLine(s,projectId,input){
   const sourceOccurrenceId=String(input.sourceOccurrenceId||'').trim();
   if(sourceOccurrenceId&&!s.assemblyBOM?.some(x=>x.id===sourceOccurrenceId&&!x.archivedAt&&x.projectId===projectId&&x.partId===part.id))
     throw Error('Purchase source must match a live requirement for this project and part');
+  const verified=assertContractPOGate(s,projectId,input,supplier);
   const vendorSku=String(input.vendorSku||'').trim(),quoteRef=String(input.quoteRef||'').trim(),notes=String(input.notes||'').trim();
   if(vendorSku.length>120||quoteRef.length>120||notes.length>800)throw Error('Supplier code, quote reference or purchase note too long');
   return {id:uid('pol'),partId:part.id,assemblyId:input.assemblyId||null,quantity,received:0,unitCost,eta,
-    sourceOccurrenceId:sourceOccurrenceId||null,productUrl:safeProductURL(input.productUrl||''),vendorSku,quoteRef,notes};
+    sourceOccurrenceId:sourceOccurrenceId||null,productUrl:safeProductURL(input.productUrl||''),vendorSku,quoteRef,notes,
+    specificationEvidence:verified||null,closedQuantity:0};
 }
 export function createPurchaseOrder(s,input){
   ensureMaterials(s);
@@ -103,7 +111,7 @@ export function createPurchaseOrder(s,input){
   const taxRate=amount(input.taxRate??0,'Tax percentage');
   if(taxRate>100)throw Error('Tax percentage cannot exceed 100');
   if(!Array.isArray(input.items)||!input.items.length)throw Error('A purchase order needs at least one line');
-  const items=input.items.map(x=>normalizedLine(s,project.id,x)); // Validate all before mutation
+  const items=input.items.map(x=>normalizedLine(s,project.id,x,supplier)); // Validate all before mutation
   const code='PO-'+new Date().getFullYear()+'-'+String(s.orders.length+1).padStart(4,'0');
   const order={id:uid('po'),code,projectId:project.id,supplier,currency,taxRate,
     date:timestamp().slice(0,10),status:'Ordered',dispatchState:'Ordered',origin:'v042',items};
@@ -115,7 +123,7 @@ export function addPurchaseLine(s,orderId,line){
   ensureMaterials(s);
   const o=s.orders.find(x=>live(x)&&x.id===orderId);
   if(!o)throw Error('Purchase order unavailable');
-  const row=normalizedLine(s,o.projectId,line);
+  const row=normalizedLine(s,o.projectId,line,o.supplier);
   o.items.push(row);o.status=purchaseStatus(o);
   note(s,'Purchase order line added',o.code);
   return row;
@@ -127,11 +135,19 @@ function orderAndLine(s,orderId,lineId){
   if(!line)throw Error('Purchase order line not found');
   return {o,line};
 }
-export function receivePurchaseLine(s,{orderId,lineId,quantity}){
+export function receivePurchaseLine(s,{orderId,lineId,quantity,arrivalId='',reviewer='',evidenceRef=''}){
   ensureMaterials(s);
   const {o,line}=orderAndLine(s,orderId,lineId);
   const q=integer(quantity,'Receipt quantity'),remaining=outstanding(line);
   if(q>remaining)throw Error('Over-receipt prevented: only '+remaining+' outstanding');
+  let arrival=null;
+  if(contractControlled(s,o.projectId)){
+   arrival=s.procurementArrivals.find(a=>a.id===arrivalId&&a.orderId===orderId&&a.lineId===lineId);
+   if(!arrival||arrival.status!=='Awaiting inspection'||arrival.quantity!==q)
+    throw Error('Contract-controlled stock receipt requires a matching arrival awaiting inspection');
+   if(String(reviewer||'').trim().length<3||String(evidenceRef||'').trim().length<4)
+    throw Error('Inspector and acceptance evidence reference are required before goods enter stock');
+  }
   const part=partById(s,line.partId);
   if(!Number.isSafeInteger(Number(part.onHand)+q))throw Error('Stock quantity exceeds supported limit');
   line.received=Number(line.received||0)+q;
@@ -140,10 +156,42 @@ export function receivePurchaseLine(s,{orderId,lineId,quantity}){
   const receipt={id:uid('rcpt'),orderId:o.id,lineId:line.id,partId:part.id,projectId:o.projectId,
     assemblyId:line.assemblyId||null,quantity:q,returned:0,date:timestamp()};
   s.procurementReceipts.unshift(receipt);
+  if(arrival)acceptArrivalRecord(s,{arrivalId:arrival.id,reviewer,evidenceRef,receiptId:receipt.id});
   recordMovement(s,part.id,'po-receipt',q,o.projectId,o.code);
   note(s,'Partial goods receipt',o.code+': '+q+' × '+part.code);
   return receipt;
 }
+export function closePurchaseBalance(s,{orderId,lineId,reason,evidenceRef}){
+ ensureMaterials(s);
+ const {o,line}=orderAndLine(s,orderId,lineId);
+ const open=outstanding(line);
+ if(!open)throw Error('This order line has no remaining balance');
+ const noteText=required(reason,'Supplier cancellation/change reason');
+ const proof=required(evidenceRef,'Supplier confirmation reference');
+ if(noteText.length<8||proof.length<4)throw Error('Give the confirmed reason and reference before closing the outstanding balance');
+ line.balanceHistory??=[];
+ line.balanceHistory.push({at:timestamp(),action:'Close outstanding',quantity:open,reason:noteText,evidenceRef:proof});
+ line.closedQuantity=Number(line.closedQuantity||0)+open;
+ o.status=purchaseStatus(o);
+ note(s,'Outstanding order balance closed',o.code+' / '+open+' units / '+proof);
+ return line;
+}
+export function reopenPurchaseBalance(s,{orderId,lineId,reason,evidenceRef}){
+ ensureMaterials(s);
+ const {o,line}=orderAndLine(s,orderId,lineId);
+ const n=Number(line.closedQuantity||0);
+ if(!n)throw Error('No closed order quantity exists');
+ const noteText=required(reason,'Supplier reinstatement reason');
+ const proof=required(evidenceRef,'Supplier confirmation reference');
+ if(noteText.length<8||proof.length<4)throw Error('Give the reinstatement reason and supplier reference');
+ line.balanceHistory??=[];
+ line.balanceHistory.push({at:timestamp(),action:'Reopen outstanding',quantity:n,reason:noteText,evidenceRef:proof});
+ line.closedQuantity=0;
+ o.status=purchaseStatus(o);
+ note(s,'Outstanding order balance reopened',o.code+' / '+n+' units / '+proof);
+ return line;
+}
+
 export function returnPurchaseReceipt(s,{receiptId,quantity}){
   ensureMaterials(s);
   const receipt=s.procurementReceipts.find(x=>x.id===receiptId);

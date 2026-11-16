@@ -57,15 +57,19 @@ export function updateExternalStage(s,{routeId,stageId,name,type,company,planned
   Object.fromEntries(Object.keys(next).map(k=>[k,old[k]])),next);
  return st;
 }
-export function recordExternalHandoff(s,{routeId,stageId,action,onDate,notes}){
+export function recordExternalHandoff(s,{routeId,stageId,action,onDate,notes,reviewer='',evidenceRef=''}){
  const route=getRoute(s,routeId),st=getStage(route,stageId),when=date(onDate)||nowDate();
  const comment=String(notes||'').trim().slice(0,1200),prior={status:st.status,sentAt:st.sentAt,returnedAt:st.returnedAt,acceptedAt:st.acceptedAt};
- if(!['send','return','accept','hold','resume'].includes(action))throw Error('Invalid external handoff action');
+ if(!['send','return','accept','reject','resend','hold','resume'].includes(action))throw Error('Invalid external handoff action');
  if(action==='send'){
   if(st.status!=='Planned')throw Error('Stage must be planned before dispatch');
   const stages=activeStages(route),idx=stages.findIndex(x=>x.id===st.id);
   if(idx>0&&stages[idx-1].status!=='Accepted')throw Error('The previous handoff must be accepted first');
   st.sentAt=when;st.status='With supplier';
+ }else if(action==='resend'){
+  if(st.status!=='Rework required')throw Error('A stage can only be resent after failed inspection');
+  if(st.returnedAt&&when<st.returnedAt)throw Error('Rework dispatch precedes rejected return');
+  st.sentAt=when;st.returnedAt='';st.acceptedAt='';st.status='With supplier';
  }else if(action==='return'){
   if(st.status!=='With supplier'&&st.status!=='On hold')throw Error('Stage is not currently with supplier');
   if(st.sentAt&&when<st.sentAt)throw Error('Return date precedes dispatch');
@@ -73,7 +77,23 @@ export function recordExternalHandoff(s,{routeId,stageId,action,onDate,notes}){
  }else if(action==='accept'){
   if(st.status!=='Returned · inspect')throw Error('Inspect received work before accepting it');
   if(st.returnedAt&&when<st.returnedAt)throw Error('Acceptance date precedes receipt');
+  if(!comment)throw Error('Document the inspection result before accepting');
+  const inspector=required(reviewer,'QA reviewer');
+  const reference=required(evidenceRef,'QA evidence reference');
+  st.inspections??=[];
+  st.inspections.push({id:createId('qa'),decision:'Accepted',reviewer:inspector,evidenceRef:reference,
+   notes:comment,inspectedOn:when,recordedAt:stamp()});
   st.acceptedAt=when;st.status='Accepted';
+ }else if(action==='reject'){
+  if(st.status!=='Returned · inspect')throw Error('Only returned work can fail inspection');
+  if(st.returnedAt&&when<st.returnedAt)throw Error('Inspection precedes return');
+  if(!comment)throw Error('Record the factual non-conformity before rejecting');
+  const inspector=required(reviewer,'QA reviewer');
+  const reference=required(evidenceRef,'QA evidence reference');
+  st.inspections??=[];
+  st.inspections.push({id:createId('qa'),decision:'Rejected',reviewer:inspector,evidenceRef:reference,
+   notes:comment,inspectedOn:when,recordedAt:stamp()});
+  st.status='Rework required';
  }else if(action==='hold'){
   if(st.status!=='With supplier')throw Error('Only work currently with supplier can be placed on hold');
   if(!comment)throw Error('Record a factual hold note');st.status='On hold';
@@ -82,8 +102,8 @@ export function recordExternalHandoff(s,{routeId,stageId,action,onDate,notes}){
   st.status='With supplier';
  }
  audit(s,route.id,st.id,{send:'Sent to company',return:'Returned to Sim-Worx',accept:'Inspected and accepted',
-  hold:'Placed on hold',resume:'Hold cleared'}[action],comment,prior,
-  {status:st.status,sentAt:st.sentAt,returnedAt:st.returnedAt,acceptedAt:st.acceptedAt,date:when});
+  reject:'Inspection rejected / rework required',resend:'Resent for rework',hold:'Placed on hold',resume:'Hold cleared'}[action],comment,prior,
+  {status:st.status,sentAt:st.sentAt,returnedAt:st.returnedAt,acceptedAt:st.acceptedAt,date:when,inspection:st.inspections?.at(-1)||null});
  return st;
 }
 export function archiveExternalRoute(s,routeId){
@@ -103,7 +123,7 @@ export function externalRouteSummary(s,projectId,today=nowDate()){
  const routes=activeRoutes(s,projectId),all=routes.flatMap(activeStages);
  const late=all.map(st=>({...st,timing:externalStageTiming(st,today)})).filter(x=>x.timing.overdueDays>0);
  return {routes:routes.length,stages:all.length,atSuppliers:all.filter(x=>['With supplier','On hold'].includes(x.status)).length,
-  waitingInspection:all.filter(x=>x.status==='Returned · inspect').length,late,
+  waitingInspection:all.filter(x=>x.status==='Returned · inspect').length,rework:all.filter(x=>x.status==='Rework required').length,late,
   completedRoutes:routes.filter(r=>activeStages(r).length&&activeStages(r).every(x=>x.status==='Accepted')).length};
 }
 export function externalWorkTimeline(s,routeId,today=nowDate()){
@@ -112,13 +132,15 @@ export function externalWorkTimeline(s,routeId,today=nowDate()){
   events:s.externalWorkEvents.filter(e=>e.routeId===routeId).sort((a,b)=>a.at.localeCompare(b.at))};
 }
 export function exportExternalHistoryCSV(s,projectId,today=nowDate()){
- const header=['Project','Work package','Stage','Responsible company','Stage type','Status','Planned start','Promised finish','Sent to company','Returned to Sim-Worx','Inspected/accepted','Days at stage','Days after promised finish','Delay reason (staff entry)','Notes'];
+ const header=['Project','Work package','Stage','Responsible company','Stage type','Status','Planned start','Promised finish','Sent to company','Returned to Sim-Worx','Inspected/accepted','Days at stage','Days after promised finish','Delay reason (staff entry)','Notes','Last QA decision','QA reviewer','Evidence reference (user-entered)','Inspection date','Inspection notes'];
  const cells=[header];
  for(const route of activeRoutes(s,projectId))
  for(const st of activeStages(route)){
   const t=externalStageTiming(st,today);
   cells.push([projectId,route.title,st.name,st.company,st.type,st.status,st.plannedStart,st.promisedFinish,
-  st.sentAt,st.returnedAt,st.acceptedAt,t.elapsedDays??'',t.overdueDays||0,st.delayReason||'',st.notes||'']);
+  st.sentAt,st.returnedAt,st.acceptedAt,t.elapsedDays??'',t.overdueDays||0,st.delayReason||'',st.notes||'',
+  st.inspections?.at(-1)?.decision||'',st.inspections?.at(-1)?.reviewer||'',st.inspections?.at(-1)?.evidenceRef||'',
+  st.inspections?.at(-1)?.inspectedOn||'',st.inspections?.at(-1)?.notes||'']);
  }
  return cells.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
 }

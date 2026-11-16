@@ -12,7 +12,7 @@ export function renderStaffAccess(status){
   '<label>Choose staff username<input name="username" type="text" autocomplete="username" minlength="3" maxlength="50" required placeholder="simworx-admin"></label>'+
   '<label>Create password (12+ characters)<input name="password" type="password" autocomplete="new-password" minlength="12" required></label>'+
   '<label>Confirm password<input name="confirmation" type="password" autocomplete="new-password" minlength="12" required></label>'+
-  (status.legacyFound?'<label class="v43-auth-choice"><input type="checkbox" name="importLegacy" value="yes" checked> Import existing Project Hub records found in this browser</label>':'')+
+  (status.legacyFound?'<label class="v43-auth-choice"><input type="checkbox" name="importLegacy" value="yes"> Import older Project Hub records (leave unchecked to start clean)</label>':'')+
   '<button class="btn primary" type="submit">Create local staff workspace</button></form>';
  return '<div class="v43-auth-screen"><div class="v43-auth-brand"><b>SIM-WORX</b><span>PROJECT HUB · V0.4.3</span></div>'+
   '<div class="v43-auth-card"><div class="v43-auth-symbol">SW</div>'+
@@ -21,7 +21,7 @@ export function renderStaffAccess(status){
    'Sign in to unlock your encrypted project records saved on this computer.':
    'Create a password to keep this computer’s project workspace encrypted. No customer logins or live websites are involved.')+
   '</p>'+warning+form+
-  (status.legacyFound&&!status.exists?'<div class="v43-auth-legacy">Existing Project Hub browser records were found. They will be included when you create this workspace. The older unencrypted copy is kept until you explicitly remove it after making a backup.</div>':'')+
+  (status.legacyFound&&!status.exists?'<div class="v43-auth-legacy">Existing browser data were found, but will NOT be imported unless you select the checkbox above. Leave it unchecked to start with no sample projects. Older unencrypted data are retained separately until you choose to remove them.</div>':'')+
   '<div class="v43-auth-recovery"><p>Have an encrypted workspace backup from another browser or PC?</p>'+
   '<button class="btn small" type="button" data-action="workspace-import-trigger">Open encrypted workspace file</button>'+
   '<input id="v43-encrypted-import" type="file" accept=".swphub,application/json" hidden></div>'+

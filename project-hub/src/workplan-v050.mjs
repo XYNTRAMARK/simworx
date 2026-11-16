@@ -124,6 +124,8 @@ export function archiveJobRequirement(s,{occurrenceId}){
  const occ=findOccurrence(s,occurrenceId);
  if(!occ.workplanCreated)throw Error('Only work-plan-created draft requirements can be archived from here');
  if(links(s,occ.id).length)throw Error('Cannot archive material linked to an actual supplier PO. Preserve the contract and purchasing audit trail.');
+ if((s.purchaseAuthorisations||[]).some(a=>!a.revokedAt&&a.occurrenceId===occ.id))
+  throw Error('Revoke the recorded owner purchase authorization before archiving this requirement. Authority and history must not disappear.');
  occ.archivedAt=stamp();audit(s,'Work plan draft requirement archived',occ.id);
  return occ;
 }

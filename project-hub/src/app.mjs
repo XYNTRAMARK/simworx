@@ -20,7 +20,7 @@ import {renderProjectTeam,renderProjectEvidence,renderCustomerPreview} from './t
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
-const APP_VERSION='V0.4.8'; // Every build carries an explicit visible release number.
+const APP_VERSION='V0.4.9'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
 function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return emptyWorkspace()}
 let data=load();
@@ -510,7 +510,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    try{
      if(action==='v41-backup'){
        const payload=createWorkspaceBackup(data),url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
-       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.8_'+today()+'.json';
+       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.9_'+today()+'.json';
        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
        toast('JSON workspace backup downloaded · keep it private');return;
      }
@@ -838,7 +838,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.8</h2></div><p>Use Restore JSON backup to load the private contract contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.9</h2></div><p>Use Restore JSON backup to load the private contract contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;

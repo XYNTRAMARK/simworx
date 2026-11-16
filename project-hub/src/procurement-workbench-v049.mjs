@@ -4,6 +4,7 @@ import {projectBuyingSnapshot} from './project-control-v046.mjs';
 import {renderRequirementOperation} from './procurement-ui-v047.mjs';
 import {procurementState,specStatus} from './procurement-workflow-v047.mjs';
 import {approvalStatus,fulfilmentOptions,sourceStatuses} from './procurement-control-v049.mjs';
+import {flaggedUnspecifiedPurchases} from './workplan-v050.mjs';
 const e=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[ch]));
 const option=(rows,value)=>rows.map(([v,t])=>'<option value="'+e(v)+'" '+(v===value?'selected':'')+'>'+e(t)+'</option>').join('');
 const label=(name,control)=>'<label class="v49-field"><span>'+e(name)+'</span>'+control+'</label>';
@@ -119,6 +120,7 @@ export function renderProcurementWorkbench(s,ui,projectId){
  (!query||[r.part.name,r.part.code,r.assembly.name,r.source.supplier,r.source.vendorSku,r.occ.departmentOwner,r.occ.responsiblePerson].some(v=>String(v||'').toLowerCase().includes(query))));
  const outstanding=rows.filter(r=>!r.make&&r.coverage.toSource>0),holds=outstanding.filter(r=>approvalStatus(s,r.occ.id).status!=='Owner authorization recorded');
  const awaiting=(s.procurementArrivals||[]).filter(a=>a.status==='Awaiting inspection'&&snapshot.orders.some(o=>o.items?.some(i=>i.id===a.lineId)));
+ const unconverted=flaggedUnspecifiedPurchases(s,projectId);
  const selected=shown.find(r=>r.occ.id===ui.v49SelectedOccurrence)||shown[0];
  return '<section class="v49-desk">'+
  '<div class="v49-banner"><div><small>PROJECT PURCHASING · V0.4.9</small><h3>Source, approve, order and inspect in one place</h3>'+
@@ -126,8 +128,11 @@ export function renderProcurementWorkbench(s,ui,projectId){
  '<div class="v49-banner-tools">'+btn('project-tab','team','Department budgets')+btn('project-tab','work','Work packages')+
  btn('project-tab','assembly','Add engineering requirement')+'</div></div>'+
  '<div class="v49-kpis">'+
- [['Requirements',rows.length],['Needs purchasing decision',holds.length],['QA arrivals awaiting inspection',awaiting.length],['Actual supplier orders',snapshot.orders.length]].map(([k,v])=>
+ [['Requirements',rows.length],['Needs purchasing decision',holds.length],['Jobs needing item details',unconverted.length],['Actual supplier orders',snapshot.orders.length]].map(([k,v])=>
  '<div class="v49-kpi"><small>'+e(k)+'</small><strong>'+e(v)+'</strong></div>').join('')+'</div>'+
+ (unconverted.length?'<section class="v50-procurement-queue"><div><b>'+unconverted.length+' work-plan buying action(s) need specific material details</b>'+
+  '<p>These are job instructions, not orderable parts. Open the originating job, enter the exact item, quantity and specification, then review the same requirement here.</p></div>'+
+  '<div class="v50-procurement-actions">'+unconverted.map(t=>btn('v50-open-job-from-buying',t.id,'Complete: '+t.title)).join('')+'</div></section>':'')+
  '<div class="v49-toolbar"><label>Search engineering requirements<input type="search" data-filter="v46-buy-query" value="'+e(ui.v46BuyingQuery||'')+'" placeholder="Part, model, work package, department…"></label>'+
  '<label>View<select data-filter="v46-buy-mode">'+option([['Buy','External purchases'],['Review','Needs my attention'],['Internal','Sim-Worx buying'],['Customer','Buyer-direct'],['Make','Manufacture in-house'],['Covered','Covered / ordered'],['All','Every requirement']],mode)+'</select></label></div>'+
  '<div class="v49-layout"><div class="v49-req-list" role="list" aria-label="Project engineering requirements">'+

@@ -9,7 +9,7 @@ import {procurementPlan} from './procurement-planning-v043.mjs';
 import {renderProjectMaterialPlanner} from './planning-ui-v043.mjs';
 import {savePart} from './model.mjs';
 import {renderProjectBuyingReview,projectBuyingSnapshot} from './project-control-v046.mjs';
-import {updatePurchaseLineRecord} from './procurement-sourcing-v046.mjs';
+import {updatePurchaseLineRecord,safeProductURL} from './procurement-sourcing-v046.mjs';
 
 const h=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'" :'&#39;'}[c]));
 const fmt=n=>new Intl.NumberFormat('en-GB',{maximumFractionDigits:2}).format(Number(n)||0);
@@ -187,7 +187,8 @@ function renderOrderDetail(s,ui,o){
   const left=outstanding(l);
   const editing=ui.v46PurchaseLine===l.id;
   const last=l.revisions||[];
-  const savedURL=l.productUrl?'<a href="'+h(l.productUrl)+'" target="_blank" rel="noopener noreferrer">Product website</a>':'<small>No website recorded</small>';
+  let url='';try{url=safeProductURL(l.productUrl||'');}catch{}
+  const savedURL=url?'<a href="'+h(url)+'" target="_blank" rel="noopener noreferrer">Product website</a>':'<small>No website recorded</small>';
   const edits=editing?'<tr class="v46-editor-row"><td colspan="8"><form data-form="v46-po-line-update" class="v46-inline-form">'+
    input('orderId',o.id,'hidden')+input('lineId',l.id,'hidden')+
    label('Ordered quantity',input('quantity',l.quantity,'number','min="'+Math.max(1,Number(l.received||0))+'" step="1" required'))+

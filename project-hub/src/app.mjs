@@ -17,10 +17,12 @@ import {renderProjectFocus,renderProjectWorkPlan,renderProjectBuyingReview,proje
 import {ensureTeamWorkspace,saveDepartmentAllocation,allocateRequirement,attachEvidence,archiveEvidence,setCustomerShareRule} from './team-workspace-v048.mjs';
 import {ensurePurchaseControls,saveRequirementTrace,recordOwnerAuthorisation,revokeOwnerAuthorisation,approvalStatus} from './procurement-control-v049.mjs';
 import {renderProjectTeam,renderProjectEvidence,renderCustomerPreview} from './team-ui-v048.mjs';
+import {renderWorkPlanV050} from './workplan-ui-v050.mjs';
+import {saveWorkPlanJob,saveJobRequirement,linkExistingRequirement,archiveJobRequirement} from './workplan-v050.mjs';
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
-const APP_VERSION='V0.4.9'; // Every build carries an explicit visible release number.
+const APP_VERSION='V0.5.0'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
 function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return emptyWorkspace()}
 let data=load();
@@ -30,7 +32,7 @@ ensureProgress(data);
 ensureExternalWork(data);
 ensureTeamWorkspace(data);
 ensurePurchaseControls(data);
-const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All',v49SelectedOccurrence:null,v49SourceEdit:null,v49ResetBackupVerified:false,v49ResetSnapshot:null};
+const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All',v49SelectedOccurrence:null,v49SourceEdit:null,v49ResetBackupVerified:false,v49ResetSnapshot:null,v50JobEditor:null,v50SelectedTask:null,v50MaterialEditor:null,v50NewSection:false,v50Search:'',v50Status:'All'};
 const staffGate=createLocalStaffGate();
 const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
   const el=document.getElementById('workspace-save-state');
@@ -148,7 +150,7 @@ function projectDetail(p){
  // Lazy tab rendering: only render the selected screen, avoiding repeated multi-table work.
  const content={
   focus:()=>renderProjectFocus(data,ui,p.id),
-  work:()=>renderProjectWorkPlan(data,ui,p.id),
+  work:()=>renderWorkPlanV050(data,ui,p.id),
   buying:()=>renderPurchasingV041(data,ui,p.id),
   progress:()=>renderProjectProgress(data,ui,p.id),
   external:()=>renderExternalWork(data,ui,p.id),
@@ -376,7 +378,7 @@ const textareaField=(label,name,value='')=>`<div class="field full"><label for="
 function modalContent(){const m=ui.modal||{};let title='Project Hub',form='',hint='',submit='Save';
   if(m.type==='project'){
     const record=m.id?findProject(m.id):null;title=record?'Edit project':'Create a new project';submit=record?'Save project':'Create project';
-    form=`<input type="hidden" name="recordId" value="${e(record?.id||'')}"/><div class="form-grid">${field('Project name','name','text',record?.name||'')}${selectField('Customer organisation','orgId',active(data.organizations).map(o=>[o.id,o.name]),record?.orgId||data.organizations[0]?.id).replace('<select ','<select '+(record?'disabled ':''))}${record?`<input type="hidden" name="orgId" value="${e(record.orgId)}"/>`:selectField('Project template','template',['Bespoke Simulator','King Air 360','DA62','Generic Cockpit','Motion Upgrade'].map(x=>[x,x]),'Bespoke Simulator')}${field('Target delivery','due','date',record?.due||'2027-06-30')}${field('Project budget (EUR)','budget','number',record?.budget??'0',true,'min="0" step="0.01"')}${field('Contract value (EUR)','contract','number',record?.contract??'0',true,'min="0" step="0.01"')}${field('Internal project lead','lead','text',record?.lead||'Sim-Worx Project Manager')}${record?selectField('Status','status',['Design','In production','On hold','Delivered'].map(x=>[x,x]),record.status):''}${record?selectField('Current phase','phase',['Discovery','Engineering','Manufacturing','Assembly','Testing','Delivery'].map(x=>[x,x]),record.phase):''}${textareaField('Project scope / summary','description',record?.description||'')}</div>`;
+    form=`<input type="hidden" name="recordId" value="${e(record?.id||'')}"/><div class="form-grid">${field('Project name','name','text',record?.name||'')}${selectField('Customer organisation','orgId',active(data.organizations).map(o=>[o.id,o.name]),record?.orgId||data.organizations[0]?.id).replace('<select ','<select '+(record?'disabled ':''))}${record?`<input type="hidden" name="orgId" value="${e(record.orgId)}"/>`:selectField('Project template','template',['Blank project (manual work packages)','Bespoke Simulator','King Air 360','DA62','Generic Cockpit','Motion Upgrade'].map(x=>[x,x]),'Blank project (manual work packages)')}${field('Target delivery (optional)','due','date',record?.due||'',false)}${field('Project budget (EUR)','budget','number',record?.budget??'0',true,'min="0" step="0.01"')}${field('Contract value (EUR)','contract','number',record?.contract??'0',true,'min="0" step="0.01"')}${field('Internal project lead','lead','text',record?.lead||'Sim-Worx Project Manager')}${record?selectField('Status','status',['Design','In production','On hold','Delivered'].map(x=>[x,x]),record.status):''}${record?selectField('Current phase','phase',['Discovery','Engineering','Manufacturing','Assembly','Testing','Delivery'].map(x=>[x,x]),record.phase):''}${textareaField('Project scope / summary','description',record?.description||'')}</div>`;
     hint='The chosen template generates a separate project section hierarchy. Every project has its own customer and scope.';
   }else if(m.type==='customer'){
     const record=m.id?findOrg(m.id):null;title=record?'Edit customer organisation':'Create customer organisation';submit=record?'Save customer':'Add customer';
@@ -510,7 +512,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    try{
      if(action==='v41-backup'){
        const payload=createWorkspaceBackup(data),url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
-       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.9_'+today()+'.json';
+       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.5.0_'+today()+'.json';
        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
        toast('JSON workspace backup downloaded · keep it private');return;
      }
@@ -590,6 +592,64 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'edit-project':openModal('project',{id});break;
   case 'edit-customer':openModal('customer',{id});break;
   case 'edit-task':openModal('task',{id});break;
+  case 'v50-create-section':ui.v50NewSection=true;ui.v50JobEditor=null;render();document.querySelector('.v50-edit-panel')?.scrollIntoView({block:'start'});break;
+  case 'v50-close-section':ui.v50NewSection=false;render();break;
+  case 'v50-add-job':{
+   const section=data.sections.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
+   if(!section)throw Error('Select an active work package');
+   ui.v50JobEditor={projectId:ui.project,sectionId:section.id,parentId:'',id:null};ui.v50NewSection=false;
+   render();document.getElementById('v50-job-editor')?.scrollIntoView({block:'start'});break;
+  }
+  case 'v50-add-child':{
+   const t=data.tasks.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
+   if(!t)throw Error('Parent job unavailable');
+   ui.v50JobEditor={projectId:ui.project,sectionId:t.sectionId,parentId:t.id,id:null};
+   ui.v50SelectedTask=t.id;ui.v50NewSection=false;render();
+   document.getElementById('v50-job-editor')?.scrollIntoView({block:'start'});break;
+  }
+  case 'v50-edit-job':{
+   const t=data.tasks.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
+   if(!t)throw Error('Job unavailable');
+   ui.v50JobEditor={id:t.id,projectId:ui.project,sectionId:t.sectionId,parentId:t.parentId||''};
+   ui.v50SelectedTask=t.id;ui.v50NewSection=false;render();
+   document.getElementById('v50-job-editor')?.scrollIntoView({block:'start'});break;
+  }
+  case 'v50-close-job':ui.v50JobEditor=null;render();break;
+  case 'v50-select-job':{
+   if(!data.tasks.some(t=>!t.archivedAt&&t.id===id&&t.projectId===ui.project))throw Error('Job unavailable');
+   ui.v50SelectedTask=id;ui.v50MaterialEditor=null;render();
+   document.getElementById('v50-job-details')?.scrollIntoView({block:'start'});break;
+  }
+  case 'v50-clear-selection':ui.v50SelectedTask=null;ui.v50MaterialEditor=null;render();break;
+  case 'v50-material-add':{
+   const t=data.tasks.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
+   if(!t)throw Error('Job unavailable');
+   ui.v50SelectedTask=t.id;ui.v50MaterialEditor={taskId:t.id,kind:'buy'};
+   render();document.getElementById('v50-job-details')?.scrollIntoView({block:'start'});break;
+  }
+  case 'v50-edit-material':{
+   const o=data.assemblyBOM.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
+   if(!o||!o.linkedTaskId)throw Error('Requirement unavailable or not linked to a job');
+   ui.v50SelectedTask=o.linkedTaskId;ui.v50MaterialEditor={id:o.id,taskId:o.linkedTaskId};
+   render();document.getElementById('v50-job-details')?.scrollIntoView({block:'start'});break;
+  }
+  case 'v50-close-material':ui.v50MaterialEditor=null;render();break;
+  case 'v50-open-purchasing':{
+   const o=data.assemblyBOM.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
+   if(!o)throw Error('Requirement unavailable');
+   ui.v49SelectedOccurrence=o.id;ui.projectTab='procurement';ui.v46BuyingMode='All';ui.v46BuyingQuery='';
+   render();document.querySelector('.v49-main')?.scrollIntoView({block:'start'});break;
+  }
+  case 'v50-open-job-from-buying':{
+   const t=data.tasks.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
+   if(!t)throw Error('Job unavailable');
+   ui.v50SelectedTask=id;ui.projectTab='work';ui.v50Status='All';ui.v50Search='';
+   render();document.getElementById('v50-job-details')?.scrollIntoView({block:'start'});break;
+  }
+  case 'v50-archive-material':{
+   if(!confirm('Archive this draft engineering requirement? Existing orders cannot be archived by this action.'))break;
+   archiveJobRequirement(data,{occurrenceId:id});persist();render();toast('Draft requirement archived; no supplier record changed');break;
+  }
   case 'v48-add-section-job':openModal('task',{project:ui.project,section:id});break;
   case 'add-subtask':{const t=data.tasks.find(x=>x.id===id);if(t){ui.project=t.projectId;ui.projectTab='work';openModal('task',{project:t.projectId,parent:t.id,section:t.sectionId});}break;}
   case 'v48-edit-allocation':{
@@ -661,6 +721,42 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
    return;
  }
  if(!staffGate.status().unlocked)return;
+ if(type==='v50-section'){
+  try{
+   const sec=saveSection(data,{projectId:get('projectId'),name:get('name'),weight:get('weight')});
+   ui.v50NewSection=false;ui.project=sec.projectId;ui.projectTab='work';persist();render();
+   toast('Work package created; you can add jobs underneath it');
+  }catch(err){toast(err.message||'Could not add work package',true)}return;
+ }
+ if(type==='v50-job'){
+  try{
+   const existing=data.tasks.find(x=>x.id===get('recordId')&&!x.archivedAt);
+   const record=saveWorkPlanJob(data,{id:get('recordId')||null,projectId:get('projectId'),sectionId:get('sectionId'),
+     parentId:get('parentId'),title:get('title'),description:get('description'),department:get('department'),
+     assignee:get('assignee'),priority:get('priority'),status:get('status'),start:get('start'),due:get('due'),
+     predecessors:existing?predecessorIds(existing):[],needsPurchasing:fd.has('needsPurchasing'),
+     purchaseNeedNotes:get('purchaseNeedNotes')});
+   ui.v50JobEditor=null;ui.v50SelectedTask=record.id;ui.v50Search='';ui.v50Status='All';ui.project=record.projectId;
+   ui.page='projects';ui.projectTab='work';persist();render();
+   document.getElementById('v50-job-details')?.scrollIntoView({block:'start'});
+   toast(record.needsPurchasing?'Job saved; add each specific item below to send to Purchasing':'Job saved inside the project work hierarchy');
+  }catch(err){toast(err.message||'Could not save job',true)}return;
+ }
+ if(type==='v50-material'){
+  try{
+   const o=saveJobRequirement(data,{id:get('recordId')||null,projectId:get('projectId'),taskId:get('taskId'),
+      name:get('name'),code:get('code'),quantity:get('quantity'),unit:get('unit'),
+      specification:get('specification'),kind:get('kind')});
+   ui.v50MaterialEditor=null;ui.v50SelectedTask=get('taskId');
+   persist();render();toast('Engineering requirement '+o.id+' linked to job and visible in Purchasing. No PO created.');
+  }catch(err){toast(err.message||'Could not save material requirement',true)}return;
+ }
+ if(type==='v50-link-existing'){
+  try{
+   linkExistingRequirement(data,{projectId:get('projectId'),taskId:get('taskId'),occurrenceId:get('occurrenceId')});
+   ui.v50SelectedTask=get('taskId');persist();render();toast('Existing material linked without creating a duplicate');
+  }catch(err){toast(err.message||'Could not link existing requirement',true)}return;
+ }
  if(type==='v49-trace'){
   try{saveRequirementTrace(data,{occurrenceId:get('occurrenceId'),document:get('document'),section:get('section'),
    revision:get('revision'),requirementStatus:get('requirementStatus'),fulfilment:get('fulfilment'),notes:get('notes')});
@@ -806,10 +902,15 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
  try{switch(type){
   case 'project':{
     const existing=get('recordId');const record=saveProject(data,{id:existing||null,orgId:get('orgId'),name:get('name'),template:get('template'),status:get('status'),phase:get('phase'),due:get('due'),budget:get('budget'),contract:get('contract'),lead:get('lead'),description:get('description')});
-    if(!existing){const names=record.template==='DA62'?['Cockpit','Visual system','Avionics','Testing & delivery']:record.template==='Motion Upgrade'?['Mechanics','Control systems','Installation & test']:['Cockpit & structure','Control loading','Visual system','Avionics & software','Testing & delivery'];names.forEach(name=>{const sec=saveSection(data,{projectId:record.id,name,weight:Math.round(100/names.length)});
-      saveAssembly(data,{projectId:record.id,sectionId:sec.id,name,code:name.toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,28),perParentQty:1,buildQty:1,owner:'Unassigned',status:'Design'});
-    });}
-    ui.project=record.id;ui.page='projects';ui.projectTab='structure';break;
+    if(!existing&&record.template!=='Blank project (manual work packages)'){
+      const names=record.template==='DA62'?['Cockpit','Visual system','Avionics','Testing & delivery']:
+        record.template==='Motion Upgrade'?['Mechanics','Control systems','Installation & test']:
+        ['Cockpit & structure','Control loading','Visual system','Avionics & software','Testing & delivery'];
+      names.forEach(name=>{const sec=saveSection(data,{projectId:record.id,name,weight:Math.round(100/names.length)});
+        saveAssembly(data,{projectId:record.id,sectionId:sec.id,name,code:name.toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,28),perParentQty:1,buildQty:1,owner:'Unassigned',status:'Design'});
+      });
+    }
+    ui.project=record.id;ui.page='projects';ui.projectTab='work';ui.v50SelectedTask=null;ui.v50JobEditor=null;ui.v50NewSection=false;break;
   }
   case 'customer':{
     const org=saveOrganization(data,{id:get('recordId')||null,name:get('name'),code:get('code'),contact:get('contact'),accent:get('accent')});ui.customerDetail=org.id;ui.page='customers';break;
@@ -838,7 +939,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.9</h2></div><p>Use Restore JSON backup to load the private contract contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.5.0</h2></div><p>Use Restore JSON backup to load the private contract contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;
@@ -884,6 +985,8 @@ document.addEventListener('change',ev=>{try{if(!staffGate.status().unlocked)retu
   ui.procurementProject=el.value;ui.project=el.value;ui.materialPO=null;ui.materialOrderEditor=false;
   ui.materialPrefill=null;ui.v46PurchaseLine=null;ui.v46EditOccurrence=null;ui.v46BuyingQuery='';render();return;
  }
+ if(filter==='v50-search'){ui.v50Search=el.value;render();return;}
+ if(filter==='v50-status'){ui.v50Status=el.value;render();return;}
  if(filter==='v46-work-query'){ui.v46WorkQuery=el.value;render();return;}
  if(filter==='v46-work-status'){ui.v46WorkStatus=el.value;render();return;}
  if(filter==='v46-work-section'){ui.v46WorkSection=el.value;render();return;}

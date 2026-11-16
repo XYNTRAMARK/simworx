@@ -11,18 +11,46 @@ import {renderExternalWork,handleExternalForm,handleExternalAction} from './exte
 import {procurementAlerts} from './procurement-planning-v043.mjs';
 import {handleMaterialPlanningForm} from './planning-ui-v043.mjs';
 import {renderProjectFocus} from './focus-ui-v043.mjs';
+import {createLocalWorkspaceManager} from './secure-workspace-v043.mjs';
+import {renderStaffAccess,renderStaffSettings} from './workspace-access-ui-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
 const APP_VERSION='V0.4.3'; // Every build carries an explicit visible release number.
-const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
-function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return seed()}
-let data=load();
-ensureManufacturing(data);
-ensureMaterials(data);
-ensureProgress(data);
-ensureExternalWork(data);
-const ui={page:'overview',project:'p1',projectTab:'focus',dept:'All',taskView:'board',clientOrg:'noah',clientProject:'p1',clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:'p1',materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null};
-const persist=()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch{toast('Local storage is full; changes may not persist.',true)}};
+const STORAGE_KEY='simworx-project-hub-demo-v1'; // Legacy-only read for safe migration. Never write plaintext.
+function legacyWorkspace(){
+ const original=localStorage.getItem(STORAGE_KEY);
+ if(!original)return null;
+ let found;
+ try{found=JSON.parse(original)}catch{throw Error('Older browser data cannot be read; import a saved JSON backup instead. The original was not changed.');}
+ if(found?.version!==1||!Array.isArray(found.projects)||!Array.isArray(found.parts))
+  throw Error('Older workspace data is in an unsupported format; nothing was overwritten.');
+ return found;
+}
+function newEmptyWorkspace(){
+ const initial=seed();
+ for(const key of Object.keys(initial))if(Array.isArray(initial[key]))initial[key]=[];
+ return initial;
+}
+function prepareWorkspace(state){
+ ensureManufacturing(state);ensureMaterials(state);ensureProgress(state);ensureExternalWork(state);
+ return state;
+}
+let data=prepareWorkspace(newEmptyWorkspace());
+let authError='';
+function refreshWorkspaceStatus(){
+ const status=workspaceManager.status();
+ const text=status.error?'SAVE FAILED':status.saving?'Saving…':
+   status.lastSaved?'Saved locally'+(status.fileConnected&&!status.fileError?' + file':''):'No saved workspace';
+ for(const id of ['v43-save-status','v43-settings-save-status']){
+  const el=document.getElementById(id);if(el){el.textContent=text;el.title=status.error||status.fileError||status.lastSaved||'Not saved';}
+ }
+}
+const workspaceManager=createLocalWorkspaceManager({onStatus:refreshWorkspaceStatus});
+function persist(){
+ // Snapshot and queue a real encrypted IndexedDB write, and an encrypted file mirror if connected.
+ workspaceManager.save(data).catch(err=>{refreshWorkspaceStatus();toast('SAVE FAILED: '+String(err.message||err),true);});
+}
+const ui={page:'projects',project:'p1',projectTab:'focus',dept:'All',taskView:'board',clientOrg:'noah',clientProject:'p1',clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:'p1',materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null};
 const findProject=id=>data.projects.find(x=>x.id===id);
 const findOrg=id=>data.organizations.find(x=>x.id===id);
 const findPart=id=>data.parts.find(x=>x.id===id);
@@ -52,14 +80,16 @@ const notify=text=>data.notifications.unshift({id:uid('note'),text,date:today(),
 let toastTimer;
 function toast(msg,error=false){const old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className=`toast ${error?'error':''}`;t.textContent=msg;document.body.appendChild(t);clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.remove(),4100)}
 function render(){
+  const access=workspaceManager.status();
+  if(!access.signedIn){document.getElementById('app').innerHTML=renderStaffAccess({...access,error:authError||access.error});return;}
   const labels={overview:'Dashboard',projects:'Projects',assemblies:'Component & assemblies',tasks:'Production jobs',purchasing:'Purchasing',inventory:'Inventory',customers:'Customers & access',client:'Customer portal',finance:'Project financials',reports:'Reports & progress',settings:'Settings'};
-  const nav=[['overview','Overview'],['projects','Projects'],['assemblies','Assemblies & components'],['tasks','Workshop & office'],['purchasing','Purchasing'],['inventory','Inventory'],['customers','Customers & access'],['client','Client portal preview'],['finance','Financials'],['reports','Reports'],['settings','Settings']];
+  const nav=[['overview','Overview'],['projects','Projects'],['assemblies','Assemblies & components'],['tasks','Workshop & office'],['purchasing','Purchasing'],['inventory','Inventory'],['customers','Internal client records'],['finance','Financials'],['reports','Reports'],['settings','Settings']];
   const navHtml=nav.map(([id,label],idx)=>`${idx===0||idx===4||idx===7||idx===8?`<div class="nav-group-label">${idx===0?'WORKSPACE':idx===4?'OPERATIONS':idx===7?'COLLABORATION':'CONTROL & INSIGHT'}</div>`:''}<button class="nav-link ${ui.page===id?'active':''}" data-action="nav" data-id="${id}" aria-current="${ui.page===id?'page':'false'}">${ico(id)}<span>${label}</span>${id==='client'?'<span class="count-dot">↗</span>':''}</button>`).join('');
   const title=labels[ui.page]||'Project Hub';
   document.body.classList.toggle('dark',data.settings.theme==='dark');
   document.getElementById('app').innerHTML=`<div class="app-shell">
-    <aside class="sidebar"><div class="brand"><div class="brand-gem">${ico('warehouse',23)}</div><div class="brand-name">SIM-WORX<span>PROJECT HUB</span></div></div><nav>${navHtml}</nav><div class="sidebar-bottom"><div class="workspace-mark"><div class="avatar">SW</div><div><b>Sim-Worx Team</b><small>Local demonstration</small></div></div></div></aside>
-    <div class="main"><header class="topbar"><div><div class="top-title">${e(title)}</div><div class="top-sub">Plan, build, deliver — all in one place</div></div><div class="top-actions"><span class="version-chip" aria-label="Application version ${APP_VERSION}" title="Sim-Worx Project Hub · ${APP_VERSION}">${APP_VERSION}</span><span class="demo-ribbon">DEMO · NOT LIVE</span><label class="top-search">${ico('search')}<input id="global-search" placeholder="Search projects..." autocomplete="off" aria-label="Search projects" /></label><button class="circle-btn" data-action="theme" aria-label="Toggle colour theme" title="Light / dark mode">${ico(data.settings.theme==='light'?'moon':'sun')}</button><button class="circle-btn" data-action="notifications" aria-label="Notifications" title="Notifications">${ico('bell')}</button><div class="avatar" title="Sim-Worx Administrator">SW</div></div></header>
+    <aside class="sidebar"><div class="brand"><div class="brand-gem">${ico('warehouse',23)}</div><div class="brand-name">SIM-WORX<span>PROJECT HUB</span></div></div><nav>${navHtml}</nav><div class="sidebar-bottom"><div class="workspace-mark"><div class="avatar">SW</div><div><b>Sim-Worx Team</b><small>Internal workspace · this device</small></div></div></div></aside>
+    <div class="main"><header class="topbar"><div><div class="top-title">${e(title)}</div><div class="top-sub">Plan, build, deliver — all in one place</div></div><div class="top-actions"><span class="version-chip" aria-label="Application version ${APP_VERSION}" title="Sim-Worx Project Hub · ${APP_VERSION}">${APP_VERSION}</span><span class="demo-ribbon">STAFF · LOCAL</span><span id="v43-save-status" class="v43-save-status">Saved locally</span><button type="button" class="btn small" data-action="workspace-lock" title="Lock and sign out">Sign out</button><label class="top-search">${ico('search')}<input id="global-search" placeholder="Search projects..." autocomplete="off" aria-label="Search projects" /></label><button class="circle-btn" data-action="theme" aria-label="Toggle colour theme" title="Light / dark mode">${ico(data.settings.theme==='light'?'moon':'sun')}</button><button class="circle-btn" data-action="notifications" aria-label="Notifications" title="Notifications">${ico('bell')}</button><div class="avatar" title="Sim-Worx Administrator">SW</div></div></header>
     <main class="content">${pageContent()}</main></div></div>${ui.modal?modalContent():''}`;
   bindGlobalSearch();
 }
@@ -106,7 +136,7 @@ function projectDetail(p){
  const mfg=projectManufacturingAlerts(data,p.id).length,shortage=materialReadinessV041(data,p.id).filter(x=>x.toSource>0).length;
  const supplierLate=externalRouteSummary(data,p.id).late.length,deadlines=procurementAlerts(data,p.id).overdue.length;
  const top=[['focus','Project control'],['procurement','Materials & dates'],['progress','Progress steps'],['external','External work'],['schedule','Gantt'],['budget','Budget']];
- const extras=[['register','Work register'],['structure','Work breakdown'],['assembly','Assemblies'],['bom','Legacy BOM'],['materials','Legacy forecast'],['documents','Documents'],['publishing','Client publishing']];
+ const extras=[['register','Work register'],['structure','Work breakdown'],['assembly','Assemblies'],['bom','Legacy BOM'],['materials','Legacy forecast'],['documents','Documents']];
  const extraSelected=extras.some(pair=>pair[0]===ui.projectTab);
  const content={focus:ui.projectTab==='focus'?renderProjectFocus(data,ui,p.id):'',progress:ui.projectTab==='progress'?renderProjectProgress(data,ui,p.id):'',external:ui.projectTab==='external'?renderExternalWork(data,ui,p.id):'',structure:projectStructure(p),register:projectRegister(p),schedule:projectSchedule(p),
   assembly:ui.projectTab==='assembly'?renderManufacturing(data,ui,p.id):'',
@@ -288,7 +318,7 @@ function financePage(){
 function reportsPage(){const rows=allActiveProjects().map(p=>{const prog=managedProgress(p.id)||0;const done=data.tasks.filter(t=>t.projectId===p.id&&t.status==='Done').length;return `<div class="bar-group"><div class="bar-label"><span>${e(p.name)}</span><span>${prog}% · ${done} completed</span></div>${meter(prog)}</div>`}).join('');const states=['Done','In progress','Ready','Blocked','Inspection','Backlog'];const counts=states.map(s=>active(data.tasks).filter(t=>t.status===s&&allActiveProjects().some(p=>p.id===t.projectId)).length);const max=Math.max(...counts,1);
   return head('Reports & progress','See workload, completed jobs and project milestones across customers.',button(`${ico('refresh')} Refresh view`,'refresh',''))+`<div class="grid-even">${card('Project completion',`<div class="card-body" style="padding-top:0">${rows}</div>`,'','Internal task-derived progress')}${card('Production job pipeline',`<div class="card-body" style="padding-top:0"><div class="report-chart"><div class="skeleton-chart">${counts.map((count,i)=>`<div class="bar" style="height:${Math.max(9,count/max*100)}%"><span>${e(states[i].split(' ')[0])}</span></div>`).join('')}</div></div><p class="form-hint">${data.tasks.length} tracked department jobs across ${data.projects.length} projects.</p></div>`,'','Task statuses across the workshop')}</div>${card('Recent audit history',`<div class="table-wrap"><table class="table"><thead><tr><th>Action</th><th>Description</th><th>Actor</th><th>Time</th></tr></thead><tbody>${data.audit.slice(0,20).map(a=>`<tr><td><b>${e(a.action)}</b></td><td>${e(a.detail)}</td><td>${e(a.actor)}</td><td>${day(a.at)}</td></tr>`).join('')}</tbody></table></div>`,'','Event records for this browser-based demo')}`;
 }
-function settingsPage(){return head('Workspace settings','Your Project Hub experience and development-stage safeguards.')+`<div class="grid-even">${card('Appearance',`<div class="card-body"><div class="split-header"><div><b>Display theme</b><p class="form-hint">Choose a clean, light workspace or dark mode.</p></div>${button(data.settings.theme==='light'?`${ico('moon')} Dark mode`:`${ico('sun')} Light mode`,'theme','soft')}</div></div>`)}${card('Demo environment',`<div class="card-body"><b>No production connection</b><p class="form-hint">Your changes are stored in this browser. There is no login, database connection, email provider, file upload storage or shared access. This demo is suitable for product evaluation only.</p>${button(`${ico('refresh')} Reset demo data`,'reset-demo','danger')}</div>`)}${card('Email delivery',`<div class="card-body"><b>Disabled by design</b><p class="form-hint">No sending account has been approved. Approval events and invitations remain in the on-screen demo. We will enable email only after isolating and verifying a no-additional-cost route.</p>${badge('Not configured','amber')}</div>`)}${card('Archive & restore',`<div class="card-body"><p class="form-hint">Archiving retains history and references. Restore records here; nothing is permanently deleted.</p>${['organizations','projects','sections','tasks','parts','bom','documents','members','updates','orders'].flatMap(kind=>data[kind].filter(row=>row.archivedAt).map(row=>`<div class="archive-row"><div><b>${e(row.title||row.name||row.code||row.id)}</b><small>${e(kind)} · ${day(row.archivedAt)}</small></div>${button('Restore','restore-record','small',`data-kind="${kind}" data-id="${row.id}"`)}</div>`)).join('')||'<div class="subtle">No archived records</div>'}</div>`)}${card('Production readiness',`<div class="card-body">${['Customer login & RLS','Private document storage','Secure staff invitations','Transactional stock allocation','Automated emails','Independent deployment'].map(x=>`<div class="pipeline-item"><span class="pipe-main"><strong>${e(x)}</strong></span>${badge('Pending','amber')}</div>`).join('')}</div>`,'','These features require a separately approved backend') }</div>`;
+function settingsPage(){return head('Workspace settings','Internal staff workspace, access and data preservation.')+`<div class="grid-even">${card('Appearance',`<div class="card-body"><div class="split-header"><div><b>Display theme</b><p class="form-hint">Choose a clean, light workspace or dark mode.</p></div>${button(data.settings.theme==='light'?`${ico('moon')} Dark mode`:`${ico('sun')} Light mode`,'theme','soft')}</div></div>`)}${card('Staff-only environment',`<div class="card-body"><b>Password-protected local workspace</b><p class="form-hint">Project data auto-saves encrypted on this PC. Connect a file for an additional automatically updated copy. There is no shared online account server, email delivery or external database.</p></div>`)}${card('Email delivery',`<div class="card-body"><b>Disabled by design</b><p class="form-hint">No sending account has been approved. Approval events and invitations remain in the on-screen demo. We will enable email only after isolating and verifying a no-additional-cost route.</p>${badge('Not configured','amber')}</div>`)}${card('Archive & restore',`<div class="card-body"><p class="form-hint">Archiving retains history and references. Restore records here; nothing is permanently deleted.</p>${['organizations','projects','sections','tasks','parts','bom','documents','members','updates','orders'].flatMap(kind=>data[kind].filter(row=>row.archivedAt).map(row=>`<div class="archive-row"><div><b>${e(row.title||row.name||row.code||row.id)}</b><small>${e(kind)} · ${day(row.archivedAt)}</small></div>${button('Restore','restore-record','small',`data-kind="${kind}" data-id="${row.id}"`)}</div>`)).join('')||'<div class="subtle">No archived records</div>'}</div>`)}${card('Production readiness',`<div class="card-body">${['Customer login & RLS','Private document storage','Secure staff invitations','Transactional stock allocation','Automated emails','Independent deployment'].map(x=>`<div class="pipeline-item"><span class="pipe-main"><strong>${e(x)}</strong></span>${badge('Pending','amber')}</div>`).join('')}</div>`,'','These features require a separately approved backend') }</div>`;
 }
 function optionList(entries,current){return entries.map(([val,label])=>`<option value="${e(val)}" ${val===current?'selected':''}>${e(label)}</option>`).join('')}
 const field=(label,name,kind='text',value='',required=true,extra='')=>`<div class="field"><label for="form-${name}">${e(label)}</label><input id="form-${name}" name="${e(name)}" type="${kind}" value="${e(value)}" ${required?'required':''} ${extra}/></div>`;
@@ -365,6 +395,8 @@ function exportWbs(projectId){
   const a=document.createElement('a');a.href=url;a.download=`${project.code}-WBS.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
+ if(action?.startsWith('workspace-')){try{handleWorkspaceAction(action)}catch(err){toast(String(err.message||err),true)}return;}
+ if(!workspaceManager.status().signedIn)return;
  if(action?.startsWith('mfg-')){try{handleManufacturingAction(data,ui,el,window.confirm);persist();render();toast('Manufacturing demo updated locally');}catch(err){toast(err.message||'Manufacturing action failed',true)}return;}
 
   if(action==='v42-edit-master'){ui.partReturnProject=ui.project;openModal('part',{id});return;}
@@ -454,6 +486,8 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   }}catch(err){toast(err.message||'Unable to complete this action',true)}
 }
 function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.get(n)||'').trim();const type=form.dataset.form;
+ if(type==='v43-staff-register'||type==='v43-staff-login'){staffFormHandler(form);return;}
+ if(!workspaceManager.status().signedIn)return;
  if(type?.startsWith('mfg-')){try{handleManufacturingSubmit(data,ui,form);persist();render();toast('Manufacturing record saved locally');}catch(err){toast(err.message||'Manufacturing form failed',true)}return;}
  if(type?.startsWith('v41-')||type==='v42-material-edit'||type==='v43-quick-part'){try{handleMaterialsSubmit(data,ui,form);persist();render();toast('Procurement saved locally');}catch(err){toast(err.message||'Procurement form failed',true)}return;}
 
@@ -510,26 +544,91 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Workspace backup & restore · V0.4.3</h2></div><p>Download all current demo records, including projects, assemblies, stock, supplier orders, delivery tracking, attachments and internal illustrative financial data. Keep the file private. A restore replaces records in this browser only after confirmation.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Local browser demo only. There is no cloud sync or production database.</p></div>';
+  return settingsPage()+renderStaffSettings(workspaceManager.status()) + '<div class="card v41-backup"><div class="card-head"><h2>Workspace backup & restore · V0.4.3</h2></div><p>Advanced compatibility import/export. These JSON files contain readable, unencrypted project records, including supplier documents. Prefer the encrypted backup above, and handle any plaintext exports securely. Restore replaces records in this signed-in local workspace after confirmation.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>This is an internal single-PC workspace, not a cloud-synchronised database. Always keep independent encrypted backups.</p></div>';
 }
-function restoreBackupFile(file){
+async function restoreBackupFile(file){
  if(!file)return;
- if(file.size>10000000){toast('Backup exceeds the 10 MB limit',true);return;}
- file.text().then(content=>{
-   const candidate=parseWorkspaceBackup(content);
-   if(!confirm('Replace ALL Project Hub demo records in this browser with the selected backup? Save your current backup first if needed.'))return;
-   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(candidate));}
-   catch(err){throw Error('Could not save restored records. Existing data remains unchanged. '+err.message);}
-   data=candidate;ui.page='overview';ui.project=data.projects.find(p=>!p.archivedAt)?.id||'';
-   ui.materialPO=null;ui.materialOrderEditor=false;render();toast('Workspace restored from JSON backup');
- }).catch(err=>toast('Cannot restore: '+String(err.message||err),true));
+ if(!workspaceManager.status().signedIn)throw Error('Sign in before restoring a JSON backup');
+ if(file.size>10000000)throw Error('Backup exceeds the 10 MB import limit');
+ const candidate=parseWorkspaceBackup(await file.text());
+ if(!window.confirm('Replace all signed-in workspace data with this unencrypted JSON backup? Export a fresh encrypted backup first.'))return;
+ prepareWorkspace(candidate);
+ await workspaceManager.save(candidate); // Only switch UI once encrypted persistence succeeds.
+ data=candidate;ui.page='projects';ui.project=data.projects.find(p=>!p.archivedAt)?.id||'';
+ ui.materialPO=null;ui.materialOrderEditor=false;render();toast('Workspace restored and encrypted save verified');
 }
-
+async function importEncryptedWorkspaceFile(file){
+ if(!file)return;
+ const current=workspaceManager.status();
+ if(current.exists&&!window.confirm('Importing this encrypted file will replace the saved workspace in THIS browser. Keep an encrypted backup of the existing workspace before continuing. Proceed?'))return;
+ const entry=document.querySelector('form[data-form="v43-staff-login"]')||
+   document.querySelector('form[data-form="v43-staff-register"]');
+ const username=current.signedIn?window.prompt('Username on this encrypted backup:',current.username):
+    entry?.querySelector('input[name="username"]')?.value;
+ const password=current.signedIn?window.prompt('Password used for the selected encrypted backup:'):
+    entry?.querySelector('input[name="password"]')?.value;
+ if(!username||!password)throw Error('Enter the backup username and password to unlock it');
+ const restored=await workspaceManager.importEncryptedFile(file,{username,password});
+ prepareWorkspace(restored);data=restored;authError='';
+ ui.page='projects';ui.project=data.projects.find(p=>!p.archivedAt)?.id||'';
+ ui.projectTab='focus';ui.materialPO=null;ui.materialOrderEditor=false;render();
+ toast('Encrypted workspace imported successfully');
+}
+function downloadText(filename,body,mime='application/json'){
+ const url=URL.createObjectURL(new Blob([body],{type:mime}));
+ const link=document.createElement('a');link.href=url;link.download=filename;
+ document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+async function staffFormHandler(form){
+ const f=new FormData(form),username=String(f.get('username')||'').trim(),password=String(f.get('password')||'');
+ try{
+  if(form.dataset.form==='v43-staff-register'){
+   if(password!==String(f.get('confirmation')||''))throw Error('Passwords do not match');
+   const useLegacy=f.get('importLegacy')==='yes';
+   const initial=prepareWorkspace(useLegacy?(legacyWorkspace()||newEmptyWorkspace()):newEmptyWorkspace());
+   await workspaceManager.createAccount({username,password,state:initial});
+   data=initial;
+  }else{
+   data=prepareWorkspace(await workspaceManager.signIn({username,password}));
+  }
+  authError='';ui.page='projects';ui.project=data.projects.find(p=>!p.archivedAt)?.id||'';
+  ui.projectTab='focus';ui.procurementProject=ui.project;render();
+ }catch(err){authError=String(err.message||err);render();}
+}
+function handleWorkspaceAction(action){
+ if(action==='workspace-import-trigger'){document.getElementById('v43-encrypted-import')?.click();return;}
+ if(!workspaceManager.status().signedIn)return;
+ if(action==='workspace-lock'){
+  try{workspaceManager.signOut();data=prepareWorkspace(newEmptyWorkspace());ui.modal=null;render();}
+  catch(err){toast(err.message||'Cannot sign out yet',true)}return;
+ }
+ if(action==='workspace-connect-file'){
+  workspaceManager.connectFile(data).then(()=>{refreshWorkspaceStatus();toast('Encrypted workspace file connected and saved');})
+   .catch(err=>toast(String(err.message||err),true));return;
+ }
+ if(action==='workspace-reconnect-file'){
+  workspaceManager.reconnectFile(data).then(()=>{refreshWorkspaceStatus();toast('Workspace file saved');})
+   .catch(err=>toast(String(err.message||err),true));return;
+ }
+ if(action==='workspace-export-encrypted'){
+  workspaceManager.encryptedBackup().then(({name,text})=>{
+   downloadText(name,text);toast('Encrypted backup downloaded · keep it safe');
+  }).catch(err=>toast(String(err.message||err),true));return;
+ }
+ if(action==='workspace-delete-legacy'){
+  if(!workspaceManager.status().lastSaved)throw Error('Save the encrypted workspace first');
+  if(window.confirm('Remove the OLD unencrypted browser-storage copy? This action does not remove your new encrypted workspace. Make a separate encrypted backup first.')){
+   localStorage.removeItem(STORAGE_KEY);render();toast('Old unprotected browser copy removed');
+  }
+ }
+}
 document.addEventListener('click',ev=>{const el=ev.target.closest('[data-action]');if(el){if(el.dataset.action==='dismiss-modal'&&ev.target!==el)return;handleAction(el)}});
 document.addEventListener('submit',ev=>{const form=ev.target.closest('form[data-form]');if(form){ev.preventDefault();formHandler(form)}});
 document.addEventListener('change',ev=>{try{const el=ev.target;
+ if(el.id==='v43-encrypted-import'){importEncryptedWorkspaceFile(el.files?.[0]).catch(err=>{authError=String(err.message||err);render();toast(authError,true)});return;}
+ if(!workspaceManager.status().signedIn)return;
  if(el.dataset.v41Proof){handleMaterialsProof(data,el,()=>{persist();render();toast('Proof document saved locally')},message=>toast(message,true));return;}
- if(el.id==='v41-restore-file'){restoreBackupFile(el.files?.[0]);return;}
+ if(el.id==='v41-restore-file'){restoreBackupFile(el.files?.[0]).catch(err=>toast(String(err.message||err),true));return;}
  if(el.dataset.v42Delivery){updateOrderStage(data,el.dataset.v42Delivery,el.value);persist();render();toast('Delivery stage changed; stock unchanged');return;}
  const filter=el.dataset.filter;
  if(filter==='v43-route'){ui.externalRouteId=el.value;ui.externalEditStage=null;render();return;}
@@ -547,4 +646,8 @@ document.addEventListener('change',ev=>{try{const el=ev.target;
  else if(el.dataset.taskStatus){setTaskStatus(data,el.dataset.taskStatus,el.value);persist();render();toast('Job status updated')}
 }catch(err){toast(err.message||'Cannot update status',true);render()}});
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&ui.modal)closeModal()});
+window.addEventListener('beforeunload',event=>{
+ if(workspaceManager.unsavedChanges()){event.preventDefault();event.returnValue='';}
+});
 render();
+workspaceManager.initialize().then(()=>render()).catch(err=>{authError=String(err.message||err);render();});

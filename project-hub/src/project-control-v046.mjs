@@ -5,7 +5,7 @@ import {materialReadinessV041,purchaseStatus} from './materials-v041.mjs';
 import {materialPlanDates,saveRequirementPlan} from './procurement-planning-v043.mjs';
 import {progressSnapshot} from './progress-v043.mjs';
 import {externalRouteSummary} from './external-work-v043.mjs';
-import {saveRequirementSource,sourceInput} from './procurement-sourcing-v046.mjs';
+import {saveRequirementSource,sourceInput,safeProductURL} from './procurement-sourcing-v046.mjs';
 
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&#39;'}[c]));
 const live=x=>x&&!x.archivedAt;
@@ -16,6 +16,7 @@ const goodStatus=st=>st==='Done'?'good':st==='Blocked'?'danger':st==='In progres
 const pill=(text,tone='muted')=>'<span class="v46-pill '+tone+'">'+esc(text)+'</span>';
 const missingOwner=s=>!String(s||'').trim()||/^(unassigned|tbc|tbd|unknown)$/i.test(String(s).trim());
 const knownSupplier=s=>!missingOwner(s)&&!/to confirm|not confirmed|awaiting supplier|supplier tbc/i.test(String(s));
+const safeLink=raw=>{try{return safeProductURL(raw)}catch{return ''}};
 const intro=(title,subtitle)=>'<div class="v46-intro"><div><h3>'+esc(title)+'</h3><p>'+esc(subtitle)+'</p></div></div>';
 
 export function projectWorkSnapshot(s,projectId){
@@ -149,11 +150,11 @@ export function renderProjectBuyingReview(s,ui,projectId){
   mode==='Covered'&&!r.make&&r.coverage.toSource===0)&&
   (!query||[r.part.code,r.part.name,r.assembly.name,r.source.supplier,r.source.vendorSku,r.part.supplier].some(x=>String(x||'').toLowerCase().includes(query))));
  const stateLine=r=>{
-  const ref=esc(r.occ.id),current=ui.v46EditOccurrence===r.occ.id;
+  const ref=esc(r.occ.id),current=ui.v46EditOccurrence===r.occ.id,productLink=safeLink(r.source.productUrl);
   const editor=current?'<tr class="v46-editor-row"><td colspan="8"><form data-form="v46-buy-plan" class="v46-inline-form">'+
    '<input type="hidden" name="occurrenceId" value="'+ref+'">'+
    '<label>Needed on site by<input type="date" name="requiredBy" value="'+esc(r.plan.requiredBy)+'"></label>'+
-   '<label>Confirmed supplier lead time (days)<input type="number" name="leadDays" min="0" max="3650" step="1" value="'+esc(r.plan.leadDays)+'"></label>'+
+   '<label>Supplier lead time (days; enter only if verified)<input type="number" name="leadDays" min="0" max="3650" step="1" value="'+esc(r.plan.leadDays)+'"></label>'+
    '<label>Planning buffer (days)<input type="number" name="bufferDays" min="0" max="3650" step="1" value="'+esc(r.plan.bufferDays)+'"></label>'+
    '<label class="v46-note-wide">Internal purchasing note<input type="text" maxlength="800" name="note" value="'+esc(r.plan.purchaseNote)+'"></label>'+
    '<label>Supplier / website name<input type="text" maxlength="160" name="supplier" value="'+esc(r.source.supplier||'')+'" placeholder="Supplier not yet confirmed"></label>'+
@@ -173,7 +174,7 @@ export function renderProjectBuyingReview(s,ui,projectId){
    '<td>'+esc(r.make?'MAKE':'BUY')+'</td>'+
    '<td>'+num(r.coverage.toSource)+'<small>project-wide gap</small></td>'+
    '<td>'+pill(r.stage,r.tone)+'<small>'+esc(warn)+'</small>'+
-   (r.source.productUrl?'<a href="'+esc(r.source.productUrl)+'" target="_blank" rel="noopener noreferrer" class="v46-source-link">Open product website</a>':'<small>Website not saved</small>')+
+   (productLink?'<a href="'+esc(productLink)+'" target="_blank" rel="noopener noreferrer" class="v46-source-link">Open product website</a>':'<small>Website not saved</small>')+
    (r.source.vendorSku?'<small>Vendor code: '+esc(r.source.vendorSku)+'</small>':'')+
    (r.source.supplier?'<small>Supplier: '+esc(r.source.supplier)+'</small>':'')+'</td>'+
    '<td>'+date(r.plan.requiredBy)+'<small>Order by: '+(r.plan.orderBy?esc(r.plan.orderBy):'not calculable')+'</small></td>'+

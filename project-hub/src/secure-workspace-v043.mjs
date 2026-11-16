@@ -89,7 +89,7 @@ export function createLocalWorkspaceManager({onStatus=()=>{}}={}){
   return {ready,exists,signedIn:!!session,username:session?.username||'',saving,
    lastSaved,lastFileSaved,error,fileError,revision,
    fileConnected:!!fileHandle,canChooseFile:typeof window.showSaveFilePicker==='function',
-   legacyFound:!!localStorage.getItem('simworx-project-hub-demo-v1')};
+   legacyFound:(()=>{try{return !!localStorage.getItem('simworx-project-hub-demo-v1')}catch{return false}})()};
  }
  async function initialize(){
   try{

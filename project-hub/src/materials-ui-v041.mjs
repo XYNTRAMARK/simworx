@@ -155,6 +155,15 @@ function renderOrderDetail(s,o){
    (sh.trackingUrl?'<p class="v41-caption"><a href="'+h(sh.trackingUrl)+'" target="_blank" rel="noopener noreferrer">View carrier tracking ↗</a> · Tracking reference: '+h(sh.trackingCode)+'</p>':'');
  return '<div class="v41-detail">'+panel('Purchase order · '+o.code,'<p class="v41-caption">'+h(o.supplier)+' · '+h(p?.code)+' · '+h(o.currency||'EUR')+' · '+h(o.taxRate??0)+'% VAT/tax assumption</p>'+
  '<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part</th><th>Ordered</th><th>Received</th><th>Backorder</th><th>Unit cost</th><th>ETA</th><th>Record receipt</th></tr></thead><tbody>'+lineRows+'</tbody></table></div>'+
+
+ '<form data-form="v41-add-po-line" class="v41-inline-form"><input type="hidden" name="orderId" value="'+h(o.id)+'">'+
+ label('Add part',pick('partId',sku(s),'','required'))+
+ label('Quantity',input('quantity',1,'number','min="1" required'))+
+ label('Cost each',input('unitCost',0,'number','min="0" step="0.01" required'))+
+ label('Assembly',pick('assemblyId',asmOptions(s,o.projectId)))+
+ label('ETA',input('eta','','date'))+
+ '<button type="submit" class="btn small primary">Add PO line</button></form>'+
+
  '<p class="v41-caption">Partial receipts immediately increase on-hand workshop inventory; future deliveries do not. Supplier returns decrease received and reopen backorders.</p>'+
  (receiptRows?'<h4>Goods receipts & returns</h4><div class="v41-scroll"><table class="v41-table"><thead><tr><th>Date</th><th>Part</th><th>Received</th><th>Returned</th><th>Action</th></tr></thead><tbody>'+receiptRows+'</tbody></table></div>':'<p class="v41-muted">No newly recorded goods receipts on this order.</p>')+
  '<h4>Shipment & tracking</h4>'+shipForm+'<h4>Receipt / proof of order / invoice documents</h4>'+
@@ -252,6 +261,7 @@ export function handleMaterialsSubmit(s,ui,form){
      items:parts.map((partId,i)=>({partId,quantity:quantities[i],unitCost:costs[i],assemblyId:assemblies[i],eta:etas[i]}))});
    ui.materialPO=order.id;ui.materialOrderEditor=false;ui.materialPrefill=null;
  }
+ else if(type==='v41-add-po-line')addPurchaseLine(s,v('orderId'),{partId:v('partId'),quantity:v('quantity'),unitCost:v('unitCost'),assemblyId:v('assemblyId'),eta:v('eta')});
  else if(type==='v41-receive')receivePurchaseLine(s,{orderId:v('orderId'),lineId:v('lineId'),quantity:v('quantity')});
  else if(type==='v41-return')returnPurchaseReceipt(s,{receiptId:v('receiptId'),quantity:v('quantity')});
  else if(type==='v41-tracking')saveOrderShipment(s,{orderId:v('orderId'),carrier:v('carrier'),trackingCode:v('trackingCode'),trackingUrl:v('trackingUrl'),eta:v('eta'),note:v('note')});

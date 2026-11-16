@@ -58,6 +58,9 @@ export function saveOccurrence(s,form){ensureManufacturing(s);
  const existing=form.id?s.assemblyBOM.find(x=>live(x)&&x.id===form.id):null;
  if(existing&&existing.assemblyId!==a.id)throw Error('Cannot move an existing BOM line to another assembly');
  const next={partId:part.id,quantity:qty(form.quantity),position:String(form.position||'').trim(),notes:String(form.notes||''),makeBuy:form.makeBuy==='Make'?'Make':'Buy'};
+ if(existing&&(s.orders||[]).some(po=>(po.items||[]).some(line=>line.sourceOccurrenceId===existing.id))
+   &&Object.keys(next).some(key=>String(next[key]??'')!==String(existing[key]??'')))
+  throw Error('Cannot rewrite an engineering requirement linked to an actual supplier PO. Preserve its source and historic purchasing evidence; use a controlled new revision/requirement.');
  if(existing){Object.assign(existing,next);log(s,'E-BOM occurrence edited',a.name+' / '+part.code);return existing;}
  const row={id:id('occ'),projectId:a.projectId,assemblyId:a.id,...next};s.assemblyBOM.push(row);log(s,'E-BOM occurrence added',a.name+' / '+part.code);return row;
 }
@@ -65,6 +68,8 @@ export function archiveManufacturing(s,kind,rowId,restore=false){ensureManufactu
  const table={assembly:'assemblies',occurrence:'assemblyBOM',change:'engineeringChanges'}[kind];if(!table)throw Error('Invalid record kind');
  const row=s[table].find(x=>x.id===rowId);if(!row)throw Error('Record unavailable');
  if(kind==='assembly'&&!restore&&s.assemblies.some(a=>live(a)&&a.parentId===row.id))throw Error('Archive child assemblies first');
+ if(kind==='occurrence'&&!restore&&(s.orders||[]).some(po=>(po.items||[]).some(line=>line.sourceOccurrenceId===row.id)))
+  throw Error('Cannot archive a material requirement with actual supplier PO history. Close/reconcile the order with an auditable change process.');
  if(kind==='assembly'&&restore&&row.parentId&&!s.assemblies.some(a=>live(a)&&a.id===row.parentId))throw Error('Restore parent assembly first');
  if(restore){if(!row.archivedAt)throw Error('Already active');delete row.archivedAt;}else{if(row.archivedAt)throw Error('Already archived');row.archivedAt=stamp();}
  log(s,restore?'Manufacturing record restored':'Manufacturing record archived',`${kind} ${rowId}`);return row;

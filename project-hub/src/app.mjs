@@ -87,8 +87,8 @@ function staffGateScreen(){
 function render(){
  if(!staffGate.status().unlocked){document.getElementById('app').innerHTML=staffGateScreen();return;}
   const labels={overview:'Dashboard',projects:'Projects',assemblies:'Component & assemblies',tasks:'Production jobs',purchasing:'Purchasing',inventory:'Inventory',customers:'Customers & access',client:'Customer portal',finance:'Project financials',reports:'Reports & progress',settings:'Settings'};
-  const nav=[['overview','Overview'],['projects','Projects'],['assemblies','Assemblies & components'],['tasks','Workshop & office'],['purchasing','Purchasing'],['inventory','Inventory'],['finance','Financials'],['reports','Reports'],['settings','Settings']];
-  const navHtml=nav.map(([id,label],idx)=>`${idx===0||idx===4||idx===7||idx===8?`<div class="nav-group-label">${idx===0?'WORKSPACE':idx===4?'OPERATIONS':idx===7?'COLLABORATION':'CONTROL & INSIGHT'}</div>`:''}<button class="nav-link ${ui.page===id?'active':''}" data-action="nav" data-id="${id}" aria-current="${ui.page===id?'page':'false'}">${ico(id)}<span>${label}</span>${id==='client'?'<span class="count-dot">↗</span>':''}</button>`).join('');
+  const nav=[['overview','Overview'],['projects','Projects'],['assemblies','Assemblies & components'],['tasks','Workshop & office'],['inventory','Inventory'],['finance','Financials'],['reports','Reports'],['settings','Settings']];
+  const navHtml=nav.map(([id,label],idx)=>`${idx===0||idx===4||idx===6?`<div class="nav-group-label">${idx===0?'WORKSPACE':idx===4?'OPERATIONS':'CONTROL & INSIGHT'}</div>`:''}<button class="nav-link ${ui.page===id?'active':''}" data-action="nav" data-id="${id}" aria-current="${ui.page===id?'page':'false'}">${ico(id)}<span>${label}</span>${id==='client'?'<span class="count-dot">↗</span>':''}</button>`).join('');
   const title=labels[ui.page]||'Project Hub';
   const runningFromZipTemp=(()=>{try{return /\/appdata\/local\/temp\/|\.zip(?:\/|$)/i.test(decodeURIComponent(window.location.pathname));}
     catch{return false}})();
@@ -101,7 +101,7 @@ function render(){
   const status=document.getElementById('workspace-save-state');if(status){const f=workspaceFile.status();status.textContent=f.connected?(f.kind==='file-error'?'FILE SAVE ERROR':f.kind==='file-saving'?'Saving…':f.kind==='file-verified'?'File verified':'File autosave linked'):'Browser saved · file not linked';}
 }
 function bindGlobalSearch(){const el=document.getElementById('global-search');if(!el)return;el.value=ui.query;el.addEventListener('keydown',ev=>{if(ev.key==='Enter'){const q=el.value.trim().toLowerCase();const p=data.projects.find(p=>`${p.name} ${p.code} ${projectOrg(p)?.name}`.toLowerCase().includes(q));if(p){ui.project=p.id;ui.page='projects';ui.projectTab='focus';ui.procurementProject=p.id;ui.query='';render();}else toast('No matching project found',true)}})}
-function pageContent(){switch(ui.page){case 'overview':return overview();case 'projects':return projectsPage();case 'assemblies':return manufacturingPage();case 'tasks':return tasksPage();case 'purchasing':return renderPurchasingV041(data,ui);case 'inventory':return renderInventoryV041(data,ui);case 'customers':return customersPage();case 'client':return clientPage();case 'finance':return financePage();case 'reports':return reportsPage();case 'settings':return settingsPageV041();default:return overview()}}
+function pageContent(){switch(ui.page){case 'overview':return overview();case 'projects':return projectsPage();case 'assemblies':return manufacturingPage();case 'tasks':return tasksPage();case 'purchasing':ui.projectTab='procurement';return projectsPage();case 'inventory':return renderInventoryV041(data,ui);case 'customers':return customersPage();case 'client':return clientPage();case 'finance':return financePage();case 'reports':return reportsPage();case 'settings':return settingsPageV041();default:return overview()}}
 function overview(){
   const runningProjects=allActiveProjects().filter(p=>p.status!=='Delivered');const avg=Math.round(runningProjects.reduce((a,p)=>a+(managedProgress(p.id)||0),0)/(runningProjects.length||1));
   const pending=data.approvals.filter(a=>a.status==='Pending'&&!a.archivedAt&&allActiveProjects().some(p=>p.id===a.projectId)).length,blocked=active(data.tasks).filter(t=>t.status==='Blocked'&&allActiveProjects().some(p=>p.id===t.projectId)).length;
@@ -538,7 +538,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
  }
 
  try{switch(action){
-  case 'nav':if(id==='purchasing')ui.procurementProject=ui.project;else if(id==='projects')ui.projectTab='focus';changePage(id);break;
+  case 'nav':if(id==='purchasing'){ui.page='projects';ui.projectTab='procurement';ui.procurementProject=ui.project;render();break;}if(id==='projects')ui.projectTab='focus';changePage(id);break;
   case 'project-open':ui.page='projects';ui.project=id;ui.projectTab='focus';ui.procurementProject=id;ui.showProjectList=false;render();document.getElementById('project-detail')?.scrollIntoView({behavior:'smooth',block:'start'});break;
   case 'project-tab':ui.page='projects';ui.projectTab=id;ui.procurementProject=ui.project;render();
    document.querySelector('.v42-primary-tabs')?.scrollIntoView({block:'start'});break;
@@ -580,7 +580,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'v47-balance-close-open':ui.v47BalanceLine=id;ui.v47BalanceMode='close';render();break;
   case 'v47-balance-reopen-open':ui.v47BalanceLine=id;ui.v47BalanceMode='reopen';render();break;
   case 'v46-cancel-buy-edit':ui.v46EditOccurrence=null;render();break;
-  case 'v43-purchasing':ui.procurementProject=ui.project;ui.page='purchasing';ui.materialPO=null;render();break;
+  case 'v43-purchasing':ui.procurementProject=ui.project;ui.page='projects';ui.projectTab='procurement';ui.materialPO=null;render();break;
   case 'v42-toggle-project-list':ui.showProjectList=!ui.showProjectList;render();break;
   case 'client-tab':ui.clientTab=id;render();break;
   case 'task-board':ui.taskView='board';render();break;

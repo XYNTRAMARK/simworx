@@ -373,7 +373,7 @@ export function auditMaterials(s){
 }
 export function createWorkspaceBackup(s){
   auditMaterials(s);
-  return JSON.stringify({format:'simworx-project-hub-backup',schema:1,application:'V0.4.6',createdAt:timestamp(),
+  return JSON.stringify({format:'simworx-project-hub-backup',schema:1,application:'V0.4.7',createdAt:timestamp(),
     warning:'PRIVATE INTERNAL DATA. May contain customer contracts, costs, purchasing evidence, shipment details and attachments. Keep encrypted or access-controlled outside this application. Do not publish to GitHub.',state:s},null,2);
 }
 export function parseWorkspaceBackup(text){

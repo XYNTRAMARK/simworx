@@ -1,4 +1,3 @@
-import {seed} from './demo-data.mjs';
 import {emptyWorkspace} from './clean-data-v043.mjs';
 import {createWorkspaceFileController} from './workspace-file-v043.mjs';
 import {createLocalStaffGate} from './staff-access-v043.mjs';
@@ -101,7 +100,7 @@ function pageContent(){switch(ui.page){case 'overview':return overview();case 'p
 function overview(){
   const runningProjects=allActiveProjects().filter(p=>p.status!=='Delivered');const avg=Math.round(runningProjects.reduce((a,p)=>a+(managedProgress(p.id)||0),0)/(runningProjects.length||1));
   const pending=data.approvals.filter(a=>a.status==='Pending'&&!a.archivedAt&&allActiveProjects().some(p=>p.id===a.projectId)).length,blocked=active(data.tasks).filter(t=>t.status==='Blocked'&&allActiveProjects().some(p=>p.id===t.projectId)).length;
-  const kpis=[['Active projects',runningProjects.length,'projects','Across '+data.organizations.length+' customers'],['Manual progress',avg+'%','reports','Staff-weighted progress steps'],['Open production jobs',active(data.tasks).filter(t=>!['Done','Cancelled'].includes(t.status)&&allActiveProjects().some(p=>p.id===t.projectId)).length,'tasks','Office & workshop tasks'],['Client approvals',pending,'shield','Decisions awaiting clients']];
+  const kpis=[['Active projects',runningProjects.length,'projects','Across '+data.organizations.length+' customers'],['Manual progress',avg+'%','reports','Staff-weighted progress steps'],['Open production jobs',active(data.tasks).filter(t=>!['Done','Cancelled'].includes(t.status)&&allActiveProjects().some(p=>p.id===t.projectId)).length,'tasks','Office & workshop tasks'],['Client approvals',pending,'shield','Decisions awaiting internal review']];
   const kpiHtml=kpis.map(([label,value,icon,note])=>`<div class="kpi"><div><div class="kpi-label">${e(label)}</div><div class="kpi-value mono">${e(value)}</div><div class="kpi-note">${e(note)}</div></div><div class="kpi-icon">${ico(icon,23)}</div></div>`).join('');
   const rows=allActiveProjects().map(p=>`<tr><td class="clickable" data-action="project-open" data-id="${p.id}">${projectTitle(p)}</td><td><div style="display:flex;gap:7px;align-items:center">${chip(projectOrg(p))}<b>${e(projectOrg(p).name)}</b></div></td><td><div class="progress-line">${meter(managedProgress(p.id)||0)}<span class="mono">${managedProgress(p.id)===null?'Not set':managedProgress(p.id)+'%'}</span></div></td><td>${badge(p.status)}</td><td class="subtle">${day(p.due)}</td><td>${button(ico('chevron'),'project-open','small',`data-id="${p.id}" aria-label="Open ${e(p.name)}"`)}</td></tr>`).join('');
   const spotlight=allActiveProjects()[0];
@@ -322,7 +321,7 @@ function financePage(){
   (b.unconverted.length?'<small style="display:block">FX pending</small>':'')+'</td>'+
   '<td>'+button('Manage','project-open','small','data-id="'+p.id+'"')+'</td></tr>').join('');
  return head('Project financials','Track internal project budgets, actuals and future commitments.')+
-  '<div class="client-notice">'+ico('shield')+' Internal-only demo planning figures. Customer preview cannot access these data.</div>'+
+  '<div class="client-notice">'+ico('shield')+' Private internal planning figures — not audited accounts. Customer preview cannot access these data.</div>'+
   (pending?'<p class="v42-budget-warning">'+pending+' foreign-currency order(s) are excluded until an EUR conversion is set in the project Budget tab.</p>':'')+
   '<div class="finance-stats">'+stats.map(([name,value,help])=>'<div class="finance-stat"><span>'+e(name)+'</span>'+
   '<strong>'+money(value)+'</strong><small>'+e(help)+'</small></div>').join('')+'</div>'+

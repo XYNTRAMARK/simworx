@@ -16,7 +16,7 @@ import {renderProjectFocus} from './focus-ui-v043.mjs';
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
-const APP_VERSION='V0.4.3'; // Every build carries an explicit visible release number.
+const APP_VERSION='V0.4.4'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
 function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return emptyWorkspace()}
 let data=load();
@@ -28,7 +28,7 @@ const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',
 const staffGate=createLocalStaffGate();
 const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
   const el=document.getElementById('workspace-save-state');
-  if(el){el.textContent=kind==='file-saved'?'Saved to file':kind==='file-error'?'File save failed':kind==='file-saving'?'Saving…':kind==='file-connected'?'File connected':'Browser saved';el.title=message;}
+  if(el){el.textContent=kind==='file-saved'?'Saved to file':kind==='file-error'?'File save failed':kind==='file-saving'?'Saving…':kind==='file-verified'?'File verified':kind==='file-connected'?'File connected':'Browser saved';el.title=message;}
 }});
 const persist=()=>{
  const serialized=JSON.stringify(data);
@@ -93,7 +93,7 @@ function render(){
     <div class="main"><header class="topbar"><div><div class="top-title">${e(title)}</div><div class="top-sub">Plan, build, deliver — all in one place</div></div><div class="top-actions"><span class="version-chip" aria-label="Application version ${APP_VERSION}" title="Sim-Worx Project Hub · ${APP_VERSION}">${APP_VERSION}</span><span class="demo-ribbon">LOCAL · STAFF ONLY</span><span id="workspace-save-state" class="workspace-save-state">Browser saved · file not linked</span><label class="top-search">${ico('search')}<input id="global-search" placeholder="Search projects..." autocomplete="off" aria-label="Search projects" /></label><button class="circle-btn" data-action="theme" aria-label="Toggle colour theme" title="Light / dark mode">${ico(data.settings.theme==='light'?'moon':'sun')}</button><button class="circle-btn" data-action="notifications" aria-label="Notifications" title="Notifications">${ico('bell')}</button><div class="avatar" title="Sim-Worx Administrator">SW</div></div></header>
     <main class="content">${pageContent()}</main></div></div>${ui.modal?modalContent():''}`;
   bindGlobalSearch();
-  const status=document.getElementById('workspace-save-state');if(status){const f=workspaceFile.status();status.textContent=f.connected?(f.kind==='file-error'?'FILE SAVE ERROR':f.kind==='file-saving'?'Saving…':'File autosave linked'):'Browser saved · file not linked';}
+  const status=document.getElementById('workspace-save-state');if(status){const f=workspaceFile.status();status.textContent=f.connected?(f.kind==='file-error'?'FILE SAVE ERROR':f.kind==='file-saving'?'Saving…':f.kind==='file-verified'?'File verified':'File autosave linked'):'Browser saved · file not linked';}
 }
 function bindGlobalSearch(){const el=document.getElementById('global-search');if(!el)return;el.value=ui.query;el.addEventListener('keydown',ev=>{if(ev.key==='Enter'){const q=el.value.trim().toLowerCase();const p=data.projects.find(p=>`${p.name} ${p.code} ${projectOrg(p)?.name}`.toLowerCase().includes(q));if(p){ui.project=p.id;ui.page='projects';ui.projectTab='focus';ui.procurementProject=p.id;ui.query='';render();}else toast('No matching project found',true)}})}
 function pageContent(){switch(ui.page){case 'overview':return overview();case 'projects':return projectsPage();case 'assemblies':return manufacturingPage();case 'tasks':return tasksPage();case 'purchasing':return renderPurchasingV041(data,ui);case 'inventory':return renderInventoryV041(data,ui);case 'customers':return customersPage();case 'client':return clientPage();case 'finance':return financePage();case 'reports':return reportsPage();case 'settings':return settingsPageV041();default:return overview()}}
@@ -340,9 +340,10 @@ function settingsPage(){
    '<div class="card-body"><b>Protect your project data</b><p class="form-hint">Changes save immediately in this browser. For an additional durable copy across versions, choose a file on your PC. File autosave works while the chosen file remains linked in this tab.</p>'+
    '<div class="v41-backup-actions">'+button('Create & link autosave file','v43-file-new','primary')+
    button('Open existing workspace file','v43-file-open','small')+
+   button('Verify saved file matches browser','v44-file-verify','small')+
    button('Disconnect autosave','v43-file-detach','small')+'</div>'+
    '<p class="form-hint">File status: '+e(workspaceFile.status().connected?'Linked to local file':'No autosave file linked')+
-   '. A downloaded JSON backup works in every browser, even when the file-picker API is unsupported. You must explicitly relink the file after opening a different standalone HTML version.</p></div>')+
+   '. Use Verify saved file to read the actual JSON back from disk and compare it with this tab. A downloaded JSON backup works without the file picker. Relink after opening a different standalone HTML version.</p></div>')+
  card('Staff access and privacy',
    '<div class="card-body"><b>Single-PC local password</b><p class="form-hint">Username/password are checked locally. This is not encrypted storage, identity management or shared employee access; keep the PC and saved JSON file protected.</p>'+
    button('Sign out','v43-staff-logout','small')+'</div>')+
@@ -431,6 +432,10 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
  if(!staffGate.status().unlocked)return;
  if(action==='v43-staff-logout'){staffGate.logout();render();return;}
  if(action==='v43-file-detach'){workspaceFile.detach();render();toast('File autosave disconnected; browser saving continues');return;}
+ if(action==='v44-file-verify'){
+   workspaceFile.verifyConnected(createWorkspaceBackup(data)).then(result=>{render();toast('Disk read-back passed ('+result.bytes+' bytes); workspace matches browser records');})
+     .catch(err=>{render();toast(err.message||'File recovery check failed',true)});return;
+ }
  if(action==='v43-file-new'){
    workspaceFile.createAndConnect(createWorkspaceBackup(data)).then(()=>{render();toast('Workspace file created and linked for autosaving');})
      .catch(err=>toast(err.message||'Unable to choose workspace file',true));return;
@@ -454,7 +459,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    try{
      if(action==='v41-backup'){
        const payload=createWorkspaceBackup(data),url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
-       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.3_'+today()+'.json';
+       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.4_'+today()+'.json';
        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
        toast('JSON workspace backup downloaded · keep it private');return;
      }
@@ -601,7 +606,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.3</h2></div><p>Use Restore JSON backup to load the private NOAH contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.4</h2></div><p>Use Restore JSON backup to load the private NOAH contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;
@@ -611,6 +616,7 @@ function restoreBackupFile(file){
    if(!confirm('REPLACE this workspace with the chosen private JSON? This will remove the previous sample/project records. Download a backup first if necessary.'))return;
    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(candidate));}
    catch(err){throw Error('Could not save restored records. Existing data remains unchanged. '+err.message);}
+   workspaceFile.detach(); // A newly restored backup must NEVER overwrite a previously linked file.
    data=candidate;ensureProgress(data);ensureExternalWork(data);ui.page='projects';ui.projectTab='focus';ui.project=data.projects.find(p=>!p.archivedAt)?.id||'';ui.procurementProject=ui.project;
    ui.materialPO=null;ui.materialOrderEditor=false;persist();render();toast('Private workspace loaded; sample records replaced');
  }).catch(err=>toast('Cannot restore: '+String(err.message||err),true));

@@ -159,7 +159,7 @@ test('buying schedule CSV exports real rows without creating orders or inferred 
  const rows=procurementPlan(s,'p1');
  const csv=exportProcurementReviewCSV(s,'p1','2027-01-10');
  assert(csv.includes('Occurrence ID')&&csv.includes('Lead time unconfirmed'));
- assert.equal(csv.trim().split(/\\r?\\n/).length,rows.length+1);
+ assert.equal(csv.trim().split(/\r?\n/).length,rows.length+1);
  assert.equal(s.orders.length,ordersBefore);
  assert.throws(()=>exportProcurementReviewCSV(s,'not-existing'),/Project not found/);
 });

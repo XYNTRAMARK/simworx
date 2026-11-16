@@ -100,7 +100,7 @@ export function renderProjectFocus(s,ui,projectId){
   '<div class="v46-scroll"><table class="v46-table"><thead><tr><th>Work item</th><th>Work package</th><th>Status</th><th>Owner</th><th>Due</th><th>Action</th></tr></thead>'+
   '<tbody>'+(wrows||'<tr><td colspan="6">No tasks yet. Add the first work item to start planning.</td></tr>')+'</tbody></table></div></div>';
  const warning='<p class="v46-info"><strong>What do I need to order?</strong> The '+num(buying.buy.length)+' buy candidates are an engineering requirements list — <em>not</em> authorised purchases. Confirm scope, supplier, price/quote, lead time, required date and approval before recording a real supplier order. Internal make items are separate. '+num(buying.confirmedPOs)+' supplier purchase orders are currently recorded.</p>';
- const footer='<div class="v46-mini-links">'+button('Team & budgets','team')+button('Evidence photos','evidence')+button('Customer preview','customerPreview')+button('Schedule / Gantt','schedule')+button('Manual progress','progress')+
+ const footer='<div class="v46-mini-links">'+button('Team & budgets','team')+button('Purchasing & materials','procurement')+button('Evidence photos','evidence')+button('Customer preview','customerPreview')+button('Schedule / Gantt','schedule')+button('Manual progress','progress')+
   button('Assemblies & engineering','assembly')+button('Budget','budget')+button('Contract scope','contract')+
   (external.waitingInspection?'<span>'+num(external.waitingInspection)+' supplier returns await inspection</span>':'')+'</div>';
  return '<div class="v46-control">'+intro('Project command centre','Start here: work, purchasing decisions, real orders and evidence — in that order.')+
@@ -119,7 +119,7 @@ export function renderProjectWorkPlan(s,ui,projectId){
   (selectedSection==='All'||(t.sectionId||'__unsectioned')===selectedSection)&&
   (!query||[t.title,t.department,t.assignee,t.notes].some(x=>String(x||'').toLowerCase().includes(query)));
  const row=t=>'<tr><td>'+(t.parentId?'<span class="v48-child-symbol">↳ SUB-JOB</span>':'')+
-  '<b>'+esc(t.title)+'</b>'+
+  '<b>'+esc(t.title)+'</b>'+(t.description?'<small class="v48-task-description">'+esc(t.description)+'</small>':'')+
   (t.predecessors?.length?'<small>'+t.predecessors.length+' predecessor(s)</small>':'')+'</td>'+
   '<td>'+esc(t.department||'Not assigned')+'</td><td>'+esc(missingOwner(t.assignee)?'Unassigned':t.assignee)+'</td>'+
   '<td>'+pill(t.status,goodStatus(t.status))+'</td><td>'+date(t.start)+'</td><td>'+date(t.due)+'</td>'+
@@ -132,7 +132,9 @@ export function renderProjectWorkPlan(s,ui,projectId){
   const visit=t=>{if(visited.has(t.id))return;visited.add(t.id);ordered.push(t);filtered.filter(x=>x.parentId===t.id).forEach(visit)};
   filtered.filter(t=>!t.parentId||!filtered.some(x=>x.id===t.parentId)).forEach(visit);
   filtered.forEach(visit);
-  return '<details class="v46-work-group v47-section v47-color-'+(sections.indexOf(sec)%7)+'" open><summary><span class="v47-section-index">'+String(sections.indexOf(sec)+1).padStart(2,'0')+'</span><b>'+esc(sec.name)+'</b><span class="v47-section-count">'+filtered.length+' work item(s)</span></summary>'+
+  return '<details class="v46-work-group v47-section v47-color-'+(sections.indexOf(sec)%7)+'" open><summary><span class="v47-section-index">'+String(sections.indexOf(sec)+1).padStart(2,'0')+'</span><b>'+esc(sec.name)+'</b>'+
+   '<span class="v47-section-count">'+filtered.length+' work item(s)</span>'+
+   '<button type="button" class="btn small v48-section-add" data-action="v48-add-section-job" data-id="'+esc(sec.id)+'" title="Add a new job inside this section">+ Job in section</button></summary>'+
    '<div class="v46-scroll"><table class="v46-table"><thead><tr><th>Task / deliverable</th><th>Team</th><th>Owner</th><th>Status</th><th>Start</th><th>Due</th><th>Edit</th></tr></thead>'+
    '<tbody>'+ordered.map(row).join('')+'</tbody></table></div></details>';
  }).join('');
@@ -148,11 +150,11 @@ export function renderProjectWorkPlan(s,ui,projectId){
   '<input type="search" value="'+esc(ui.v46WorkQuery||'')+'" data-filter="v46-work-query" placeholder="Search a task, owner, team or note…" aria-label="Search project tasks"></label>'+
   select('Status','v46-work-status',options,selectedStatus)+
   select('Work package','v46-work-section',[['All','All work packages'],...snap.sections.map(x=>[x.id,x.name])],selectedSection)+
-  '<div class="v46-actions"><button type="button" data-action="open-task-modal" class="btn small primary">+ Add task</button>'+
+  '<div class="v46-actions"><button type="button" data-action="open-task-modal" class="btn small primary">+ Add job</button>'+
   button('Open Gantt','schedule')+'</div></div>'+
   '<p class="v46-info"><strong>Start here:</strong> use Edit on a task to set its responsible team, status, start/finish and predecessor links. The Gantt uses those same records; we do not invent contractual dates or mark work complete automatically.</p>'+
   (groups||'<div class="v46-empty">No tasks match these filters. Clear the filters or add a new project task.</div>')+
-  '<div class="v46-mini-links">'+button('Team allocations','team')+button('Evidence photos','evidence')+button('Spreadsheet work register','register')+button('Work breakdown editor','structure')+
+  '<div class="v46-mini-links">'+button('Team allocations','team')+button('Purchasing & materials','procurement')+button('Evidence photos','evidence')+button('Spreadsheet work register','register')+button('Work breakdown editor','structure')+
   button('Project progress steps','progress')+'</div></section>';
 }
 

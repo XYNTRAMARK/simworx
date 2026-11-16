@@ -37,7 +37,7 @@ export function renderStaffSettings(status){
  '<div class="v43-staff-actions">'+
  '<button type="button" data-action="workspace-connect-file" class="btn primary">Choose auto-save workspace file</button>'+
  (status.fileConnected?'<button type="button" data-action="workspace-reconnect-file" class="btn">Reconnect selected file</button>':'')+
- '<button type="button" data-action="workspace-export-encrypted" class="btn">Download encrypted backup</button>'+
+ '<button type="button" data-action="workspace-export-encrypted" class="btn">Download encrypted backup</button>'+ '<button type="button" data-action="workspace-emergency-backup" class="btn">Emergency encrypted backup of current edits</button>'+
  '<button type="button" data-action="workspace-lock" class="btn">Sign out / lock workspace</button></div>'+
  (status.legacyFound?'<div class="v43-auth-legacy"><b>Older unencrypted records are still stored in this browser.</b> '+
  'After verifying your encrypted backup and newly saved records, you may remove that older copy. '+

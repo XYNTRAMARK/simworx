@@ -54,7 +54,7 @@ export function renderProjectFocus(s,ui,projectId){
   '<div class="v43-scroll"><table class="v43-table"><thead><tr><th>Material</th><th>Needed</th><th>Still to order</th><th>Supply status</th></tr></thead><tbody>'+
   (materialsHTML||'<tr><td colspan="4">No material requirements yet.</td></tr>')+'</tbody></table></div></div>'+
   '<div class="v43-focus-section"><div class="v43-focus-heading"><div><h3>Outstanding and recent purchase orders</h3></div>'+
-  btn('Open project purchasing','v43-purchasing','small')+'</div>'+
+  '<button class="btn small" type="button" data-action="v43-purchasing">Open project purchasing</button>'+'</div>'+
   '<div class="v43-scroll"><table class="v43-table"><thead><tr><th>Order</th><th>Supplier</th><th>Status</th></tr></thead><tbody>'+
   (ordersHTML||'<tr><td colspan="3">No purchase orders for this project.</td></tr>')+'</tbody></table></div></div>'+
   '<div class="v43-focus-section"><div class="v43-focus-heading"><div><h3>Currently with external companies</h3></div>'+

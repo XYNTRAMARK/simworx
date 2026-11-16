@@ -12,6 +12,7 @@ export function renderStaffAccess(status){
   '<label>Choose staff username<input name="username" type="text" autocomplete="username" minlength="3" maxlength="50" required placeholder="simworx-admin"></label>'+
   '<label>Create password (12+ characters)<input name="password" type="password" autocomplete="new-password" minlength="12" required></label>'+
   '<label>Confirm password<input name="confirmation" type="password" autocomplete="new-password" minlength="12" required></label>'+
+  (status.legacyFound?'<label class="v43-auth-choice"><input type="checkbox" name="importLegacy" value="yes" checked> Import existing Project Hub records found in this browser</label>':'')+
   '<button class="btn primary" type="submit">Create local staff workspace</button></form>';
  return '<div class="v43-auth-screen"><div class="v43-auth-brand"><b>SIM-WORX</b><span>PROJECT HUB · V0.4.3</span></div>'+
   '<div class="v43-auth-card"><div class="v43-auth-symbol">SW</div>'+
@@ -30,7 +31,7 @@ export function renderStaffSettings(status){
  return '<div class="card v43-staff-card"><div class="card-head"><h2>Staff access & automatic data saving</h2></div>'+
  '<p>Signed in locally as <b>'+h(status.username)+'</b>. New records automatically save into encrypted browser storage after each change. '+
  'You can also connect a workspace file to mirror future saves to a location you choose.</p>'+
- '<div class="v43-staff-status"><b id="v43-settings-save-status">'+h(status.error||status.saving?'Saving…':status.lastSaved?'Saved locally':'Not yet saved')+'</b>'+
+ '<div class="v43-staff-status"><b id="v43-settings-save-status">'+h(status.error?status.error:status.saving?'Saving…':status.lastSaved?'Saved locally':'Not yet saved')+'</b>'+
  '<small>Last browser save: '+h(status.lastSaved?.replace('T',' ').slice(0,19)||'Not yet')+'</small>'+
  '<small>File mirror: '+h(status.fileConnected?status.fileError||'Connected':'Not connected')+'</small></div>'+
  '<div class="v43-staff-actions">'+

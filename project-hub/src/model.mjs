@@ -138,10 +138,11 @@ function verifyPredecessors(state, projectId, taskId, ids){
   for(const id of all){const seen=new Set();const check=node=>{if(node===taskId)throw Error('Circular predecessor dependency is not permitted');if(seen.has(node))return;seen.add(node);adjacency(node).forEach(check)};check(id);}
   return all;
 }
-export function saveTask(state,{id,projectId,sectionId,title,department,assignee,priority,due,start,status,parentId,blockedBy,predecessors}){
+export function saveTask(state,{id,projectId,sectionId,title,description='',department,assignee,priority,due,start,status,parentId,blockedBy,predecessors}){
   if(!state.projects.some(p=>p.id===projectId&&!p.archivedAt))throw Error('Project unavailable');
   if(!state.sections.some(s=>s.id===sectionId&&s.projectId===projectId&&!s.archivedAt))throw Error('Invalid section for project');
   const name=requireText(title,'Job title');
+  const details=String(description||'').trim();if(details.length>4000)throw Error('Job description must be 4,000 characters or less');
   if(!['Office','Workshop','Purchasing','Quality'].includes(department))throw Error('Invalid department');
   if(!['Normal','High','Critical'].includes(priority))throw Error('Invalid priority');
   const current=id?state.tasks.find(t=>t.id===id&&!t.archivedAt):null;
@@ -159,7 +160,7 @@ export function saveTask(state,{id,projectId,sectionId,title,department,assignee
   if(Array.isArray(predecessors)&&blockedBy && current && blockedBy!==current.blockedBy)requested=[blockedBy,...requested];
   const dependencies=verifyPredecessors(state,projectId,id,requested);
   if(status==='Done' && dependencies.some(x=>state.tasks.find(t=>t.id===x)?.status!=='Done'))throw Error('Complete predecessor job first');
-  const fields={sectionId,title:name,department,assignee:String(assignee||'Unassigned'),priority,due:finishDate,start:startDate,status:status||current?.status||'Backlog',parentId:parentId||null,predecessors:dependencies,blockedBy:dependencies[0]||null};
+  const fields={sectionId,title:name,description:details,department,assignee:String(assignee||'Unassigned'),priority,due:finishDate,start:startDate,status:status||current?.status||'Backlog',parentId:parentId||null,predecessors:dependencies,blockedBy:dependencies[0]||null};
   if(current){Object.assign(current,fields);logChange(state,'Job updated',name);return current;}
   const record={id:uid('t'),projectId,...fields};state.tasks.push(record);logChange(state,'Job created',name);return record;
 }

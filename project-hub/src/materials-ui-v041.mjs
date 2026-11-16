@@ -142,6 +142,7 @@ function orderLineEditor(s,projectId,seed={},idx=0){
    label('ETA',input('poEta',seed.eta||'','date'))+
    label('Product website (HTTPS)',input('poProductUrl',seed.productUrl||'','url','placeholder="https://..." maxlength="2048"'))+
    label('Vendor product code',input('poVendorSku',seed.vendorSku||'','text','maxlength="120"'))+
+   label('Quote reference',input('poQuoteRef',seed.quoteRef||'','text','maxlength="120"'))+
    input('poSourceOcc',seed.sourceOccurrenceId||'','hidden')+
    btn('Remove line','v41-remove-po-line','','small danger')+'</div>';
 }
@@ -196,12 +197,14 @@ function renderOrderDetail(s,ui,o){
    label('Delivery ETA',input('eta',l.eta||'','date'))+
    label('Supplier product URL',input('productUrl',l.productUrl||'','url','maxlength="2048" placeholder="https://..."'))+
    label('Vendor part number',input('vendorSku',l.vendorSku||'','text','maxlength="120"'))+
+   label('Supplier quote reference',input('quoteRef',l.quoteRef||'','text','maxlength="120"'))+
    label('PO line notes',input('notes',l.notes||'','text','maxlength="800"'))+
    label('Reason for amendment',input('reason','','text','minlength="5" maxlength="300" required placeholder="Supplier revised the delivery date..."'))+
    '<button class="btn small primary" type="submit">Save PO line amendment</button></form>'+
    '<p class="v46-small">Edits are recorded in the PO line history. Already-received quantity and its unit price cannot be rewritten here.</p></td></tr>':'';
   return '<tr><td><b>'+h(p?.code)+'</b><small>'+h(p?.name)+'</small>'+savedURL+
-   (l.vendorSku?'<small>Vendor code: '+h(l.vendorSku)+'</small>':'')+'</td>'+
+   (l.vendorSku?'<small>Vendor code: '+h(l.vendorSku)+'</small>':'')+
+   (l.quoteRef?'<small>Quote ref: '+h(l.quoteRef)+'</small>':'')+'</td>'+
    '<td>'+fmt(l.quantity)+'</td><td>'+fmt(l.received||0)+'</td><td>'+badge(left?fmt(left)+' backordered':'Complete',left?'warn':'good')+'</td>'+
    '<td>'+cost(l.unitCost,o.currency||'EUR')+'</td><td>'+date(l.eta)+'</td>'+
    '<td>'+(left?'<form class="v41-table-form" data-form="v41-receive">'+
@@ -241,6 +244,7 @@ function renderOrderDetail(s,ui,o){
  label('ETA',input('eta','','date'))+
  label('Product URL',input('productUrl','','url','maxlength="2048" placeholder="https://..."'))+
  label('Vendor code',input('vendorSku','','text','maxlength="120"'))+
+ label('Quote ref',input('quoteRef','','text','maxlength="120"'))+
  '<button type="submit" class="btn small primary">Add PO line</button></form>'+
 
  '<p class="v41-caption">Partial receipts immediately increase on-hand workshop inventory; future deliveries do not. Supplier returns decrease received and reopen backorders.</p>'+
@@ -387,18 +391,18 @@ export function handleMaterialsSubmit(s,ui,form){
    const projectId=v('projectId'),parts=fd.getAll('poPart').map(String),quantities=fd.getAll('poQty').map(String),
     costs=fd.getAll('poCost').map(String),assemblies=fd.getAll('poAssembly').map(String),etas=fd.getAll('poEta').map(String),
     links=fd.getAll('poProductUrl').map(String),vendorSkus=fd.getAll('poVendorSku').map(String),
-    sourceOccurrences=fd.getAll('poSourceOcc').map(String);
+    sourceOccurrences=fd.getAll('poSourceOcc').map(String),quotes=fd.getAll('poQuoteRef').map(String);
    if(!parts.length||!parts.every((_,i)=>quantities[i]!==undefined&&costs[i]!==undefined))throw Error('Please complete every order line');
    const order=createPurchaseOrder(s,{projectId,supplier:v('supplier'),currency:v('currency'),taxRate:v('taxRate'),
      items:parts.map((partId,i)=>({partId,quantity:quantities[i],unitCost:costs[i],assemblyId:assemblies[i],
-       eta:etas[i],productUrl:links[i]||'',vendorSku:vendorSkus[i]||'',sourceOccurrenceId:sourceOccurrences[i]||''}))});
+       eta:etas[i],productUrl:links[i]||'',vendorSku:vendorSkus[i]||'',quoteRef:quotes[i]||'',sourceOccurrenceId:sourceOccurrences[i]||''}))});
    ui.materialPO=order.id;ui.materialOrderEditor=false;ui.materialPrefill=null;
  }
  else if(type==='v41-add-po-line')addPurchaseLine(s,v('orderId'),{partId:v('partId'),quantity:v('quantity'),
-  unitCost:v('unitCost'),assemblyId:v('assemblyId'),eta:v('eta'),productUrl:v('productUrl'),vendorSku:v('vendorSku')});
+  unitCost:v('unitCost'),assemblyId:v('assemblyId'),eta:v('eta'),productUrl:v('productUrl'),vendorSku:v('vendorSku'),quoteRef:v('quoteRef')});
  else if(type==='v46-po-line-update'){
   updatePurchaseLineRecord(s,{orderId:v('orderId'),lineId:v('lineId'),quantity:v('quantity'),unitCost:v('unitCost'),
-   eta:v('eta'),productUrl:v('productUrl'),vendorSku:v('vendorSku'),notes:v('notes'),reason:v('reason')});
+   eta:v('eta'),productUrl:v('productUrl'),vendorSku:v('vendorSku'),quoteRef:v('quoteRef'),notes:v('notes'),reason:v('reason')});
   ui.v46PurchaseLine=null;
  }
  else if(type==='v41-receive')receivePurchaseLine(s,{orderId:v('orderId'),lineId:v('lineId'),quantity:v('quantity')});

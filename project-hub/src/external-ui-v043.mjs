@@ -71,9 +71,7 @@ export function renderExternalWork(s,ui,projectId){
   }).join('');
   const history=timeline.events.slice().reverse().map(x=>'<tr><td>'+e(x.at.replace('T',' ').slice(0,19))+
    '</td><td>'+e(x.event)+'</td><td>'+e(x.detail||'—')+'</td></tr>').join('');
-  const next=stages.length?stages.at(-1):null;
-  const allowNext=!next||next.status==='Accepted';
-  const addStage=allowNext?'<details class="v43-ext-creator"><summary>+ Add next workshop / supplier stage</summary>'+
+  const addStage='<details class="v43-ext-creator"><summary>+ Plan another supplier / workshop stage</summary>'+
     '<form data-form="v43-external-stage" class="v43-ext-form"><input type="hidden" name="routeId" value="'+e(selected.id)+'">'+
     field('Stage',input('name','','text','required placeholder="Laser cutting / powder coating / inspection"'))+
     field('Type',sel('type',[['External','External supplier'],['Internal','Sim-Worx inspection']],'External'))+
@@ -81,8 +79,7 @@ export function renderExternalWork(s,ui,projectId){
     field('Planned start',input('plannedStart','','date'))+
     field('Promised finish',input('promisedFinish','','date'))+
     field('Notes',input('notes',''))+
-    '<button class="btn primary" type="submit">Add stage</button></form></details>':
-    '<p class="v43-ext-note">Complete and accept the last stage before appending the next stage.</p>';
+    '<button class="btn primary" type="submit">Add stage</button></form></details>';
   content='<div class="v43-ext-project"><div class="v43-ext-header"><div><h3>'+e(selected.title)+'</h3>'+
     '<p>'+e(selected.notes||'Internal work package')+' · Needed by '+fmt(selected.requiredBy)+'</p></div>'+
     '<div>'+button('Export delays CSV','v43-external-export','data-project="'+e(projectId)+'"')+

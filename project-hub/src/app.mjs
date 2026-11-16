@@ -129,7 +129,7 @@ function projectsPage(){
   '<th>Progress</th><th>Due</th><th>Manage</th></tr></thead><tbody>'+rows+'</tbody></table></div>',
   '','Switch projects or edit their details'):'';
  return '<div class="v42-project-page">'+head('Projects','Focus on one project; browse the portfolio only when needed.')+
-  chooser+list+(p?projectDetail(p):'<div class="empty"><h3>No projects yet</h3><p>Start by creating an internal client/company record if needed, then add your first Sim-Worx project.</p>'+button('Create project','open-project-modal','primary')+'</div>')+'</div>';
+  chooser+list+(p?projectDetail(p):'<div class="empty"><h3>No projects yet</h3><p>Start with an internal company/client record, then create the project and its specific sections from the signed contract.</p>'+(data.organizations.some(x=>!x.archivedAt)?button('Create project','open-project-modal','primary'):button('Add first company / client','v43-onboard-company','primary'))+'</div>')+'</div>';
 }
 function projectDetail(p){
  const org=projectOrg(p),b=projectBudgetSnapshot(data,p.id);
@@ -436,6 +436,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'project-open':ui.page='projects';ui.project=id;ui.projectTab='focus';ui.procurementProject=id;ui.showProjectList=false;render();document.getElementById('project-detail')?.scrollIntoView({behavior:'smooth',block:'start'});break;
   case 'project-tab':ui.projectTab=id;render();break;
   case 'v43-purchasing':ui.procurementProject=ui.project;ui.page='purchasing';ui.materialPO=null;render();break;
+  case 'v43-onboard-company':ui.page='customers';openModal('customer');break;
   case 'v42-toggle-project-list':ui.showProjectList=!ui.showProjectList;render();break;
   case 'client-tab':ui.clientTab=id;render();break;
   case 'task-board':ui.taskView='board';render();break;
@@ -481,8 +482,8 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'receive-po':{receiveOrder(data,id);persist();render();toast('Outstanding purchase order quantities received into stock');break;}
   case 'notifications':openModal('notifications');break;
   case 'mark-read':data.notifications.forEach(x=>x.read=true);persist();closeModal();toast('Notifications marked as read');break;
-  case 'reset-demo':if(confirm('Reset all local demo records and changes? This cannot be undone.')){data=seed();ensureManufacturing(data);ensureMaterials(data);ensureProgress(data);ensureExternalWork(data);persist();ui.page='overview';ui.project='p1';ui.projectTab='focus';ui.procurementProject='p1';ui.clientOrg='noah';ui.clientProject='p1';render();toast('Demo reset to original sample data')}break;
-  case 'refresh':render();toast('Dashboard refreshed from local demo records');break;
+  case 'reset-demo':throw Error('Sample-data reset is disabled for staff workspaces. Nothing was deleted.');
+  case 'refresh':render();toast('Internal dashboard refreshed');break;
   }}catch(err){toast(err.message||'Unable to complete this action',true)}
 }
 function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.get(n)||'').trim();const type=form.dataset.form;

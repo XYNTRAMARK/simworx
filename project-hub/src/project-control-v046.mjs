@@ -176,7 +176,11 @@ export function renderProjectBuyingReview(s,ui,projectId){
    '<input type="hidden" name="linkedTaskId" value="'+esc(r.plan.linkedTaskId||'')+'">'+
    '<button class="btn small primary" type="submit">Save planning and sourcing</button>'+
    '<button class="btn small" type="button" data-action="v46-cancel-buy-edit">Cancel</button></form>'+
-   '<p class="v46-small">A calculated order-by date is a planning estimate, not a confirmed supplier quote or approval. Change linked task and part master in Detailed materials.</p></td></tr>':'';
+   '<p class="v46-small">Order-by dates are planning estimates, not supplier confirmation or approval. Saving here never places a purchase order or changes stock.</p>'+
+   (r.occ.purchaseSourceHistory?.length?'<details class="v46-source-history"><summary>Previous supplier/source revisions ('+r.occ.purchaseSourceHistory.length+')</summary>'+
+   r.occ.purchaseSourceHistory.slice(-15).reverse().map(v=>'<p><b>'+esc(v.supplier||'Supplier not entered')+'</b> · '+esc(v.vendorSku||'No vendor code')+
+   ' · '+esc(v.updatedAt||'Earlier revision')+(safeLink(v.productUrl)?' · <a href="'+esc(safeLink(v.productUrl))+'" target="_blank" rel="noopener noreferrer">Archived link</a>':'')+'</p>').join('')+
+   '</details>':'')+'</td></tr>':'';
   const warn=r.make?'In-house item':r.coverage.toSource===0?'Covered — verify':r.missingInputs.length?'Unconfirmed: '+r.missingInputs.join(', '):'Quote and approval unverified';
   const tr='<tr>'+
    '<td><strong>'+esc(r.part.code||'Uncoded part')+'</strong><small>'+esc(r.part.name||'Unnamed material')+'</small></td>'+

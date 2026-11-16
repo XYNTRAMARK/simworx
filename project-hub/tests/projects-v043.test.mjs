@@ -6,7 +6,7 @@ import {ensureProgress,projectSteps,progressSnapshot,saveProgressStep,generatePr
  importProgressSteps,distributeProgressWeights,updateStepCompletion,archiveProgressStep} from '../src/progress-v043.mjs';
 import {ensureExternalWork,createExternalRoute,addExternalStage,recordExternalHandoff,
  updateExternalStage,externalRouteSummary,externalWorkTimeline,externalStageTiming,exportExternalHistoryCSV} from '../src/external-work-v043.mjs';
-import {procurementPlan,procurementAlerts,saveRequirementPlan,materialPlanDates} from '../src/procurement-planning-v043.mjs';
+import {procurementPlan,procurementAlerts,saveRequirementPlan,materialPlanDates,exportProcurementReviewCSV} from '../src/procurement-planning-v043.mjs';
 import {clientProjection} from '../src/model.mjs';
 
 const make=()=>{const s=seed();ensureMaterials(s);ensureProgress(s);ensureExternalWork(s);return s};
@@ -152,4 +152,14 @@ test('supplier QA is explicit and a failed inspection requires rework before dow
  const csv=exportExternalHistoryCSV(s,'p1');
  assert(csv.includes('QC-18')&&csv.includes('QA B'));
  assert(externalWorkTimeline(s,route.id).events.some(e=>e.event==='Inspection rejected / rework required'));
+});
+
+test('buying schedule CSV exports real rows without creating orders or inferred dates',()=>{
+ const s=make();const ordersBefore=s.orders.length;
+ const rows=procurementPlan(s,'p1');
+ const csv=exportProcurementReviewCSV(s,'p1','2027-01-10');
+ assert(csv.includes('Occurrence ID')&&csv.includes('Lead time unconfirmed'));
+ assert.equal(csv.trim().split(/\\r?\\n/).length,rows.length+1);
+ assert.equal(s.orders.length,ordersBefore);
+ assert.throws(()=>exportProcurementReviewCSV(s,'not-existing'),/Project not found/);
 });

@@ -1,0 +1,86 @@
+name: Verify Simworx report memory repair
+on:
+  push:
+    branches: ['fix/reports-memory-20261116']
+    paths: ['.github/workflows/verify-reports-memory-20261116.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      REPORTS_PIN: ${{ secrets.REPORTS_PIN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test authentication and complete live snapshot
+        run: |
+          python3 - <<'PY'
+          import os,json,urllib.request,urllib.error,time,pathlib
+          endpoint='https://euttubfvsrgkeiescsdm.supabase.co/functions/v1/simworx-intelligence'
+          pin=os.environ.get('REPORTS_PIN','')
+          if not pin: raise SystemExit('REPORTS_PIN secret unavailable; live authentication test blocked')
+          def post(body,token=None):
+              headers={'Content-Type':'application/json'}
+              if token: headers['X-Reports-Session']=token
+              req=urllib.request.Request(endpoint,data=json.dumps(body).encode(),headers=headers,method='POST')
+              with urllib.request.urlopen(req,timeout=45) as r:
+                  return r.status,dict(r.headers),r.read()
+          try:
+              post({'action':'snapshot'})
+              raise AssertionError('Snapshot must require a valid PIN session')
+          except urllib.error.HTTPError as e:
+              assert e.code==401, e.code
+              print('UNAUTHENTICATED_SNAPSHOT_REJECTED',e.code)
+          status,_,login_raw=post({'action':'login','pin':pin})
+          login=json.loads(login_raw)
+          assert status==200 and len(login.get('token',''))==64
+          print('LOGIN_STATUS',status)
+          token=login['token']
+          try:
+              started=time.monotonic()
+              status,headers,raw=post({'action':'snapshot'},token)
+              elapsed=time.monotonic()-started
+              snapshot=json.loads(raw)
+              assert status==200
+              assert snapshot['meta']['diagnostics']['snapshot_transport']=='bounded-stream-v1'
+              baseline={'events':17515,'arrivals':2844,'leads':9,'configurations':16,'visitors':632,'sessions':758,'configuratorSessions':520,'pageViews':1613,'attribution':750}
+              for key,minimum in baseline.items():
+                  rows=snapshot[key]
+                  assert len(rows)>=minimum,(key,len(rows),minimum)
+                  info=snapshot['meta']['counts'][key]
+                  assert len(rows)==info['returned']
+                  assert len(rows)==info['total'] and info['truncated'] is False
+                  idkey='event_id' if key=='events' else 'arrival_id' if key=='arrivals' else 'id'
+                  assert len({row[idkey] for row in rows})==len(rows),(key,'duplicate identifiers')
+              events=snapshot['events']
+              assert all(events[i]['timestamp']<=events[i+1]['timestamp'] for i in range(len(events)-1))
+              assert snapshot['meta']['truncated'] is False
+              print('SNAPSHOT_STATUS',status)
+              print('SNAPSHOT_SECONDS',round(elapsed,2))
+              print('SNAPSHOT_JSON_BYTES',len(raw))
+              print('COMPLETE_RECORD_COUNTS',json.dumps({k:len(snapshot[k]) for k in baseline},sort_keys=True))
+              print('TRANSPORT',snapshot['meta']['diagnostics']['snapshot_transport'])
+              target=pathlib.Path(os.environ['RUNNER_TEMP'])/'simworx-live-snapshot.json'
+              target.write_bytes(raw)
+              assert elapsed<45,'Response exceeded the existing browser timeout'
+          finally:
+              post({'action':'logout'},token)
+              print('TEST_SESSION_CLOSED')
+          PY
+      - name: Verify unchanged analytics engine accepts the complete live report
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,unlinkSync} from 'node:fs';
+          import {buildReport} from './reports/analytics.js';
+          const path=process.env.RUNNER_TEMP+'/simworx-live-snapshot.json';
+          try {
+            const snapshot=JSON.parse(readFileSync(path,'utf8'));
+            const filters={preset:'Last 30 Days',from:'',to:'',compare:true,source:'All',campaign:'All',country:'All',device:'All',category:'All',model:'All',configurator:'All',visitorType:'All',identity:'All',status:'All',intent:'All',query:''};
+            const started=Date.now();
+            const report=buildReport(snapshot,filters,new Date());
+            if(!report || !report.metrics || !Array.isArray(report.journeys)) throw new Error('Report engine did not produce a complete report');
+            console.log('ANALYTICS_ENGINE_OK',JSON.stringify({seconds:(Date.now()-started)/1000,journeys:report.journeys.length,pages:report.pages?.length,metrics:report.metrics}));
+          } finally { try {unlinkSync(path);} catch {} }
+          JS

@@ -78,7 +78,7 @@ test('external laser-inspection-powder coat chain records every handoff with sup
  assert.throws(()=>recordExternalHandoff(s,{routeId:r.id,stageId:powder.id,action:'send',onDate:'2027-01-14'}),/previous handoff/);
  recordExternalHandoff(s,{routeId:r.id,stageId:laser.id,action:'send',onDate:'2027-01-02',notes:'Collected by courier'});
  recordExternalHandoff(s,{routeId:r.id,stageId:laser.id,action:'return',onDate:'2027-02-09',notes:'Delivery note ref'});
- recordExternalHandoff(s,{routeId:r.id,stageId:laser.id,action:'accept',onDate:'2027-02-10',notes:'Checked dimensions'});
+ recordExternalHandoff(s,{routeId:r.id,stageId:laser.id,action:'accept',onDate:'2027-02-10',notes:'Checked dimensions',reviewer:'Workshop QA',evidenceRef:'QC-PANELS-001'});
  assert.equal(externalStageTiming(laser,'2027-02-10').elapsedDays,38);
  assert.equal(externalStageTiming(laser,'2027-02-10').overdueDays,30);
  assert.equal(laser.status,'Accepted');
@@ -128,4 +128,28 @@ test('supplier records, manually weighted progress and material dates survive fu
  assert.equal(back.externalWorkEvents.length,s.externalWorkEvents.length);
  assert.equal(back.projectProgressSteps.length,1);
  assert.equal(back.assemblyBOM.find(x=>x.id===occ.id).purchasePlan.requiredBy,'2027-06-20');
+});
+
+test('supplier QA is explicit and a failed inspection requires rework before downstream handoff',()=>{
+ const s=make(),route=createExternalRoute(s,{projectId:'p1',title:'QA chain',quantity:1});
+ const a=addExternalStage(s,{routeId:route.id,name:'Cut',type:'External',company:'Supplier',promisedFinish:'2027-01-05'});
+ const b=addExternalStage(s,{routeId:route.id,name:'Coat',type:'External',company:'Supplier 2'});
+ recordExternalHandoff(s,{routeId:route.id,stageId:a.id,action:'send',onDate:'2027-01-02'});
+ recordExternalHandoff(s,{routeId:route.id,stageId:a.id,action:'return',onDate:'2027-01-04'});
+ assert.throws(()=>recordExternalHandoff(s,{routeId:route.id,stageId:a.id,action:'accept',onDate:'2027-01-05',notes:'Looks fine'}),/QA reviewer/);
+ assert.equal(a.status,'Returned · inspect');
+ recordExternalHandoff(s,{routeId:route.id,stageId:a.id,action:'reject',onDate:'2027-01-05',notes:'Incorrect hole pitch',reviewer:'QA A',evidenceRef:'QC-17'});
+ assert.equal(a.status,'Rework required');
+ assert.throws(()=>recordExternalHandoff(s,{routeId:route.id,stageId:b.id,action:'send',onDate:'2027-01-05'}),/previous handoff/);
+ recordExternalHandoff(s,{routeId:route.id,stageId:a.id,action:'resend',onDate:'2027-01-06',notes:'Return for redrilling'});
+ recordExternalHandoff(s,{routeId:route.id,stageId:a.id,action:'return',onDate:'2027-01-08'});
+ recordExternalHandoff(s,{routeId:route.id,stageId:a.id,action:'accept',onDate:'2027-01-09',notes:'Re-measured and accepted',reviewer:'QA B',evidenceRef:'QC-18'});
+ assert.equal(a.inspections.length,2);
+ assert.equal(a.inspections[0].decision,'Rejected');
+ assert.equal(a.inspections[1].decision,'Accepted');
+ assert.equal(a.status,'Accepted');
+ recordExternalHandoff(s,{routeId:route.id,stageId:b.id,action:'send',onDate:'2027-01-09'});
+ const csv=exportExternalHistoryCSV(s,'p1');
+ assert(csv.includes('QC-18')&&csv.includes('QA B'));
+ assert(externalWorkTimeline(s,route.id).events.some(e=>e.event==='Inspection rejected / rework required'));
 });

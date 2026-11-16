@@ -1,6 +1,15 @@
 # Sim-Worx Project Hub — Development roadmap
 
-**Current delivered milestone: V0.4.1 — project procurement, shared workshop stock and order tracking (local interactive demo).** All production writes are prohibited without explicit separate approval. The design is multi-customer from the start; NOAH is only a demo example.
+**Current delivered milestone: V0.4.2 — compact project controls, editable material requirements, project budgets and delivery stages (local demo).** All production writes are prohibited without explicit separate approval. The design is multi-customer from the start; NOAH is only a demo example.
+
+## V0.4.2 delivered (isolated user-experience refinement)
+
+- **Projects:** focus on the selected project, move portfolio table behind Browse, use compact tabs with older detailed screens under More.
+- **Material list:** per-assembly occurrences can be added, edited (part identity/quantity/position), archived or restored. The separate part master editor remains available.
+- **Budget tracking:** allocate and edit per-project budget and manual baselines, derive new PO receipts and commitments, see forecast overrun/headroom with an honest foreign-exchange exclusion warning, and synchronize the internal Financials overview.
+- **Ordering:** Needs ordering as a material-shortage signal; Ordered/Out for delivery manual stage selector on POs; receipt-derived Part received and Received. Stock never changes merely because dispatch status changes.
+- **Safety:** no live external integrations, data loss, pricing, deployments or work outside \`project-hub/\`. The whole V0.4.2 application is a single offline HTML file inside a ZIP.
+- **Verification:** 58 original/new domain tests and 32 full-app emulated interaction/render tests passed; real browser smoke is committed but remains to be run from a full checkout.
 
 ## V0.4.1 delivered (separate development branch)
 

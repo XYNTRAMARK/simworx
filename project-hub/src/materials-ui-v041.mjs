@@ -125,7 +125,7 @@ export function renderProjectSupply(s,ui,projectId){
     '<button class="btn small">Consume</button></form>':'';
   return '<tr><td>'+h(p?.code)+'</td><td>'+h(a?.name||'Project allocation')+'</td><td>'+fmt(remain)+'</td><td>'+fmt(r.issued||0)+'</td><td>'+fmt(r.consumed||0)+'</td><td><div class="v41-actions">'+issue+release+consume+'</div></td></tr>';
  }).join('');
- return '<div class="v41"><div class="v41-intro"><div><h2>Project procurement & materials</h2><p>Assembly BOM → shared workshop inventory → reservations → purchasing → receipts → workshop issue.</p></div>'+badge('V0.4.6 · Local workspace')+'</div>'+
+ return '<div class="v41"><div class="v41-intro"><div><h2>Project procurement & materials</h2><p>Assembly BOM → shared workshop inventory → reservations → purchasing → receipts → workshop issue.</p></div>'+badge('V0.4.7 · Local workspace')+'</div>'+
   '<div class="v41-kpis"><div><b>'+rows.length+'</b><span>Required part SKUs</span></div><div><b>'+shortage.length+'</b><span>Materials still to source</span></div><div><b>'+orders.length+'</b><span>Purchase orders for project</span></div><div><b>'+res.filter(x=>reservationRemaining(x)>0).length+'</b><span>Active allocations</span></div></div>'+
   requirementsPanel+
   renderProjectMaterialPlanner(s,projectId)+

@@ -5,6 +5,7 @@ receivePurchaseLine,returnPurchaseReceipt,reserveProjectStock,issueProjectStock,
 reservationRemaining,materialReadinessV041,assemblyAllocationReadiness,saveOrderShipment,setPurchaseDispatch,
 addOrderAttachment,removeOrderAttachment,createWorkspaceBackup,parseWorkspaceBackup} from './materials-v041.mjs';
 import {activeAssemblies,saveOccurrence,archiveManufacturing,assemblyRollup} from './manufacturing.mjs';
+import {procurementPlan} from './procurement-planning-v043.mjs';
 
 const h=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'" :'&#39;'}[c]));
 const fmt=n=>new Intl.NumberFormat('en-GB',{maximumFractionDigits:2}).format(Number(n)||0);
@@ -121,7 +122,6 @@ function orderLineEditor(s,projectId,seed={},idx=0){
    label('Part',pick('poPart',sku(s),seed.partId||s.parts[0]?.id,'required'))+
    label('Qty',input('poQty',seed.quantity||1,'number','min="1" step="1" required'))+
    label('Cost each',input('poCost',seed.unitCost??0,'number','min="0" step="0.01" required'))+
-   label('Assembly',pick('poAssembly',asmOptions(s,projectId),seed.assemblyId||''))+
    label('ETA',input('poEta',seed.eta||'','date'))+
    btn('Remove line','v41-remove-po-line','','small danger')+'</div>';
 }
@@ -199,7 +199,6 @@ function renderOrderDetail(s,o){
  label('Add part',pick('partId',sku(s),'','required'))+
  label('Quantity',input('quantity',1,'number','min="1" required'))+
  label('Cost each',input('unitCost',0,'number','min="0" step="0.01" required'))+
- label('Assembly',pick('assemblyId',asmOptions(s,o.projectId)))+
  label('ETA',input('eta','','date'))+
  '<button type="submit" class="btn small primary">Add PO line</button></form>'+
 
@@ -210,15 +209,65 @@ function renderOrderDetail(s,o){
  '<label class="v41-upload">Attach order confirmation, receipt or invoice <input type="file" data-v41-proof="'+h(o.id)+'" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"></label>'+
  (attachments||'<p class="v41-muted">No proof documents attached.</p>'));
 }
+/* Purchaser sees the project as a whole, not the engineering assembly breakdown. */
 export function renderPurchasingV041(s,ui){
  ensureMaterials(s);
- const chosen=ui.procurementProject||'all';
- const projectId=chosen==='all'?(ui.materialOrderProject||proj(s)[0]?.id):chosen;
- return '<div class="v41"><div class="v41-intro"><div><h2>Purchasing & order tracking</h2><p>Multi-line orders · partial deliveries · supplier returns · shipment tracking · local proof documents.</p></div>'+badge('Demo data · Internal only')+'</div>'+
- '<div class="v41-toolbar">'+label('Filter by project',pick('procurementProject',[['all','All projects'],...projectOptions(s)],chosen,'data-filter="v41-project"'))+
- btn('+ Purchase order','v41-order-new','data-project="'+h(projectId||'')+'"','primary')+'</div>'+
- (ui.materialOrderEditor?renderOrderComposer(s,ui,projectId):'')+
- orderRegister(s,ui,chosen)+orderDetailIfSelected(s,ui,chosen)+'</div>';
+ const projects=proj(s);
+ const requested=ui.procurementProject;
+ const projectId=projects.some(p=>p.id===requested)?requested:
+    projects.some(p=>p.id===ui.project)?ui.project:projects[0]?.id;
+ ui.procurementProject=projectId;
+ const p=s.projects.find(p=>p.id===projectId);
+ if(!p)return '<div class="v41">Create a project before purchasing.</div>';
+ const needs=materialReadinessV041(s,projectId);
+ const orders=activeOrders(s).filter(o=>o.projectId===projectId);
+ const planner=procurementPlan(s,projectId);
+ const orderDates=new Map();
+ for(const item of planner){
+   const current=orderDates.get(item.partId);
+   if(item.orderBy&&(!current||item.orderBy<current.orderBy))orderDates.set(item.partId,item);
+ }
+ const counters={red:0,amber:0,green:0};
+ const list=needs.map(row=>{
+   const active=orders.filter(o=>o.items.some(l=>l.partId===row.partId&&outstanding(l)>0));
+   const status=active.some(o=>purchaseStatus(o)==='Out for delivery')?'Out for delivery':
+      active.some(o=>purchaseStatus(o)==='Part received')?'Part received':
+      row.toSource>0?'To order':row.incoming>0?'Ordered':
+      row.toAllocate<=0?'Allocated':row.freeStock>=row.toAllocate?'In workshop stock':'Covered';
+   const warning=row.toSource>0;
+   const color=warning?'red':row.incoming>0?'amber':'green';
+   counters[color]++;
+   const dates=orderDates.get(row.partId);
+   const orderButton=warning?btn('Order '+fmt(row.toSource),'v41-order-prefill',
+     'data-project="'+h(projectId)+'" data-part="'+h(row.partId)+'" data-qty="'+h(row.toSource)+'"','small primary'):'';
+   return '<tr><td><b>'+h(row.part.code)+'</b><small>'+h(row.part.name)+'</small></td>'+
+    '<td>'+fmt(row.required)+'</td><td>'+fmt(row.reserved+row.issued)+'</td><td>'+fmt(row.freeStock)+'</td>'+
+    '<td>'+fmt(row.incoming)+'</td><td>'+h(dates?.requiredBy||'—')+'</td>'+
+    '<td>'+h(dates?.orderBy||'—')+'</td><td><span class="v43-buyer-dot '+color+'"></span>'+
+    '<b>'+h(status)+'</b>'+(row.toSource?'<small>'+fmt(row.toSource)+' still needed</small>':'')+'</td>'+
+    '<td>'+orderButton+'</td></tr>';
+ }).join('');
+ const total=orders.length,done=orders.filter(o=>purchaseStatus(o)==='Received').length;
+ return '<div class="v41 v43-buyer"><div class="v41-intro"><div><h2>Project purchasing</h2>'+
+   '<p>Choose the main project. One combined buying list — no assembly information required.</p></div>'+
+   badge('V0.4.3 · Local demo')+'</div>'+
+   '<div class="v43-buyer-heading">'+label('Project purchasing list',
+     pick('procurementProject',projectOptions(s),projectId,'data-filter="v41-project" aria-label="Select main project"'))+
+   btn('+ Create purchase order','v41-order-new','data-project="'+h(projectId)+'"','primary')+'</div>'+
+   '<div class="v43-buyer-project"><h3>'+h(p.name)+'</h3><span>'+h(p.code)+' · '+
+   total+' purchase orders · '+done+' received in full</span></div>'+
+   '<div class="v43-buyer-status">'+
+   [['red',counters.red,'To order'],['amber',counters.amber,'Ordered / in transit'],['green',counters.green,'In stock / allocated']].map(([c,q,t])=>
+   '<div><span class="v43-buyer-dot '+c+'"></span><strong>'+q+'</strong><small>'+t+'</small></div>').join('')+'</div>'+
+   panel('Consolidated material purchase list · '+p.code,
+   '<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part to purchase</th>'+
+   '<th>Total needed</th><th>Allocated</th><th>Free stock</th><th>Already ordered</th>'+
+   '<th>Need by</th><th>Order by</th><th>Status</th><th>Action</th></tr></thead><tbody>'+
+   (list||'<tr><td colspan="9">No assembly materials listed for this project yet. Add requirements in its Procurement tab.</td></tr>')+
+   '</tbody></table></div><p class="v41-caption">Quantities are combined by part across the entire project. Required-by and order-by are based on engineering material dates. Open stock and supplier orders remain separate from physically delivered quantities.</p>')+
+   (ui.materialOrderEditor?renderOrderComposer(s,ui,projectId):'')+
+   orderRegister(s,ui,projectId)+orderDetailIfSelected(s,ui,projectId)+
+   '<p class="v41-caption">Purchasing records remain connected to this main project. Assembly-level construction and allocation details stay in the engineering workspace, not this purchaser list.</p></div>';
 }
 export function renderInventoryV041(s,ui){
  ensureMaterials(s);

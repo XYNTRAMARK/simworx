@@ -61,6 +61,8 @@ test('procurement order-by date subtracts lead time plus buffer accurately',()=>
 });
 test('procurement highlights overdue and due-this-week buying decisions, rejects invalid dates',()=>{
  const s=make(),occ=s.assemblyBOM.filter(x=>x.projectId==='p1'&&!x.archivedAt).slice(0,2);
+ // Make these genuinely unfulfilled requirements: a fully covered part should not trigger an order alert.
+ for(const x of occ){const part=s.parts.find(p=>p.id===x.partId);part.onHand=0;part.reserved=0;}
  saveRequirementPlan(s,{occurrenceId:occ[0].id,requiredBy:'2027-01-20',leadDays:20,bufferDays:0});
  saveRequirementPlan(s,{occurrenceId:occ[1].id,requiredBy:'2027-01-12',leadDays:1,bufferDays:1});
  const a=procurementAlerts(s,'p1','2027-01-10');

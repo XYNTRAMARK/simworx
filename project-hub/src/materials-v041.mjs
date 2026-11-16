@@ -3,6 +3,7 @@
 import {ensureManufacturing,activeAssemblies,assemblyRollup} from './manufacturing.mjs';
 import {safeProductURL} from './procurement-sourcing-v046.mjs';
 import {assertContractPOGate,contractControlled,acceptArrivalRecord} from './procurement-workflow-v047.mjs';
+import {assertPOAuthorised} from './procurement-control-v049.mjs';
 const uid = prefix => prefix+'-'+Math.random().toString(36).slice(2,11);
 const timestamp = () => new Date().toISOString();
 const live = x => x && !x.archivedAt;
@@ -119,8 +120,14 @@ export function createPurchaseOrder(s,input){
    for(const [partId,qty] of proposed)
     if(qty>(gaps.get(partId)||0))throw Error('Purchase quantity exceeds uncovered engineering requirement. Review existing orders, stock, or create an authorised extra BOM requirement');
   }
+  const eurExchangeRate=currency==='EUR'?1:Number(input.eurExchangeRate||0);
+  const approvals=assertPOAuthorised(s,{projectId:project.id,supplier,currency,taxRate,eurExchangeRate,items});
+  for(let i=0;i<items.length;i++)if(approvals[i]){
+   items[i].purchaseAuthorisationId=approvals[i].authorizationId;
+   items[i].recordedApprovalRef=approvals[i].approvalRef;
+  }
   const code='PO-'+new Date().getFullYear()+'-'+String(s.orders.length+1).padStart(4,'0');
-  const order={id:uid('po'),code,projectId:project.id,supplier,currency,taxRate,
+  const order={id:uid('po'),code,projectId:project.id,supplier,currency,taxRate,eurExchangeRate,
     date:timestamp().slice(0,10),status:'Ordered',dispatchState:'Ordered',origin:'v042',items};
   s.orders.unshift(order);
   note(s,'Purchase order created',code+' / '+items.length+' lines');
@@ -135,6 +142,10 @@ export function addPurchaseLine(s,orderId,line){
    const available=materialReadinessV041(s,o.projectId).find(r=>r.partId===row.partId)?.toSource||0;
    if(row.quantity>available)throw Error('Added PO quantity exceeds the remaining engineering sourcing gap');
   }
+  const approvals=assertPOAuthorised(s,{projectId:o.projectId,supplier:o.supplier,currency:o.currency,
+    taxRate:o.taxRate,eurExchangeRate:o.eurExchangeRate,items:[row]});
+  if(approvals[0]){row.purchaseAuthorisationId=approvals[0].authorizationId;
+   row.recordedApprovalRef=approvals[0].approvalRef;}
   o.items.push(row);o.status=purchaseStatus(o);
   note(s,'Purchase order line added',o.code);
   return row;

@@ -18,7 +18,7 @@ export function createLocalWorkspaceManager({onStatus=()=>{}}={}){
  };
  const from64=str=>Uint8Array.from(atob(str),c=>c.charCodeAt(0));
  const random=n=>crypto.getRandomValues(new Uint8Array(n));
- const supported=()=>!!(crypto?.subtle&&globalThis.indexedDB);
+ const supported=()=>typeof crypto!=='undefined'&&!!(crypto.subtle&&globalThis.indexedDB);
  function openDB(){
   if(!dbPromise)dbPromise=new Promise((resolve,reject)=>{
    if(!supported()){reject(Error('Encrypted browser storage is unavailable. Use current Chrome on a secure local page.'));return;}

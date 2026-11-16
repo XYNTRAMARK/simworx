@@ -15,6 +15,7 @@ import {procurementAlerts,exportProcurementReviewCSV} from './procurement-planni
 import {handleMaterialPlanningForm} from './planning-ui-v043.mjs';
 import {renderProjectFocus,renderProjectWorkPlan,renderProjectBuyingReview,projectBuyingSnapshot,saveBuyingReviewForm} from './project-control-v046.mjs';
 import {ensureTeamWorkspace,saveDepartmentAllocation,allocateRequirement,attachEvidence,archiveEvidence,setCustomerShareRule} from './team-workspace-v048.mjs';
+import {ensurePurchaseControls,saveRequirementTrace,recordOwnerAuthorisation,revokeOwnerAuthorisation,approvalStatus} from './procurement-control-v049.mjs';
 import {renderProjectTeam,renderProjectEvidence,renderCustomerPreview} from './team-ui-v048.mjs';
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
@@ -28,7 +29,8 @@ ensureMaterials(data);
 ensureProgress(data);
 ensureExternalWork(data);
 ensureTeamWorkspace(data);
-const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All'};
+ensurePurchaseControls(data);
+const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All',v49SelectedOccurrence:null,v49SourceEdit:null,v49ResetBackupVerified:false,v49ResetSnapshot:null};
 const staffGate=createLocalStaffGate();
 const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
   const el=document.getElementById('workspace-save-state');
@@ -36,6 +38,7 @@ const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
 }});
 const persist=()=>{
  const serialized=JSON.stringify(data);
+ if(ui.v49ResetSnapshot&&ui.v49ResetSnapshot!==serialized){ui.v49ResetBackupVerified=false;ui.v49ResetSnapshot=null;}
  try{localStorage.setItem(STORAGE_KEY,serialized);}
  catch(err){toast('Browser storage failed: '+err.message+' — immediately export a private backup.',true);return false;}
  workspaceFile.scheduleSave(createWorkspaceBackup(data)).catch(()=>{});
@@ -357,6 +360,11 @@ function settingsPage(){
  card('Appearance','<div class="card-body"><p class="form-hint">Switch light and dark themes.</p>'+button('Toggle theme','theme','small')+'</div>')+
  card('Clear workspace (irreversible)',
   '<div class="card-body"><p class="form-hint">Clear all visible project, purchasing and stock records ONLY after exporting a private backup. This never clears the original PDF documents on your PC.</p>'+
+  '<p class="form-hint">1. Download a PRIVATE JSON backup. 2. Select the saved JSON below to verify it parses and exactly matches current data. 3. Only then is reset permitted. The verification expires after any change.</p>'+
+  '<div class="v41-backup-actions">'+button('Download private JSON','v41-backup','small')+
+  button('Verify backup for reset','v49-backup-verify-open','small')+'</div>'+
+  '<input type="file" id="v49-backup-verify-file" accept=".json,application/json" aria-label="Verify private workspace backup">'+
+  '<p class="form-hint">'+(ui.v49ResetBackupVerified?'Backup file read, parsed and matched: reset unlocked until data changes.':'No usable private backup verified yet. Reset LOCKED.')+'</p>'+
   button('Clear ALL workspace data','reset-demo','danger')+'</div>')+
  card('External services disabled','<div class="card-body"><p class="form-hint">No production server, remote login, cloud sync, email, billing API or customer publishing is enabled. No data is uploaded to GitHub by the application.</p></div>')+
  '</div>';
@@ -474,6 +482,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    }catch(err){toast(err.message||'Schedule export failed',true)}
    return;
  }
+ if(action==='v49-backup-verify-open'){document.getElementById('v49-backup-verify-file')?.click();return;}
  if(action==='v44-file-verify'){
    workspaceFile.verifyConnected(createWorkspaceBackup(data)).then(result=>{render();toast('Disk read-back passed ('+result.bytes+' bytes); workspace matches browser records');})
      .catch(err=>{render();toast(err.message||'File recovery check failed',true)});return;
@@ -541,17 +550,27 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'v46-prepare-po':{
    const source=data.assemblyBOM.find(x=>x.id===id&&!x.archivedAt);
    if(!source)throw Error('Material requirement unavailable');
+   const ownerApproval=approvalStatus(data,id);
+   if(contractControlled(data,source.projectId)&&!ownerApproval.approved)throw Error('Owner purchase authorization is required: '+ownerApproval.status);
    if(contractControlled(data,source.projectId)&&!specStatus(data,id).approved){
     ui.v47SpecOccurrence=id;render();
     throw Error('Contract check required: inspect exact supplier specification before recording an actual PO');
    }
    if(source.purchaseSource?.responsibility!=='Sim-Worx')throw Error('Confirm Sim-Worx purchasing responsibility before preparing a PO');
-   ui.project=source.projectId;ui.procurementProject=source.projectId;ui.page='purchasing';ui.materialPO=null;
-   ui.materialOrderEditor=true;ui.materialPrefill={partId:source.partId,quantity:source.quantity,
+   ui.project=source.projectId;ui.procurementProject=source.projectId;ui.page='projects';ui.projectTab='procurement';ui.materialPO=null;
+   ui.materialOrderEditor=true;ui.materialPrefill={partId:source.partId,quantity:ownerApproval.approved?Math.min(source.quantity,ownerApproval.remaining):source.quantity,
     supplier:source.purchaseSource?.supplier||'',
     productUrl:source.purchaseSource?.productUrl||'',vendorSku:source.purchaseSource?.vendorSku||'',quoteRef:source.purchaseSource?.quoteRef||'',
     sourceOccurrenceId:source.id};
    render();document.querySelector('.v46-purchase-composer')?.scrollIntoView({block:'start'});break;
+  }
+  case 'v49-select-requirement':ui.v49SelectedOccurrence=id;ui.v46EditOccurrence=null;
+   ui.v47SpecOccurrence=null;ui.v47ArrivalOccurrence=null;ui.v49SourceEdit=null;ui.materialOrderEditor=false;render();break;
+  case 'v49-source-toggle':ui.v49SourceEdit=ui.v49SourceEdit===id?null:id;render();break;
+  case 'v49-revoke-authorization':{
+   const reason=prompt('Revocation reason (existing supplier POs stay on record; only unused approval authority is revoked):','');
+   if(reason===null)break;
+   revokeOwnerAuthorisation(data,{authorizationId:id,reason});persist();render();toast('Unused owner authorization revoked in local record');break;
   }
   case 'v46-edit-buy':ui.v46EditOccurrence=ui.v46EditOccurrence===id?null:id;render();break;
   case 'v47-spec-open':ui.v47SpecOccurrence=ui.v47SpecOccurrence===id?null:id;ui.v47ArrivalOccurrence=null;render();break;
@@ -622,7 +641,16 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'receive-po':{const po=data.orders.find(x=>x.id===id);if(po&&contractControlled(data,po.projectId))throw Error('Contract-controlled goods must be registered as arrived and accepted by inspection. Open Purchasing → Delivery / inspection.');receiveOrder(data,id);persist();render();toast('Outstanding purchase order quantities received into stock');break;}
   case 'notifications':openModal('notifications');break;
   case 'mark-read':data.notifications.forEach(x=>x.read=true);persist();closeModal();toast('Notifications marked as read');break;
-  case 'reset-demo':if(confirm('Delete every project, material, order, cost and note from this workspace? Export a private backup first. This cannot be undone.')){data=emptyWorkspace();persist();ui.page='overview';ui.project='';ui.projectTab='focus';ui.procurementProject='';ui.v46PurchaseLine=null;ui.clientOrg='';ui.clientProject='';render();toast('Workspace cleared. Import your private contract workspace in Settings.')}break;
+  case 'reset-demo':{
+   if(!ui.v49ResetBackupVerified||ui.v49ResetSnapshot!==JSON.stringify(data))
+    throw Error('Reset blocked. Export a PRIVATE JSON backup, then choose that actual file under Settings → Verify backup for reset. The file must be readable and match this workspace exactly.');
+   if(prompt('Type RESET PROJECT HUB to permanently clear this browser workspace after you confirmed your separate backup:','')!=='RESET PROJECT HUB')break;
+   workspaceFile.detach(); // Never overwrite a linked autosave file with an empty workspace.
+   ui.v49ResetBackupVerified=false;ui.v49ResetSnapshot=null;data=emptyWorkspace();ensurePurchaseControls(data);
+   ui.page='overview';ui.project='';ui.projectTab='focus';ui.procurementProject='';ui.v46PurchaseLine=null;
+   ui.clientOrg='';ui.clientProject='';persist();render();toast('Browser workspace reset; verified external backup retained');
+   break;
+  }
   case 'refresh':render();toast('Workspace view refreshed from local records');break;
   }}catch(err){toast(err.message||'Unable to complete this action',true)}
 }
@@ -633,6 +661,20 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
    return;
  }
  if(!staffGate.status().unlocked)return;
+ if(type==='v49-trace'){
+  try{saveRequirementTrace(data,{occurrenceId:get('occurrenceId'),document:get('document'),section:get('section'),
+   revision:get('revision'),requirementStatus:get('requirementStatus'),fulfilment:get('fulfilment'),notes:get('notes')});
+   ui.v49SourceEdit=null;persist();render();toast('Controlled source revision saved. Old technical reviews invalidated; no orders created.');}
+  catch(err){toast(err.message||'Cannot save requirement source',true)}return;
+ }
+ if(type==='v49-approval'){
+  try{recordOwnerAuthorisation(data,{occurrenceId:get('occurrenceId'),supplier:get('supplier'),manufacturerModel:get('manufacturerModel'),
+   vendorSku:get('vendorSku'),quoteRef:get('quoteRef'),maxQuantity:get('maxQuantity'),maxUnitPrice:get('maxUnitPrice'),
+   currency:get('currency'),eurRate:get('eurRate'),taxRate:get('taxRate'),reviewer:get('reviewer'),
+   approvalRef:get('approvalRef'),evidenceRef:get('evidenceRef')});
+   persist();render();toast('Owner authorization recorded locally. Supplier order NOT placed.');}
+  catch(err){toast(err.message||'Owner authorization blocked',true)}return;
+ }
  if(type==='v48-budget-allocation'){
   try{
    saveDepartmentAllocation(data,{projectId:get('projectId'),id:get('allocationId')||null,
@@ -817,6 +859,17 @@ document.addEventListener('submit',ev=>{const form=ev.target.closest('form[data-
 document.addEventListener('change',ev=>{try{if(!staffGate.status().unlocked)return;const el=ev.target;
  if(el.dataset.v41Proof){handleMaterialsProof(data,el,()=>{persist();render();toast('Proof document saved locally')},message=>toast(message,true));return;}
  if(el.id==='v41-restore-file'){restoreBackupFile(el.files?.[0]);return;}
+ if(el.id==='v49-backup-verify-file'){
+  const file=el.files?.[0];if(!file)return;
+  if(file.size>10000000)throw Error('Backup file too large');
+  file.text().then(raw=>{
+   const restored=parseWorkspaceBackup(raw);
+   const current=JSON.stringify(data);
+   if(JSON.stringify(restored)!==current)throw Error('Backup does not exactly match the current workspace. Export again after your last edit.');
+   ui.v49ResetSnapshot=current;ui.v49ResetBackupVerified=true;render();toast('Verified: selected private backup is readable and matches current workspace');
+  }).catch(err=>{ui.v49ResetSnapshot=null;ui.v49ResetBackupVerified=false;toast(err.message||'Backup verification failed',true)});
+  return;
+ }
  if(el.dataset.v42Delivery){updateOrderStage(data,el.dataset.v42Delivery,el.value);persist();render();toast('Delivery stage changed; stock unchanged');return;}
  const filter=el.dataset.filter;
  if(filter==='v47-buy-step'){

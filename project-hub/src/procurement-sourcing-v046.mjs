@@ -10,8 +10,10 @@ export function safeProductURL(value){
   throw Error('Product URL must be HTTPS without embedded account credentials');
  return u.href;
 }
-export function sourceInput({supplier='',productUrl='',vendorSku='',quoteRef='',notes=''}={}){
- return {supplier:max(supplier,160,'Supplier'),productUrl:safeProductURL(productUrl),
+export function sourceInput({supplier='',productUrl='',vendorSku='',quoteRef='',notes='',responsibility='Unverified'}={}){
+ if(!['Unverified','Sim-Worx','Customer-direct','Subcontractor'].includes(responsibility))
+  throw Error('Invalid purchasing responsibility');
+ return {responsibility,supplier:max(supplier,160,'Supplier'),productUrl:safeProductURL(productUrl),
   vendorSku:max(vendorSku,120,'Supplier part number'),quoteRef:max(quoteRef,120,'Quote reference'),
   notes:max(notes,800,'Sourcing notes')};
 }
@@ -20,7 +22,7 @@ export function saveRequirementSource(s,{occurrenceId,...data}){
  const occ=s.assemblyBOM?.find(x=>x.id===occurrenceId&&!x.archivedAt);
  if(!occ)throw Error('Material requirement not found');
  const next=sourceInput(data),old=occ.purchaseSource||{};
- if(plain(next)===plain({supplier:old.supplier||'',productUrl:old.productUrl||'',
+ if(plain(next)===plain({responsibility:old.responsibility||'Unverified',supplier:old.supplier||'',productUrl:old.productUrl||'',
    vendorSku:old.vendorSku||'',quoteRef:old.quoteRef||'',notes:old.notes||''}))return occ;
  occ.purchaseSourceHistory??=[];
  if(occ.purchaseSource?.updatedAt)occ.purchaseSourceHistory.push({...occ.purchaseSource});

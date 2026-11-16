@@ -119,7 +119,7 @@ export function createLocalWorkspaceManager({onStatus=()=>{}}={}){
   return result.state;
  }
  function signOut(){
-  if(saving)throw Error('A save is still in progress. Please wait for it to finish.');
+  if(saving||error)throw Error('Workspace saving is incomplete. Keep this session open and export an emergency encrypted backup before signing out.');
   session=null;error='';notify();
  }
  async function save(state){
@@ -162,6 +162,12 @@ export function createLocalWorkspaceManager({onStatus=()=>{}}={}){
   if(permission!=='granted')throw Error('File permission was not granted');
   await save(state);return status();
  }
+ async function emergencyEncryptedBackup(state){
+  if(!session)throw Error('Sign in first');
+  const record=await seal(JSON.parse(JSON.stringify(state)));
+  return {name:'SimWorx_Emergency_Encrypted_Backup_'+new Date().toISOString().slice(0,10)+'.swphub',
+    text:JSON.stringify(record,null,2)};
+ }
  async function encryptedBackup(){
   if(!session)throw Error('Sign in first');
   await queue;
@@ -181,5 +187,5 @@ export function createLocalWorkspaceManager({onStatus=()=>{}}={}){
  }
  function unsavedChanges(){return saving||!!error||!!fileError&&!!fileHandle;}
  return {initialize,status,createAccount,signIn,signOut,save,connectFile,reconnectFile,
-  encryptedBackup,importEncryptedFile,unsavedChanges};
+  encryptedBackup,emergencyEncryptedBackup,importEncryptedFile,unsavedChanges};
 }

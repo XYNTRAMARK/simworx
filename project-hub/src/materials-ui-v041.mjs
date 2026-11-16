@@ -8,6 +8,8 @@ import {activeAssemblies,saveOccurrence,archiveManufacturing,assemblyRollup} fro
 import {procurementPlan} from './procurement-planning-v043.mjs';
 import {renderProjectMaterialPlanner} from './planning-ui-v043.mjs';
 import {savePart} from './model.mjs';
+import {renderProjectBuyingReview,projectBuyingSnapshot} from './project-control-v046.mjs';
+import {updatePurchaseLineRecord} from './procurement-sourcing-v046.mjs';
 
 const h=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'" :'&#39;'}[c]));
 const fmt=n=>new Intl.NumberFormat('en-GB',{maximumFractionDigits:2}).format(Number(n)||0);
@@ -227,62 +229,39 @@ function renderOrderDetail(s,o){
 /* Purchaser sees the project as a whole, not the engineering assembly breakdown. */
 export function renderPurchasingV041(s,ui){
  ensureMaterials(s);
- const projects=proj(s);
- const requested=ui.procurementProject;
+ const projects=proj(s),requested=ui.procurementProject;
  const projectId=projects.some(p=>p.id===requested)?requested:
-    projects.some(p=>p.id===ui.project)?ui.project:projects[0]?.id;
+   projects.some(p=>p.id===ui.project)?ui.project:projects[0]?.id;
  ui.procurementProject=projectId;
- const p=s.projects.find(p=>p.id===projectId);
- if(!p)return '<div class="v41">Create a project before purchasing.</div>';
- const needs=materialReadinessV041(s,projectId);
- const orders=activeOrders(s).filter(o=>o.projectId===projectId);
- const planner=procurementPlan(s,projectId);
- const orderDates=new Map();
- for(const item of planner){
-   const current=orderDates.get(item.partId);
-   if(item.orderBy&&(!current||item.orderBy<current.orderBy))orderDates.set(item.partId,item);
- }
- const counters={red:0,amber:0,green:0};
- const list=needs.map(row=>{
-   const active=orders.filter(o=>o.items.some(l=>l.partId===row.partId&&outstanding(l)>0));
-   const status=active.some(o=>purchaseStatus(o)==='Out for delivery')?'Out for delivery':
-      active.some(o=>purchaseStatus(o)==='Part received')?'Part received':
-      row.toSource>0?'To order':row.incoming>0?'Ordered':
-      row.toAllocate<=0?'Allocated':row.freeStock>=row.toAllocate?'In workshop stock':'Covered';
-   const warning=row.toSource>0;
-   const color=warning?'red':row.incoming>0?'amber':'green';
-   counters[color]++;
-   const dates=orderDates.get(row.partId);
-   const orderButton=warning?btn('Order '+fmt(row.toSource),'v41-order-prefill',
-     'data-project="'+h(projectId)+'" data-part="'+h(row.partId)+'" data-qty="'+h(row.toSource)+'"','small primary'):'';
-   return '<tr><td><b>'+h(row.part.code)+'</b><small>'+h(row.part.name)+'</small></td>'+
-    '<td>'+fmt(row.required)+'</td><td>'+fmt(row.reserved+row.issued)+'</td><td>'+fmt(row.freeStock)+'</td>'+
-    '<td>'+fmt(row.incoming)+'</td><td>'+h(dates?.requiredBy||'—')+'</td>'+
-    '<td>'+h(dates?.orderBy||'—')+'</td><td><span class="v43-buyer-dot '+color+'"></span>'+
-    '<b>'+h(status)+'</b>'+(row.toSource?'<small>'+fmt(row.toSource)+' still needed</small>':'')+'</td>'+
-    '<td>'+orderButton+'</td></tr>';
- }).join('');
- const total=orders.length,done=orders.filter(o=>purchaseStatus(o)==='Received').length;
- return '<div class="v41 v43-buyer"><div class="v41-intro"><div><h2>Project purchasing</h2>'+
-   '<p>Choose the main project. One combined buying list — no assembly information required.</p></div>'+
-   badge('V0.4.3 · Local demo')+'</div>'+
-   '<div class="v43-buyer-heading">'+label('Project purchasing list',
-     pick('procurementProject',projectOptions(s),projectId,'data-filter="v41-project" aria-label="Select main project"'))+
-   btn('+ Create purchase order','v41-order-new','data-project="'+h(projectId)+'"','primary')+'</div>'+
-   '<div class="v43-buyer-project"><h3>'+h(p.name)+'</h3><span>'+h(p.code)+' · '+
-   total+' purchase orders · '+done+' received in full</span></div>'+
-   '<div class="v43-buyer-status">'+
-   [['red',counters.red,'To order'],['amber',counters.amber,'Ordered / in transit'],['green',counters.green,'In stock / allocated']].map(([c,q,t])=>
-   '<div><span class="v43-buyer-dot '+c+'"></span><strong>'+q+'</strong><small>'+t+'</small></div>').join('')+'</div>'+
-   panel('Consolidated material purchase list · '+p.code,
-   '<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part to purchase</th>'+
-   '<th>Total needed</th><th>Allocated</th><th>Free stock</th><th>Already ordered</th>'+
-   '<th>Need by</th><th>Order by</th><th>Status</th><th>Action</th></tr></thead><tbody>'+
-   (list||'<tr><td colspan="9">No assembly materials listed for this project yet. Add requirements in its Procurement tab.</td></tr>')+
-   '</tbody></table></div><p class="v41-caption">Quantities are combined by part across the entire project. Required-by and order-by are based on engineering material dates. Open stock and supplier orders remain separate from physically delivered quantities.</p>')+
-   (ui.materialOrderEditor?renderOrderComposer(s,ui,projectId):'')+
-   orderRegister(s,ui,projectId)+orderDetailIfSelected(s,ui,projectId)+
-   '<p class="v41-caption">Purchasing records remain connected to this main project. Assembly-level construction and allocation details stay in the engineering workspace, not this purchaser list.</p></div>';
+ const p=projects.find(x=>x.id===projectId);
+ if(!p)return '<div class="v46-empty">Create a project in Projects before purchasing.</div>';
+ const requirements=projectBuyingSnapshot(s,projectId),orders=activeOrders(s).filter(o=>o.projectId===projectId);
+ const selected='<div class="v46-purchase-picker"><div><small>ACTIVE PURCHASING PROJECT</small>'+
+  '<h2>'+h(p.name)+'</h2><p>'+h(p.code)+' · '+requirements.rows.length+' engineering material lines · '+
+  orders.length+' actual purchase orders recorded</p></div>'+
+  '<label>Switch project'+pick('procurementProject',projectOptions(s),projectId,
+  'data-filter="v46-purchase-project" aria-label="Choose project for purchasing"')+'</label></div>';
+ const projectCards=projects.length>1?'<div class="v46-project-cards">'+projects.map(x=>
+  '<button type="button" data-action="v46-pick-purchase-project" data-id="'+h(x.id)+'" class="'+(x.id===projectId?'active':'')+'">'+
+  '<small>'+h(x.code)+'</small><b>'+h(x.name)+'</b><span>'+s.tasks.filter(t=>!t.archivedAt&&t.projectId===x.id).length+
+  ' work items</span></button>').join('')+'</div>':'';
+ const actual='<div class="v46-purchase-orders"><div class="v46-panel-heading"><div><h3>Actual supplier orders</h3>'+
+  '<p>Orders are entered only after a real supplier commitment. This is different from the engineering buying review above.</p></div>'+
+  btn('Record actual purchase order','v41-order-new','data-project="'+h(projectId)+'"','small primary')+'</div>'+
+  (ui.materialOrderEditor?'<div id="v46-po-composer">'+renderOrderComposer(s,ui,projectId)+'</div>':'')+
+  orderRegister(s,ui,projectId)+orderDetailIfSelected(s,ui,projectId)+'</div>';
+ return '<div class="v41 v46-purchasing">'+selected+projectCards+
+  '<div class="v46-purchase-intro"><strong>How purchasing works</strong><span>Engineering need → Supplier/product research → Quote & authorisation → Actual PO → Receipt / inspection</span>'+
+  '<p>Do not place an order just because a requirement shows a sourcing gap. Product websites and references can be saved without creating orders or changing stock.</p></div>'+
+  '<div class="v46-purchase-overview"><span>'+requirements.buy.length+' proposed BUY lines</span>'+
+  '<span>'+requirements.manufacture.length+' MAKE requirements</span><span>'+requirements.unplannedBuy.length+' missing sourcing details</span>'+
+  '<span>'+orders.length+' actual POs</span></div>'+
+  (ui.materialOrderEditor?'<div class="v46-purchase-composer">'+renderOrderComposer(s,ui,projectId)+'</div>':'')+
+  renderProjectBuyingReview(s,ui,projectId)+
+  '<div class="v46-purchase-orders"><div class="v46-panel-heading"><div><h3>Actual supplier orders</h3>'+
+  '<p>Separate from your planning list. Each recorded order can have its own website, supplier SKU and edited line history.</p></div>'+
+  btn('+ Record actual purchase order','v41-order-new','data-project="'+h(projectId)+'"','small primary')+'</div>'+
+  orderRegister(s,ui,projectId)+orderDetailIfSelected(s,ui,projectId)+'</div></div>';
 }
 export function renderInventoryV041(s,ui){
  ensureMaterials(s);

@@ -141,10 +141,10 @@ export function receivePurchaseLine(s,{orderId,lineId,quantity,arrivalId='',revi
   const q=integer(quantity,'Receipt quantity'),remaining=outstanding(line);
   if(q>remaining)throw Error('Over-receipt prevented: only '+remaining+' outstanding');
   let arrival=null;
-  if(contractControlled(s,o.projectId)){
+  if(arrivalId||contractControlled(s,o.projectId)){
    arrival=s.procurementArrivals.find(a=>a.id===arrivalId&&a.orderId===orderId&&a.lineId===lineId);
    if(!arrival||arrival.status!=='Awaiting inspection'||arrival.quantity!==q)
-    throw Error('Contract-controlled stock receipt requires a matching arrival awaiting inspection');
+    throw Error('Stock receipt requires a matching arrival awaiting inspection');
    if(String(reviewer||'').trim().length<3||String(evidenceRef||'').trim().length<4)
     throw Error('Inspector and acceptance evidence reference are required before goods enter stock');
   }

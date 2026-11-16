@@ -304,8 +304,8 @@ export function auditMaterials(s){
 }
 export function createWorkspaceBackup(s){
   auditMaterials(s);
-  return JSON.stringify({format:'simworx-project-hub-backup',schema:1,application:'V0.4.2',createdAt:timestamp(),
-    warning:'Contains all local demo records including internal illustrative financial data. Keep private.',state:s},null,2);
+  return JSON.stringify({format:'simworx-project-hub-backup',schema:1,application:'V0.4.3',createdAt:timestamp(),
+    warning:'UNENCRYPTED backup containing internal project records and documents. Keep private and prefer encrypted .swphub exports.',state:s},null,2);
 }
 export function parseWorkspaceBackup(text){
   if(typeof text!=='string'||text.length>10_000_000)throw Error('Backup exceeds the 10 MB import limit');

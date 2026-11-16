@@ -177,6 +177,8 @@ export function closePurchaseBalance(s,{orderId,lineId,reason,evidenceRef}){
  const {o,line}=orderAndLine(s,orderId,lineId);
  const open=outstanding(line);
  if(!open)throw Error('This order line has no remaining balance');
+ if((s.procurementArrivals||[]).some(a=>a.orderId===orderId&&a.lineId===lineId&&a.status==='Awaiting inspection'))
+  throw Error('Inspect or reject the physically arrived goods before closing this order balance');
  const noteText=required(reason,'Supplier cancellation/change reason');
  const proof=required(evidenceRef,'Supplier confirmation reference');
  if(noteText.length<8||proof.length<4)throw Error('Give the confirmed reason and reference before closing the outstanding balance');

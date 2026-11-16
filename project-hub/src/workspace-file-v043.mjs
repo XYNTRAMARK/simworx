@@ -56,6 +56,20 @@ export function createWorkspaceFileController({onStatus=()=>{}}={}){
   fileHandle=handle;
   emit('file-connected','Workspace file connected');
  }
+ async function verifyConnected(expectedText){
+  if(!fileHandle)throw Error('Link a workspace file before checking recovery');
+  await queue.catch(()=>{});
+  try{
+   const file=await fileHandle.getFile();
+   if(file.size>10000000)throw Error('Linked workspace file exceeds the 10 MB restore limit');
+   const recorded=await file.text();
+   if(recorded!==expectedText)throw Error('File contents DO NOT match current browser records. Review your backups before replacing either copy.');
+   emit('file-verified','Read-back confirmed: linked file matches the browser workspace');
+   return {bytes:file.size,lastSaved};
+  }catch(err){
+   emit('file-error',String(err?.message||err));throw err;
+  }
+ }
  function detach(){fileHandle=null;emit('browser-only','Browser-only saving');}
- return {supportsFiles,status,scheduleSave,createAndConnect,openCandidate,connectOpened,detach};
+ return {supportsFiles,status,scheduleSave,createAndConnect,openCandidate,connectOpened,verifyConnected,detach};
 }

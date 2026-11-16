@@ -14,6 +14,7 @@ import {renderExternalWork,handleExternalForm,handleExternalAction} from './exte
 import {procurementAlerts} from './procurement-planning-v043.mjs';
 import {handleMaterialPlanningForm} from './planning-ui-v043.mjs';
 import {renderProjectFocus} from './focus-ui-v043.mjs';
+import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
 const APP_VERSION='V0.4.3'; // Every build carries an explicit visible release number.
@@ -84,7 +85,7 @@ function staffGateScreen(){
 function render(){
  if(!staffGate.status().unlocked){document.getElementById('app').innerHTML=staffGateScreen();return;}
   const labels={overview:'Dashboard',projects:'Projects',assemblies:'Component & assemblies',tasks:'Production jobs',purchasing:'Purchasing',inventory:'Inventory',customers:'Customers & access',client:'Customer portal',finance:'Project financials',reports:'Reports & progress',settings:'Settings'};
-  const nav=[['overview','Overview'],['projects','Projects'],['assemblies','Assemblies & components'],['tasks','Workshop & office'],['purchasing','Purchasing'],['inventory','Inventory'],['customers','Customers & access'],['client','Client portal preview'],['finance','Financials'],['reports','Reports'],['settings','Settings']];
+  const nav=[['overview','Overview'],['projects','Projects'],['assemblies','Assemblies & components'],['tasks','Workshop & office'],['purchasing','Purchasing'],['inventory','Inventory'],['finance','Financials'],['reports','Reports'],['settings','Settings']];
   const navHtml=nav.map(([id,label],idx)=>`${idx===0||idx===4||idx===7||idx===8?`<div class="nav-group-label">${idx===0?'WORKSPACE':idx===4?'OPERATIONS':idx===7?'COLLABORATION':'CONTROL & INSIGHT'}</div>`:''}<button class="nav-link ${ui.page===id?'active':''}" data-action="nav" data-id="${id}" aria-current="${ui.page===id?'page':'false'}">${ico(id)}<span>${label}</span>${id==='client'?'<span class="count-dot">↗</span>':''}</button>`).join('');
   const title=labels[ui.page]||'Project Hub';
   document.body.classList.toggle('dark',data.settings.theme==='dark');
@@ -137,14 +138,27 @@ function projectDetail(p){
  const org=projectOrg(p),b=projectBudgetSnapshot(data,p.id);
  const mfg=projectManufacturingAlerts(data,p.id).length,shortage=materialReadinessV041(data,p.id).filter(x=>x.toSource>0).length;
  const supplierLate=externalRouteSummary(data,p.id).late.length,deadlines=procurementAlerts(data,p.id).overdue.length;
- const top=[['focus','Project control'],['procurement','Materials & dates'],['progress','Progress steps'],['external','External work'],['schedule','Gantt'],['budget','Budget']];
+ const top=[['focus','Project control'],['procurement','Materials & dates'],['progress','Progress steps'],['external','External work'],['schedule','Gantt'],['budget','Budget'],['contract','Contract scope']];
  const extras=[['register','Work register'],['structure','Work breakdown'],['assembly','Assemblies'],['bom','Legacy BOM'],['materials','Legacy forecast'],['documents','Documents'],['publishing','Client publishing']];
  const extraSelected=extras.some(pair=>pair[0]===ui.projectTab);
- const content={focus:ui.projectTab==='focus'?renderProjectFocus(data,ui,p.id):'',progress:ui.projectTab==='progress'?renderProjectProgress(data,ui,p.id):'',external:ui.projectTab==='external'?renderExternalWork(data,ui,p.id):'',structure:projectStructure(p),register:projectRegister(p),schedule:projectSchedule(p),
-  assembly:ui.projectTab==='assembly'?renderManufacturing(data,ui,p.id):'',
-  procurement:ui.projectTab==='procurement'?renderProjectSupply(data,ui,p.id):'',
-  budget:ui.projectTab==='budget'?projectBudgetPage(p):'',
-  bom:projectBom(p),materials:projectMaterials(p),documents:projectDocuments(p),publishing:projectPublishing(p)};
+ // Lazy tab rendering: only render the selected screen, avoiding repeated multi-table work.
+ const content={
+  focus:()=>renderProjectFocus(data,ui,p.id),
+  progress:()=>renderProjectProgress(data,ui,p.id),
+  external:()=>renderExternalWork(data,ui,p.id),
+  contract:()=>renderContractScope(data,p.id),
+  structure:()=>projectStructure(p),
+  register:()=>projectRegister(p),
+  schedule:()=>projectSchedule(p),
+  assembly:()=>renderManufacturing(data,ui,p.id),
+  procurement:()=>renderProjectSupply(data,ui,p.id),
+  budget:()=>projectBudgetPage(p),
+  bom:()=>projectBom(p),
+  materials:()=>projectMaterials(p),
+  documents:()=>projectDocuments(p),
+  publishing:()=>projectPublishing(p)
+ };
+ const activeContent=(content[ui.projectTab]||content.focus)();
  const meta='<div class="v42-project-summary"><div class="v42-project-identity"><span class="v42-eyebrow">'+
   e(p.code)+' · '+e(org?.name||'Customer')+'</span><h2>'+e(p.name)+'</h2><p>'+e(p.description||'No description')+'</p>'+
   '<div class="v42-project-mini">'+badge(p.status)+'<span>Lead: <b>'+e(p.lead||'Unassigned')+'</b></span>'+
@@ -167,7 +181,7 @@ function projectDetail(p){
   '<option value="">More...</option>'+extras.map(pair=>'<option value="'+pair[0]+'" '+(ui.projectTab===pair[0]?'selected':'')+'>'+pair[1]+'</option>').join('')+
   '</select></div>';
  return '<div id="project-detail" class="v42-project-detail">'+meta+attention+
-  '<div class="card v42-project-work">'+tabs+'<div class="v42-project-content">'+(content[ui.projectTab]||content.structure)+'</div></div></div>';
+  '<div class="card v42-project-work">'+tabs+'<div class="v42-project-content">'+activeContent+'</div></div></div>';
 }
 function projectBudgetPage(p){
  const b=projectBudgetSnapshot(data,p.id);
@@ -534,9 +548,10 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
  if(type?.startsWith('mfg-')){try{handleManufacturingSubmit(data,ui,form);persist();render();toast('Manufacturing record saved locally');}catch(err){toast(err.message||'Manufacturing form failed',true)}return;}
  if(type?.startsWith('v41-')||type==='v42-material-edit'||type==='v43-quick-part'){try{handleMaterialsSubmit(data,ui,form);persist();render();toast('Procurement saved locally');}catch(err){toast(err.message||'Procurement form failed',true)}return;}
 
- if(type?.startsWith('v43-step-')||type?.startsWith('v43-external-')||type==='v43-material-plan'){
+ if(type?.startsWith('v43-step-')||type?.startsWith('v43-external-')||type==='v43-material-plan'||type?.startsWith('v43-contract-')){
   try{
-   if(type==='v43-material-plan')handleMaterialPlanningForm(data,form);
+   if(type?.startsWith('v43-contract-'))handleContractForm(data,form);
+   else if(type==='v43-material-plan')handleMaterialPlanningForm(data,form);
    else if(type.startsWith('v43-step-'))handleProgressForm(data,ui,form);
    else handleExternalForm(data,ui,form);
    persist();render();toast('Project tracking saved locally');

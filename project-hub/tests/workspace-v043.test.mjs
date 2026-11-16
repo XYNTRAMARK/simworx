@@ -59,3 +59,34 @@ test('local workspace file controller safely falls back if picker unavailable',(
  assert.equal(c.supportsFiles(),false);
  assert.equal(c.status().connected,false);
 });
+
+test('read-back verification checks actual file bytes, not merely a saved status label',async()=>{
+ const previous=globalThis.window;
+ let stored='';
+ const handle={
+  queryPermission:async()=> 'granted',
+  getFile:async()=>({size:stored.length,text:async()=>stored}),
+  createWritable:async()=>({write:async blob=>{stored=await blob.text()},close:async()=>{},abort:async()=>{}})
+ };
+ try{
+  globalThis.window={showSaveFilePicker:async()=>handle,showOpenFilePicker:async()=>[handle]};
+  const c=createWorkspaceFileController();
+  assert.equal(c.supportsFiles(),true);
+  await c.createAndConnect('{"workspace":1}');
+  assert.equal(c.status().connected,true);
+  assert.equal((await c.verifyConnected('{"workspace":1}')).bytes,15);
+  await assert.rejects(c.verifyConnected('{"workspace":2}'),/DO NOT match/);
+  assert.equal(c.status().kind,'file-error');
+  await c.scheduleSave('{"workspace":2}');
+  await c.verifyConnected('{"workspace":2}');
+  c.detach();
+  assert.equal(c.status().connected,false);
+  await assert.rejects(c.verifyConnected('{"workspace":2}'),/Link a workspace/);
+ }finally{if(previous===undefined)delete globalThis.window;else globalThis.window=previous;}
+});
+test('backup restore is deliberately detached from prior autosave file',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const app=readFileSync(new URL('../src/app.mjs',import.meta.url),'utf8');
+ assert.match(app,/workspaceFile\.detach\(\); \/\/ A newly restored backup must NEVER overwrite/);
+ assert.match(app,/workspaceFile\.verifyConnected\(createWorkspaceBackup\(data\)\)/);
+});

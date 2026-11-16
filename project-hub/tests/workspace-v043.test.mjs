@@ -7,6 +7,7 @@ import {ensureProgress} from '../src/progress-v043.mjs';
 import {ensureExternalWork} from '../src/external-work-v043.mjs';
 import {contractDatePlusMonths,setVerifiedContractEffectiveDate,updateContractMilestone,updateScopeReadiness} from '../src/contract-scope-v043.mjs';
 import {createWorkspaceFileController} from '../src/workspace-file-v043.mjs';
+import {createLocalStaffGate} from '../src/staff-access-v043.mjs';
 
 const blank=()=>{const s=emptyWorkspace();ensureManufacturing(s);ensureMaterials(s);ensureProgress(s);ensureExternalWork(s);return s};
 test('fresh workspace is empty, not old demo customers or projects',()=>{
@@ -89,4 +90,25 @@ test('backup restore is deliberately detached from prior autosave file',async()=
  const app=readFileSync(new URL('../src/app.mjs',import.meta.url),'utf8');
  assert.match(app,/workspaceFile\.detach\(\); \/\/ A newly restored backup must NEVER overwrite/);
  assert.match(app,/workspaceFile\.verifyConnected\(createWorkspaceBackup\(data\)\)/);
+});
+
+test('six-digit access gate does not require username or overwrite earlier local credentials',async()=>{
+ const {webcrypto}=await import('node:crypto');
+ const before={crypto:globalThis.crypto,sessionStorage:globalThis.sessionStorage,localStorage:globalThis.localStorage};
+ const session=new Map([['legacy','unaffected']]),local=new Map([['simworx-project-hub-local-staff-v1','previous staff configuration']]);
+ globalThis.crypto=webcrypto;
+ globalThis.sessionStorage={getItem:k=>session.get(k)||null,setItem:(k,v)=>session.set(k,v),removeItem:k=>session.delete(k)};
+ globalThis.localStorage={getItem:k=>local.get(k)||null,setItem:(k,v)=>local.set(k,v),removeItem:k=>local.delete(k)};
+ try{
+  const gate=createLocalStaffGate();
+  assert.equal(gate.status().configured,true);
+  assert.equal(gate.status().unlocked,false);
+  await assert.rejects(gate.signIn('abc'),/six digits/);
+  await assert.rejects(gate.signIn('000000'),/Incorrect six-digit code/);
+  assert.equal(gate.status().unlocked,false);
+  assert.equal(local.get('simworx-project-hub-local-staff-v1'),'previous staff configuration');
+  assert.equal(session.get('legacy'),'unaffected');
+ }finally{
+  for(const [key,value] of Object.entries(before)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}
+ }
 });

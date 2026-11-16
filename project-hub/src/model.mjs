@@ -216,7 +216,11 @@ export function savePart(state,{id,code,name,unit,supplier,location,min,cost}){
   const reorder=requireAmount(min,'Minimum stock'),price=requireAmount(cost,'Reference cost');
   if(!Number.isInteger(reorder))throw Error('Minimum stock must be a whole number');
   const base={code:c,name:n,unit:requireText(unit,'Unit'),supplier:String(supplier||''),location:String(location||''),min:reorder,cost:price};
-  if(id){const p=state.parts.find(p=>p.id===id&&!p.archivedAt);if(!p)throw Error('Part unavailable');Object.assign(p,base);logChange(state,'Part updated',c);return p;}
+  if(id){const p=state.parts.find(p=>p.id===id&&!p.archivedAt);if(!p)throw Error('Part unavailable');
+    const identityChanged=['code','name','unit'].some(k=>p[k]!==base[k]);
+    if(identityChanged&&state.orders.some(o=>(o.items||[]).some(l=>l.partId===id)))
+      throw Error('Part identity is linked to an actual supplier order. Preserve the original ordered part and use a controlled replacement identity.');
+    Object.assign(p,base);logChange(state,'Part updated',c);return p;}
   const p={id:uid('part'),...base,onHand:0,reserved:0};state.parts.push(p);logChange(state,'Part created',c);return p;
 }
 export function saveBomLine(state,{id,projectId,partId,required,sectionId}){

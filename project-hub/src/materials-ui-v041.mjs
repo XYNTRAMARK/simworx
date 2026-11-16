@@ -2,9 +2,9 @@
    Every operation changes shared browser-local Project Hub records, not external systems. */
 import {ensureMaterials,available,outstanding,purchaseStatus,createPurchaseOrder,addPurchaseLine,
 receivePurchaseLine,returnPurchaseReceipt,reserveProjectStock,issueProjectStock,releaseProjectStock,consumeIssuedStock,
-reservationRemaining,materialReadinessV041,assemblyAllocationReadiness,saveOrderShipment,
+reservationRemaining,materialReadinessV041,assemblyAllocationReadiness,saveOrderShipment,setPurchaseDispatch,
 addOrderAttachment,removeOrderAttachment,createWorkspaceBackup,parseWorkspaceBackup} from './materials-v041.mjs';
-import {activeAssemblies,saveOccurrence,assemblyRollup} from './manufacturing.mjs';
+import {activeAssemblies,saveOccurrence,archiveManufacturing,assemblyRollup} from './manufacturing.mjs';
 
 const h=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'" :'&#39;'}[c]));
 const fmt=n=>new Intl.NumberFormat('en-GB',{maximumFractionDigits:2}).format(Number(n)||0);
@@ -48,13 +48,49 @@ export function renderProjectSupply(s,ui,projectId){
    const canReserve=free>0&&r.toAllocate>0;
    const choices=assemblies.filter(a=>assemblyRollup(s,a.id).parts.some(x=>x.partId===r.partId)).map(a=>[a.id,a.name]);
    const allocation=canReserve?'<form data-form="v41-reserve" class="v41-table-form"><input type="hidden" name="projectId" value="'+h(projectId)+'"><input type="hidden" name="partId" value="'+h(r.partId)+'">'+pick('assemblyId',choices.length?choices:assemblies.map(a=>[a.id,a.name]),choices[0]?.[0], 'aria-label="Assembly for reservation" required')+input('quantity',Math.min(free,r.toAllocate),'number','min="1" max="'+Math.min(free,r.toAllocate)+'" required aria-label="Quantity to reserve"')+'<button class="btn small primary">Reserve</button></form>':'<span class="v41-muted">Not available to reserve</span>';
+   const relevantOrders=orders.filter(o=>o.items.some(l=>l.partId===r.partId&&outstanding(l)>0));
+   const dispatch=relevantOrders.some(o=>purchaseStatus(o)==='Out for delivery');
+   const partiallyReceived=relevantOrders.some(o=>purchaseStatus(o)==='Part received');
+   const stage=r.toAllocate===0?'Allocated':r.incoming>0?(partiallyReceived?'Part received':dispatch?'Out for delivery':'Ordered'):
+     r.toSource>0?'Needs ordering':'In stock · allocate';
    const orderBtn=btn('Order shortage','v41-order-prefill','data-project="'+h(projectId)+'" data-part="'+h(r.partId)+'" data-qty="'+Math.max(1,r.toSource||r.toAllocate)+'"','small');
    return '<tr><td><strong>'+h(r.part.code)+'</strong><small>'+h(r.part.name)+'</small></td>'+
     '<td>'+fmt(r.required)+'</td><td>'+fmt(r.reserved)+'</td><td>'+fmt(r.issued)+'</td>'+
     '<td><b>'+fmt(free)+'</b><small>'+fmt(others)+' reserved elsewhere'+(estimateLeft(s,r.part)?' · '+fmt(estimateLeft(s,r.part))+' legacy/unassigned':'')+'</small></td>'+
-    '<td>'+fmt(r.incoming)+'</td><td>'+badge(r.toSource?fmt(r.toSource)+' to order':r.toAllocate?'Allocation needed':'Allocated',r.toSource?'danger':r.toAllocate?'warn':'good')+'</td>'+
+    '<td>'+fmt(r.incoming)+'</td><td>'+badge(stage,r.toSource?'danger':r.toAllocate?'warn':'good')+'<small>'+(r.toSource?fmt(r.toSource)+' still to order':'')+'</small></td>'+
     '<td>'+allocation+orderBtn+'</td></tr>';
  }).join('');
+
+ const occurrences=s.assemblyBOM.filter(x=>x.projectId===projectId&&!x.archivedAt&&assemblies.some(a=>a.id===x.assemblyId));
+ const requirementRows=occurrences.map(x=>{
+   const p=s.parts.find(p=>p.id===x.partId),a=assemblies.find(a=>a.id===x.assemblyId);
+   if(ui.materialEditOccurrence===x.id){
+     return '<tr class="v42-edit-row"><td colspan="5"><form data-form="v42-material-edit" class="v42-material-form">'+
+       '<input type="hidden" name="recordId" value="'+h(x.id)+'">'+
+       label('Part identity',pick('partId',sku(s),x.partId,'required'))+
+       label('Quantity',input('quantity',x.quantity,'number','min="1" step="1" required'))+
+       label('Position / reference',input('position',x.position||''))+
+       label('Make / buy',pick('makeBuy',[['Buy','Buy'],['Make','Make']],x.makeBuy||'Buy'))+
+       '<div class="v41-actions"><button class="btn small primary" type="submit">Save change</button>'+
+       btn('Cancel','v42-material-cancel','','small')+'</div></form></td></tr>';
+   }
+   return '<tr><td><b>'+h(p?.code||'Unknown')+'</b><small>'+h(p?.name||'Part missing')+'</small></td>'+
+     '<td>'+h(a?.name||'Unknown assembly')+'</td><td>'+fmt(x.quantity)+'</td><td>'+h(x.position||'—')+'</td>'+
+     '<td><div class="v41-actions">'+btn('Edit','v42-material-edit','data-id="'+h(x.id)+'"','small')+
+     btn('Remove','v42-material-remove','data-id="'+h(x.id)+'"','small danger')+
+     btn('Edit part master','v42-edit-master','data-id="'+h(x.partId)+'"','small')+'</div></td></tr>';
+ }).join('');
+ const archivedReq=s.assemblyBOM.filter(x=>x.projectId===projectId&&x.archivedAt);
+ const requirementsPanel=panel('Material requirements · add / edit / remove',
+  '<div class="v41-toolbar">'+btn('+ New part identity','v42-new-part','','small')+
+  '<p class="v41-caption">Changing the selected part here affects only this requirement. Editing the master SKU affects every project using it.</p></div>'+
+  (assemblies.length?form:'<p class="v41-notice">Create an assembly first in Assembly control.</p>')+
+  '<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part identity</th><th>Assembly</th><th>Qty</th><th>Position</th><th>Controls</th></tr></thead><tbody>'+
+  (requirementRows||'<tr><td colspan="5">No project material requirements yet.</td></tr>')+'</tbody></table></div>'+
+  (archivedReq.length?'<details class="v42-archived"><summary>'+archivedReq.length+' removed material lines (restore)</summary>'+
+    archivedReq.map(x=>'<div>'+h(s.parts.find(p=>p.id===x.partId)?.code||x.partId)+
+      ' · '+h(x.position||'No position')+' '+btn('Restore','v42-material-restore','data-id="'+h(x.id)+'"','small')+'</div>').join('')+'</details>':''));
+
  const res=s.stockReservations.filter(r=>r.projectId===projectId);
  const reservationRows=res.map(r=>{
   const p=s.parts.find(p=>p.id===r.partId);
@@ -73,8 +109,8 @@ export function renderProjectSupply(s,ui,projectId){
  }).join('');
  return '<div class="v41"><div class="v41-intro"><div><h2>Project procurement & materials</h2><p>Assembly BOM → shared workshop inventory → reservations → purchasing → receipts → workshop issue.</p></div>'+badge('V0.4.1 local demo')+'</div>'+
   '<div class="v41-kpis"><div><b>'+rows.length+'</b><span>Required part SKUs</span></div><div><b>'+shortage.length+'</b><span>Materials still to source</span></div><div><b>'+orders.length+'</b><span>Purchase orders for project</span></div><div><b>'+res.filter(x=>reservationRemaining(x)>0).length+'</b><span>Active allocations</span></div></div>'+
-  panel('Add required materials',assemblies.length?form:'<p class="v41-notice">Create a project assembly in Assembly control before adding required materials.</p>','Adds an editable E-BOM occurrence to the selected project assembly. Shared part master is unchanged.')+
-  panel('Stock check & order requirements','<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part</th><th>BOM need</th><th>Reserved here</th><th>Issued here</th><th>Available / other projects</th><th>On order</th><th>To source</th><th>Allocate / order</th></tr></thead><tbody>'+rowsHTML+'</tbody></table></div><p class="v41-caption">Available means on-hand less ALL project and legacy reservations. Goods merely ordered are never counted in on-hand stock. BOM requirements from nested assemblies are rolled up.</p>')+
+  requirementsPanel+
+  panel('Stock check & order requirements','<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part</th><th>BOM need</th><th>Reserved here</th><th>Issued here</th><th>Available / other projects</th><th>On order</th><th>Order stage / shortage</th><th>Allocate / order</th></tr></thead><tbody>'+rowsHTML+'</tbody></table></div><p class="v41-caption">Available means on-hand less ALL project and legacy reservations. Goods merely ordered are never counted in on-hand stock. BOM requirements from nested assemblies are rolled up.</p>')+
   panel('Project allocations & workshop issue','<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part</th><th>Assembly</th><th>Reserved</th><th>Issued</th><th>Consumed</th><th>Action</th></tr></thead><tbody>'+(reservationRows||'<tr><td colspan="6">No project-specific stock reservations yet.</td></tr>')+'</tbody></table></div>')+
   '<div class="v41-heading"><h3>Purchase orders linked to this project</h3>'+btn('+ Create purchase order','v41-order-new','data-project="'+h(projectId)+'"','small primary')+'</div>'+
   (ui.materialOrderEditor?renderOrderComposer(s,ui,projectId):'')+
@@ -111,7 +147,10 @@ function orderRegister(s,ui,projectId='all'){
   const received=o.items.reduce((n,l)=>n+Number(l.received||0),0),completed=o.items.filter(l=>outstanding(l)===0).length;
   return '<tr><td><strong>'+h(o.code)+'</strong><small>'+date(o.date)+'</small></td><td>'+h(o.supplier)+'</td><td>'+h(p?.code)+'</td>'+
     '<td>'+o.items.length+'</td><td>'+cost(orderTotal(o),o.currency||'EUR')+'</td>'+
-    '<td>'+badge(purchaseStatus(o),purchaseStatus(o)==='Received'?'good':received?'warn':'')+'<small>'+completed+'/'+o.items.length+' lines fully received</small></td>'+
+    '<td>'+badge(purchaseStatus(o),purchaseStatus(o)==='Received'?'good':purchaseStatus(o)==='Part received'?'warn':'')+
+    '<small>'+completed+'/'+o.items.length+' lines fully received</small>'+
+    (purchaseStatus(o)!=='Received'?'<select class="v42-status-select" data-v42-delivery="'+h(o.id)+'" aria-label="Update delivery stage">'+
+    [['Ordered','Ordered'],['Out for delivery','Out for delivery']].map(([v,t])=>'<option value="'+v+'" '+((o.dispatchState||'Ordered')===v?'selected':'')+'>'+t+'</option>').join('')+'</select>':'')+'</td>'+
     '<td>'+h(o.shipment?.carrier||'Carrier not set')+'<small>'+h(o.shipment?.trackingCode||'No tracking code')+' · '+(o.attachments?.length||0)+' file(s)</small></td>'+
     '<td><div class="v41-actions">'+btn('Manage','v41-order-open','data-id="'+h(o.id)+'"','small primary')+btn('Archive','archive-record','data-kind="orders" data-id="'+h(o.id)+'"','small danger')+'</div></td></tr>';
  }).join('')||'<tr><td colspan="8">No purchase orders for this selection.</td></tr>')+'</tbody></table></div>');
@@ -207,7 +246,15 @@ export function renderInventoryV041(s,ui){
 export function handleMaterialsAction(s,ui,el,confirmFn=()=>true){
  const action=el.dataset.action;
  ensureMaterials(s);
- if(action==='v41-order-open'){ui.materialPO=el.dataset.id;ui.materialOrderEditor=false;}
+ if(action==='v42-material-edit'){ui.materialEditOccurrence=el.dataset.id;}
+ else if(action==='v42-material-cancel'){ui.materialEditOccurrence=null;}
+ else if(action==='v42-material-remove'){
+  if(confirmFn('Remove this project requirement? It stays archived for restoration; historic released manufacturing snapshots are unchanged.')){
+   archiveManufacturing(s,'occurrence',el.dataset.id);ui.materialEditOccurrence=null;
+  }
+ }
+ else if(action==='v42-material-restore'){archiveManufacturing(s,'occurrence',el.dataset.id,true);}
+ else if(action==='v41-order-open'){ui.materialPO=el.dataset.id;ui.materialOrderEditor=false;}
  else if(action==='v41-order-new'){ui.materialOrderEditor=true;ui.materialPrefill=null;ui.materialOrderProject=el.dataset.project||ui.materialOrderProject;}
  else if(action==='v41-order-prefill'){ui.materialOrderEditor=true;ui.materialPrefill={partId:el.dataset.part,quantity:el.dataset.qty};ui.materialOrderProject=el.dataset.project;}
  else if(action==='v41-order-cancel'){ui.materialOrderEditor=false;ui.materialPrefill=null;}
@@ -250,6 +297,13 @@ export function handleMaterialsSubmit(s,ui,form){
  if(type==='v41-requirement'){
    saveOccurrence(s,{assemblyId:v('assemblyId'),partId:v('partId'),quantity:v('quantity'),position:v('position'),makeBuy:'Buy'});
  }
+ else if(type==='v42-material-edit'){
+   const occ=s.assemblyBOM.find(x=>x.id===v('recordId')&&!x.archivedAt);
+   if(!occ)throw Error('Material requirement unavailable');
+   saveOccurrence(s,{id:occ.id,assemblyId:occ.assemblyId,partId:v('partId'),quantity:v('quantity'),
+      position:v('position'),makeBuy:v('makeBuy'),notes:occ.notes||''});
+   ui.materialEditOccurrence=null;
+ }
  else if(type==='v41-reserve'){
    reserveProjectStock(s,{projectId:v('projectId'),assemblyId:v('assemblyId'),partId:v('partId'),quantity:v('quantity')});
  }
@@ -270,6 +324,7 @@ export function handleMaterialsSubmit(s,ui,form){
  else throw Error('Unrecognized procurement form '+type);
  return true;
 }
+export function updateOrderStage(s,orderId,stage){return setPurchaseDispatch(s,{orderId,stage});}
 export function handleMaterialsProof(s,el,onSaved,onError){
  const orderId=el.dataset.v41Proof,file=el.files?.[0];
  if(!orderId||!file)return;

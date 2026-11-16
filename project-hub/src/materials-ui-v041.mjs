@@ -155,7 +155,7 @@ export function renderOrderComposer(s,ui,projectId){
   return panel('Contract-controlled purchase guard','<p class="v47-warning">Before placing a real purchase, open Buying review, confirm purchasing responsibility, record the proposed model and compare it with the controlled technical specification. The PO form only opens for a verified requirement.</p>');
  return panel('New purchase order · '+p.code,
  '<form data-form="v41-po" class="v41-order-form"><input type="hidden" name="projectId" value="'+h(projectId)+'">'+
- '<div class="v41-fields">'+label('Supplier',input('supplier','','text','required'))+
+ '<div class="v41-fields">'+label('Supplier',input('supplier',pref.supplier||'','text','required'))+
  label('Currency',pick('currency',[['EUR','EUR'],['GBP','GBP'],['USD','USD'],['CAD','CAD']],'EUR'))+
  label('Tax assumption (%)',input('taxRate',0,'number','min="0" max="100" step="0.01" required'))+'</div>'+
  '<div id="v41-order-lines">'+orderLineEditor(s,projectId,pref)+'</div>'+

@@ -206,8 +206,8 @@ export function renderProjectBuyingReview(s,ui,projectId){
    (!r.make&&r.responsibility==='Sim-Worx'&&r.coverage.toSource>0?'<button type="button" class="btn small" data-action="v46-prepare-po" data-id="'+ref+'">Prepare PO</button>':'')+'</div></td></tr>';
   return tr+editor+ops.panels;
  };
- return '<section class="v46-buy">'+intro('Buying review · what might we need to source?',
-  'Start with engineering requirements; validate each supplier, quotation, schedule and approval before creating any real purchase order.')+
+ return '<section class="v46-buy">'+intro('Materials to source · specifications and responsibility',
+  'Assign the responsible department, confirm technical specifications and save supplier product links before recording real purchase orders.')+
   '<div class="v46-metrics v46-metrics-compact">'+
   '<div class="v46-metric"><small>BUY REQUIREMENTS</small><strong>'+num(snap.buy.length)+'</strong><span>'+num(snap.simworxBuy.length)+' assigned to Sim-Worx</span></div>'+
   '<div class="v46-metric"><small>MAKE IN WORKSHOP</small><strong>'+num(snap.manufacture.length)+'</strong><span>Not supplier purchases</span></div>'+
@@ -228,7 +228,7 @@ export function renderProjectBuyingReview(s,ui,projectId){
   (eligible.map(stateLine).join('')||'<tr><td colspan="8">No requirements match this filter.</td></tr>')+
   '</tbody></table></div>'+
   '<p class="v46-small">* Gap is aggregated for the same stock part across the entire project, including outstanding PO quantities. Repeated part identities therefore share the same project-wide gap and must not be added together. “Plan” only saves dates/assumptions; it does not place an order, approve a quote or change stock.</p>'+
-  '<div class="v46-mini-links">'+button('Full material editor','procurement')+button('Schedule work','work')+
+  '<div class="v46-mini-links">'+button('Department purchasing responsibility','team')+button('Schedule work','work')+
   button('External supplier handoffs','external')+'</div></section>';
 }
 export function saveBuyingReviewForm(s,form){

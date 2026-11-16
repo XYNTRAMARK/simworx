@@ -615,6 +615,11 @@ function handleWorkspaceAction(action){
    downloadText(name,text);toast('Encrypted backup downloaded · keep it safe');
   }).catch(err=>toast(String(err.message||err),true));return;
  }
+ if(action==='workspace-emergency-backup'){
+  workspaceManager.emergencyEncryptedBackup(data).then(({name,text})=>{
+   downloadText(name,text);toast('Current in-memory records exported in encrypted form');
+  }).catch(err=>toast(String(err.message||err),true));return;
+ }
  if(action==='workspace-delete-legacy'){
   if(!workspaceManager.status().lastSaved)throw Error('Save the encrypted workspace first');
   if(window.confirm('Remove the OLD unencrypted browser-storage copy? This action does not remove your new encrypted workspace. Make a separate encrypted backup first.')){

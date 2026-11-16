@@ -139,6 +139,186 @@ export function returnPurchaseReceipt(s,{receiptId,quantity}){
   note(s,'Supplier return',o.code+': '+q+' × '+part.code);
   return receipt;
 }
+
+const trackingURL = raw => {
+  const value=String(raw||'').trim();
+  if(!value)return '';
+  try {const u=new URL(value);if(u.protocol!=='https:')throw Error();return u.href;}
+  catch {throw Error('Tracking URL must start with https://');}
+};
+export function saveOrderShipment(s,{orderId,carrier,trackingCode,trackingUrl,eta,note}){
+  ensureMaterials(s);
+  const o=s.orders.find(o=>live(o)&&o.id===orderId);
+  if(!o)throw Error('Purchase order unavailable');
+  if(eta&&!/^\d{4}-\d{2}-\d{2}$/.test(eta))throw Error('Expected delivery must be an ISO date');
+  const shipment={carrier:String(carrier||'').trim().slice(0,100),
+    trackingCode:String(trackingCode||'').trim().slice(0,150),
+    trackingUrl:trackingURL(trackingUrl),eta:String(eta||''),
+    note:String(note||'').trim().slice(0,500)};
+  o.shipment=shipment;
+  noteAudit(s,'Tracking details updated',o.code);
+  return o;
+}
+const noteAudit=note; // Avoid overriding the shipment's note text.
+const supportedMime = new Set(['application/pdf','image/jpeg','image/png','image/webp']);
+export function addOrderAttachment(s,{orderId,name,mime,size,dataUrl}){
+  ensureMaterials(s);
+  const o=s.orders.find(o=>live(o)&&o.id===orderId);
+  if(!o)throw Error('Purchase order unavailable');
+  if(!supportedMime.has(mime))throw Error('Only PDF, JPEG, PNG or WebP proof files are supported');
+  if(!Number.isSafeInteger(size)||size<=0||size>800000)throw Error('Proof document must be 800 KB or smaller');
+  const prefix='data:'+mime+';base64,';
+  if(!String(dataUrl||'').startsWith(prefix)||!new RegExp('^[A-Za-z0-9+/]*={0,2} Math.max(0,Number(r.quantity||0)-Number(r.issued||0)-Number(r.released||0));
+export function reserveProjectStock(s,{projectId,assemblyId,partId,quantity}){
+  ensureMaterials(s);
+  const project=projectById(s,projectId),part=partById(s,partId);
+  assemblyForProject(s,assemblyId,project.id);
+  const q=integer(quantity,'Reservation quantity');
+  if(available(part)<q)throw Error('Insufficient available stock: '+available(part)+' free');
+  part.reserved=Number(part.reserved||0)+q;
+  const reservation={id:uid('res'),projectId:project.id,assemblyId:assemblyId||null,partId:part.id,
+    quantity:q,issued:0,released:0,createdAt:timestamp()};
+  s.stockReservations.unshift(reservation);
+  recordMovement(s,part.id,'reserve',q,project.id,reservation.id);
+  note(s,'Stock reserved',q+' × '+part.code+' for '+project.code);
+  return reservation;
+}
+export function releaseProjectStock(s,{reservationId,quantity}){
+  ensureMaterials(s);
+  const r=s.stockReservations.find(x=>x.id===reservationId);
+  if(!r)throw Error('Reservation unavailable');
+  const q=integer(quantity,'Release quantity'),remain=reservationRemaining(r);
+  if(q>remain)throw Error('Cannot release more than reserved');
+  const p=partById(s,r.partId);
+  if(Number(p.reserved)<q)throw Error('Reservation ledger mismatch');
+  p.reserved-=q;r.released+=q;
+  recordMovement(s,p.id,'release-reservation',q,r.projectId,r.id);
+  note(s,'Reservation released',q+' × '+p.code);
+  return r;
+}
+export function issueProjectStock(s,{reservationId,quantity}){
+  ensureMaterials(s);
+  const r=s.stockReservations.find(x=>x.id===reservationId);
+  if(!r)throw Error('Reservation unavailable');
+  const q=integer(quantity,'Issue quantity'),remain=reservationRemaining(r);
+  if(q>remain)throw Error('Cannot issue more than reserved');
+  const p=partById(s,r.partId);
+  if(Number(p.onHand)<q||Number(p.reserved)<q)throw Error('Insufficient reserved on-hand stock');
+  p.onHand-=q;p.reserved-=q;r.issued+=q;
+  recordMovement(s,p.id,'issue-reserved',q,r.projectId,r.id);
+  note(s,'Stock issued to workshop',q+' × '+p.code);
+  return r;
+}
+export function consumeIssuedStock(s,{reservationId,quantity}){
+  ensureMaterials(s);
+  const r=s.stockReservations.find(x=>x.id===reservationId);
+  if(!r)throw Error('Reservation unavailable');
+  const q=integer(quantity,'Consumption quantity');
+  const unconsumed=Number(r.issued||0)-Number(r.consumed||0);
+  if(q>unconsumed)throw Error('Cannot consume more than previously issued');
+  r.consumed=Number(r.consumed||0)+q; // Already removed from on-hand at issue
+  recordMovement(s,r.partId,'consume-issued',q,r.projectId,r.id);
+  note(s,'Workshop material consumed',q+' × '+partById(s,r.partId).code);
+  return r;
+}
+export function assemblyAllocationReadiness(s,assemblyId){
+  ensureMaterials(s);
+  const rollup=assemblyRollup(s,assemblyId);
+  const included=new Set(rollup.assemblies.map(a=>a.assemblyId));
+  return rollup.parts.map(line=>{
+    const rs=s.stockReservations.filter(r=>included.has(r.assemblyId)&&r.partId===line.partId);
+    const reserved=rs.reduce((v,r)=>v+reservationRemaining(r),0);
+    const issued=rs.reduce((v,r)=>v+Number(r.issued||0),0);
+    return {...line,reserved,issued,missing:Math.max(0,line.required-reserved-issued),
+      ready:reserved+issued>=line.required};
+  });
+}
+export function materialReadinessV041(s,projectId){
+  ensureMaterials(s);
+  projectById(s,projectId);
+  const sums=new Map();
+  for(const root of activeAssemblies(s,projectId).filter(a=>!a.parentId)){
+    for(const line of assemblyRollup(s,root.id).parts){
+      const row=sums.get(line.partId)||{partId:line.partId,required:0};
+      row.required+=line.required;sums.set(line.partId,row);
+    }
+  }
+  return [...sums.values()].map(row=>{
+    const part=partById(s,row.partId);
+    const rs=s.stockReservations.filter(r=>r.projectId===projectId&&r.partId===part.id);
+    const reserved=rs.reduce((n,r)=>n+reservationRemaining(r),0);
+    const issued=rs.reduce((n,r)=>n+Number(r.issued||0),0);
+    const toAllocate=Math.max(0,row.required-reserved-issued);
+    const incoming=s.orders.filter(o=>live(o)&&o.projectId===projectId)
+      .reduce((n,o)=>n+o.items.filter(l=>l.partId===part.id).reduce((m,l)=>m+outstanding(l),0),0);
+    return {...row,part,reserved,issued,toAllocate,incoming,freeStock:available(part),
+      toSource:Math.max(0,toAllocate-available(part)-incoming),ready:toAllocate===0};
+  }).sort((a,b)=>a.part.code.localeCompare(b.part.code));
+}
+export function auditMaterials(s){
+  ensureMaterials(s);
+  for(const p of s.parts){
+    if(!Number.isSafeInteger(Number(p.onHand))||!Number.isSafeInteger(Number(p.reserved))||p.onHand<0||p.reserved<0||p.reserved>p.onHand)
+      throw Error('Invalid on-hand/reserved quantities for '+p.code);
+    const tracked=s.stockReservations.filter(r=>r.partId===p.id).reduce((n,r)=>n+reservationRemaining(r),0);
+    if(tracked>p.reserved)throw Error('Unbalanced reservation ledger for '+p.code);
+  }
+  for(const o of s.orders){
+    if(o.shipment?.trackingUrl)trackingURL(o.shipment.trackingUrl);
+    if((o.attachments||[]).length>4)throw Error('Too many attachments in '+o.code);
+    for(const f of o.attachments||[]){
+      if(!supportedMime.has(f.mime)||!Number.isSafeInteger(f.size)||f.size<1||f.size>800000
+         ||!String(f.dataUrl).startsWith('data:'+f.mime+';base64,'))throw Error('Invalid proof document in '+o.code);
+    }
+  }
+  for(const o of s.orders)for(const l of o.items){
+    if(!Number.isSafeInteger(Number(l.quantity))||l.quantity<=0||!Number.isSafeInteger(Number(l.received||0))||l.received<0||l.received>l.quantity)
+      throw Error('Invalid PO quantity for '+o.code);
+  }
+  return true;
+}
+export function createWorkspaceBackup(s){
+  auditMaterials(s);
+  return JSON.stringify({format:'simworx-project-hub-backup',schema:1,application:'V0.4.1',createdAt:timestamp(),
+    warning:'Contains all local demo records including internal illustrative financial data. Keep private.',state:s},null,2);
+}
+export function parseWorkspaceBackup(text){
+  if(typeof text!=='string'||text.length>10_000_000)throw Error('Backup exceeds the 10 MB import limit');
+  const decoded=JSON.parse(text,(key,value)=>{
+    if(['__proto__','prototype','constructor'].includes(key))throw Error('Unsafe backup key');
+    return value;
+  });
+  if(decoded?.format!=='simworx-project-hub-backup'||decoded.schema!==1)throw Error('Not a supported Project Hub backup');
+  const s=decoded.state;
+  for(const key of ['organizations','projects','sections','tasks','parts','bom','orders','movements','audit'])
+    if(!Array.isArray(s?.[key]))throw Error('Backup missing '+key);
+  if(s.version!==1||!s.settings||!['light','dark'].includes(s.settings.theme))throw Error('Unsupported backup data format');
+  ensureMaterials(s);
+  auditMaterials(s);
+  return s;
+}
+).test(dataUrl.slice(prefix.length)))
+    throw Error('Invalid document file encoding');
+  const expected=Math.ceil(size/3)*4;
+  if(dataUrl.length-prefix.length!==expected)throw Error('Document size does not match uploaded content');
+  o.attachments??=[];
+  if(o.attachments.length>=4)throw Error('Maximum four proof documents per order');
+  const file={id:uid('proof'),name:required(name,'Filename').slice(0,150),mime,size,dataUrl,addedAt:timestamp()};
+  o.attachments.push(file);
+  noteAudit(s,'Order document attached',o.code+' / '+file.name);
+  return file;
+}
+export function removeOrderAttachment(s,{orderId,attachmentId}){
+  ensureMaterials(s);
+  const o=s.orders.find(o=>live(o)&&o.id===orderId);
+  if(!o)throw Error('Purchase order unavailable');
+  const idx=(o.attachments||[]).findIndex(f=>f.id===attachmentId);
+  if(idx<0)throw Error('Attachment not found');
+  const [file]=o.attachments.splice(idx,1);
+  noteAudit(s,'Order document removed',o.code+' / '+file.name);
+  return file;
+}
+
 export const reservationRemaining = r => Math.max(0,Number(r.quantity||0)-Number(r.issued||0)-Number(r.released||0));
 export function reserveProjectStock(s,{projectId,assemblyId,partId,quantity}){
   ensureMaterials(s);

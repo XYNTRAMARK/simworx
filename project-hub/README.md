@@ -1,10 +1,10 @@
-# Sim-Worx Project Hub — V0.4.6
+# Sim-Worx Project Hub — V0.4.7
 
-**16 November 2026 · Staff-only local workspace — NOT a cloud database or production website.** The header badge displays **V0.4.6**. Fresh starts have NO fictional customer/project records. Incremental cost: **€0**. No production deployment, database, workflows or unrelated project modified.
+**16 November 2026 · Staff-only local workspace — NOT a cloud database or production website.** The header badge displays **V0.4.7**. Fresh starts have NO fictional customer/project records. Incremental cost: **€0**. No production deployment, database, workflows or unrelated project modified.
 
-## First-use steps for real projects (V0.4.6)
+## First-use steps for real projects (V0.4.7)
 
-1. Download and **extract the entire ZIP**. Double-click \`SimWorx_Project_Hub_Complete_V0.4.6.html\` in current Chrome or Edge. This is the complete offline app, NOT an isolated feature preview.
+1. Download and **extract the entire ZIP**. Double-click \`SimWorx_Project_Hub_Complete_V0.4.7.html\` in current Chrome or Edge. This is the complete offline app, NOT an isolated feature preview.
 2. Enter the owner-supplied six-digit PIN. No username/password setup is required. This is only a **local convenience lock**; project JSON is not encrypted and the six-digit PIN can be brute-forced from the offline client source.
 3. Open Settings → **Download JSON backup** before replacing any older data. Then click **Restore JSON backup**, choose the PRIVATE project import provided separately and confirm replacement.
 4. In **Projects**, open the imported project. Use the Project control, Materials & dates, Progress steps, External work, Gantt, Budget and Contract scope tabs.
@@ -14,11 +14,20 @@
 
 **Limitations:** this is single-computer, local-first software. The PIN does not encrypt files or provide secure multi-user logins; browser storage and file picker permissions can be lost. There is no remote server, authenticated customer portal, distributed database or automatic cloud backup. Do not use it for critical live processes until real-browser file persistence and recovery are proven on your PC.
 
-[Detailed V0.4.6 release notes](docs/release-v046.md).
+[Detailed V0.4.7 release notes](docs/release-v047.md).
 
 ## Run and explore
 
-**Owner's simplest route:** download `SimWorx_Project_Hub_Complete_V0.4.6.zip`, extract it, and double-click `SimWorx_Project_Hub_Complete_V0.4.6.html` in Chrome. This is the **entire application**, including all original project, planning, customer, inventory, finance and manufacturing screens—not a separate procurement preview. Developers can also serve this directory locally with `python3 -m http.server 8765` and visit `http://localhost:8765`.
+**Owner's simplest route:** download `SimWorx_Project_Hub_Complete_V0.4.7.zip`, extract it, and double-click `SimWorx_Project_Hub_Complete_V0.4.7.html` in Chrome. This is the **entire application**, including all original project, planning, customer, inventory, finance and manufacturing screens—not a separate procurement preview. Developers can also serve this directory locally with `python3 -m http.server 8765` and visit `http://localhost:8765`.
+
+## V0.4.7 — contract specification safeguards, colour sections and reversible procurement
+
+- **Colour-coded work packages:** every work-section heading has a distinctive accent and tinted heading/header, so task rows are visibly separated from their work-package title.
+- **Purchasing status actions and drag lanes:** item rows show calculated PO/arrival/receipt status and have an Action menu. Research, RFQ, quote, change requested and replacement request are editable planning states; drag-and-drop supports these planning states with a reason. **Ordered** opens a real PO form; **Arrived** and **Received** open actual delivery and inspection records. Users cannot mark goods received or ordered by simply changing a label.
+- **Contract specification safety:** when a project is initialized from a controlled contract import, internal POs are blocked until the engineer records the exact proposed item, comparison with locally available baseline notes, reviewer, and evidence reference as a match. Staff must consult controlled Annex and approved drawings; this application never claims independent verification of a supplier model. A source/specification change invalidates previous technical approval. Customer-direct items are not silently bought by Sim-Worx.
+- **Wrong goods / replacements:** record physical arrivals without stock movement; accept after inspected evidence to add on-hand units, or reject with factual reason/evidence without increasing stock. A replacement request does not automatically send a new PO. If a supplier agrees to cancel an outstanding PO balance, record that confirmed closure with reference; old PO and receipts stay in the audit trail. New replacement PO requires re-verification and a genuine uncovered requirement, preventing accidental duplicate ordering.
+- **Local workspace warning:** warn if the application was opened inside a Windows temporary ZIP extraction location. Extract into a permanent folder for reliable file re-linking.
+- All public source remains generic, no contract contents or supplier data added, and no production deployment.
 
 ## V0.4.6 — project-first planning and purchasing
 

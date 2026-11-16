@@ -142,7 +142,7 @@ export function saveTask(state,{id,projectId,sectionId,title,department,assignee
   if(!state.projects.some(p=>p.id===projectId&&!p.archivedAt))throw Error('Project unavailable');
   if(!state.sections.some(s=>s.id===sectionId&&s.projectId===projectId&&!s.archivedAt))throw Error('Invalid section for project');
   const name=requireText(title,'Job title');
-  if(!['Office','Workshop','Purchasing','Quality'].includes(department))throw Error('Invalid department');
+  if(!['Office','Workshop','Purchasing','Quality','IT','Avionics','Electronics','Mechanical','Design','Integration','Software','Logistics'].includes(department))throw Error('Invalid department');
   if(!['Normal','High','Critical'].includes(priority))throw Error('Invalid priority');
   const current=id?state.tasks.find(t=>t.id===id&&!t.archivedAt):null;
   if(id&&!current)throw Error('Job unavailable');

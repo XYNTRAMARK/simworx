@@ -10,6 +10,7 @@ import {renderProjectMaterialPlanner} from './planning-ui-v043.mjs';
 import {savePart} from './model.mjs';
 import {renderProjectBuyingReview,projectBuyingSnapshot} from './project-control-v046.mjs';
 import {updatePurchaseLineRecord,safeProductURL} from './procurement-sourcing-v046.mjs';
+import {contractControlled,specStatus} from './procurement-workflow-v047.mjs';
 
 const h=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'" :'&#39;'}[c]));
 const fmt=n=>new Intl.NumberFormat('en-GB',{maximumFractionDigits:2}).format(Number(n)||0);
@@ -150,6 +151,8 @@ export function renderOrderComposer(s,ui,projectId){
  const p=s.projects.find(p=>p.id===projectId&&!p.archivedAt);
  if(!p)return '<p>Select a project before making an order.</p>';
  const pref=ui.materialPrefill||{};
+ if(contractControlled(s,projectId)&&(!pref.sourceOccurrenceId||!specStatus(s,pref.sourceOccurrenceId).approved))
+  return panel('Contract-controlled purchase guard','<p class="v47-warning">Before placing a real purchase, open Buying review, confirm purchasing responsibility, record the proposed model and compare it with the controlled technical specification. The PO form only opens for a verified requirement.</p>');
  return panel('New purchase order · '+p.code,
  '<form data-form="v41-po" class="v41-order-form"><input type="hidden" name="projectId" value="'+h(projectId)+'">'+
  '<div class="v41-fields">'+label('Supplier',input('supplier','','text','required'))+
@@ -183,14 +186,16 @@ function orderDetailIfSelected(s,ui,projectId='all'){
 function renderOrderDetail(s,ui,o){
  const p=s.projects.find(p=>p.id===o.projectId);
  const sh=o.shipment||{};
+ const controlled=contractControlled(s,o.projectId);
  const lineRows=o.items.map(l=>{
   const p=s.parts.find(p=>p.id===l.partId);
   const left=outstanding(l);
-  const editing=ui.v46PurchaseLine===l.id;
+  const editing=ui.v46PurchaseLine===l.id,balanceEditing=ui.v47BalanceLine===l.id;
+  const isClosed=Number(l.closedQuantity||0)>0;
   const last=l.revisions||[];
   let url='';try{url=safeProductURL(l.productUrl||'');}catch{}
   const savedURL=url?'<a href="'+h(url)+'" target="_blank" rel="noopener noreferrer">Product website</a>':'<small>No website recorded</small>';
-  const edits=editing?'<tr class="v46-editor-row"><td colspan="8"><form data-form="v46-po-line-update" class="v46-inline-form">'+
+  const edits=editing?'<tr class="v46-editor-row"><td colspan="9"><form data-form="v46-po-line-update" class="v46-inline-form">'+
    input('orderId',o.id,'hidden')+input('lineId',l.id,'hidden')+
    label('Ordered quantity',input('quantity',l.quantity,'number','min="'+Math.max(1,Number(l.received||0))+'" step="1" required'))+
    label('Unit cost ('+o.currency+')',input('unitCost',l.unitCost,'number','min="0" step="0.01" required'))+
@@ -205,15 +210,27 @@ function renderOrderDetail(s,ui,o){
   return '<tr><td><b>'+h(p?.code)+'</b><small>'+h(p?.name)+'</small>'+savedURL+
    (l.vendorSku?'<small>Vendor code: '+h(l.vendorSku)+'</small>':'')+
    (l.quoteRef?'<small>Quote ref: '+h(l.quoteRef)+'</small>':'')+'</td>'+
-   '<td>'+fmt(l.quantity)+'</td><td>'+fmt(l.received||0)+'</td><td>'+badge(left?fmt(left)+' backordered':'Complete',left?'warn':'good')+'</td>'+
+   '<td>'+fmt(l.quantity)+'</td><td>'+fmt(l.received||0)+'</td><td>'+badge(left?fmt(left)+' still open':isClosed?'Closed '+fmt(l.closedQuantity):'Complete',left?'warn':'good')+'</td>'+
    '<td>'+cost(l.unitCost,o.currency||'EUR')+'</td><td>'+date(l.eta)+'</td>'+
-   '<td>'+(left?'<form class="v41-table-form" data-form="v41-receive">'+
+   '<td>'+(left&&!controlled?'<form class="v41-table-form" data-form="v41-receive">'+
     '<input type="hidden" name="orderId" value="'+h(o.id)+'"><input type="hidden" name="lineId" value="'+h(l.id)+'">'+
     input('quantity',left,'number','min="1" max="'+left+'" required aria-label="Goods received quantity"')+
-    '<button class="btn primary small">Receive</button></form>':'Received in full')+'</td>'+
+    '<button class="btn primary small">Receive</button></form>':left&&controlled?
+      (l.sourceOccurrenceId?btn('Arrival / QA','v47-arrival-open','data-id="'+h(l.sourceOccurrenceId)+'"','small'):
+       '<small>Missing contract line reference</small>'):
+      isClosed?'Balance closed':'Received in full')+'</td>'+
     '<td>'+btn(editing?'Close edit':'Edit line','v46-po-line-edit','data-id="'+h(l.id)+'"','small')+
+     (left?btn('Close unreceived balance','v47-balance-close-open','data-id="'+h(l.id)+'"','small'):'')+
+     (isClosed?btn('Reopen balance','v47-balance-reopen-open','data-id="'+h(l.id)+'"','small'):'')+
+     (l.specificationEvidence?'<small>Spec evidence: '+h(l.specificationEvidence.evidenceRef)+'</small>':'')+
     (last.length?'<details><summary>'+last.length+' amendment(s)</summary>'+last.slice(-8).map(v=>'<p><b>'+h(v.reason)+'</b><small>'+h(v.at)+'</small></p>').join('')+'</details>':'')+
-    '</td></tr>'+edits;
+    '</td></tr>'+edits+
+    (balanceEditing?'<tr class="v47-balance-row"><td colspan="9"><form data-form="v47-balance-change" class="v46-inline-form">'+
+     input('orderId',o.id,'hidden')+input('lineId',l.id,'hidden')+input('mode',ui.v47BalanceMode||'close','hidden')+
+     label('Supplier confirmation / cancellation reason',input('reason','','text','minlength="8" maxlength="600" required'))+
+     label('Supplier confirmation reference',input('evidenceRef','','text','minlength="4" maxlength="240" required'))+
+     '<button type="submit" class="btn small primary">'+((ui.v47BalanceMode||'close')==='close'?'Close remaining PO quantity':'Reopen remaining PO quantity')+'</button>'+ 
+     '<p class="v47-safety-caption">This records a supplier-confirmed order amendment, not an automatic cancellation sent to the supplier. Received stock history stays unchanged.</p></form></td></tr>':'');
  }).join('');
  const receipts=s.procurementReceipts.filter(x=>x.orderId===o.id);
  const receiptRows=receipts.map(r=>{
@@ -237,7 +254,7 @@ function renderOrderDetail(s,ui,o){
  return '<div class="v41-detail">'+panel('Purchase order · '+o.code,'<p class="v41-caption">'+h(o.supplier)+' · '+h(p?.code)+' · '+h(o.currency||'EUR')+' · '+h(o.taxRate??0)+'% VAT/tax assumption</p>'+
  '<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Part</th><th>Ordered</th><th>Received</th><th>Backorder</th><th>Unit cost</th><th>ETA</th><th>Record receipt</th><th>Edit / history</th></tr></thead><tbody>'+lineRows+'</tbody></table></div>'+
 
- '<form data-form="v41-add-po-line" class="v41-inline-form"><input type="hidden" name="orderId" value="'+h(o.id)+'">'+
+ (controlled?'<p class="v47-warning">Contract-controlled project: add new requirements and check their specification before amending a real PO.</p>':'<form data-form="v41-add-po-line" class="v41-inline-form"><input type="hidden" name="orderId" value="'+h(o.id)+'">'+
  label('Add part',pick('partId',sku(s),'','required'))+
  label('Quantity',input('quantity',1,'number','min="1" required'))+
  label('Cost each',input('unitCost',0,'number','min="0" step="0.01" required'))+
@@ -245,7 +262,7 @@ function renderOrderDetail(s,ui,o){
  label('Product URL',input('productUrl','','url','maxlength="2048" placeholder="https://..."'))+
  label('Vendor code',input('vendorSku','','text','maxlength="120"'))+
  label('Quote ref',input('quoteRef','','text','maxlength="120"'))+
- '<button type="submit" class="btn small primary">Add PO line</button></form>'+
+ '<button type="submit" class="btn small primary">Add PO line</button></form>')+
 
  '<p class="v41-caption">Partial receipts immediately increase on-hand workshop inventory; future deliveries do not. Supplier returns decrease received and reopen backorders.</p>'+
  (receiptRows?'<h4>Goods receipts & returns</h4><div class="v41-scroll"><table class="v41-table"><thead><tr><th>Date</th><th>Part</th><th>Received</th><th>Returned</th><th>Action</th></tr></thead><tbody>'+receiptRows+'</tbody></table></div>':'<p class="v41-muted">No newly recorded goods receipts on this order.</p>')+
@@ -324,6 +341,8 @@ export function handleMaterialsAction(s,ui,el,confirmFn=()=>true){
  else if(action==='v42-material-restore'){archiveManufacturing(s,'occurrence',el.dataset.id,true);}
  else if(action==='v41-order-open'){ui.materialPO=el.dataset.id;ui.materialOrderEditor=false;ui.v46PurchaseLine=null;}
  else if(action==='v46-po-line-edit'){ui.v46PurchaseLine=ui.v46PurchaseLine===el.dataset.id?null:el.dataset.id;}
+ else if(action==='v47-balance-close-open'){ui.v47BalanceLine=el.dataset.id;ui.v47BalanceMode='close';}
+ else if(action==='v47-balance-reopen-open'){ui.v47BalanceLine=el.dataset.id;ui.v47BalanceMode='reopen';}
  else if(action==='v41-order-new'){ui.materialOrderEditor=true;ui.materialPrefill=null;ui.materialOrderProject=el.dataset.project||ui.materialOrderProject;}
  else if(action==='v41-order-prefill'){ui.materialOrderEditor=true;ui.materialPrefill={partId:el.dataset.part,quantity:el.dataset.qty};ui.materialOrderProject=el.dataset.project;}
  else if(action==='v41-order-cancel'){ui.materialOrderEditor=false;ui.materialPrefill=null;}

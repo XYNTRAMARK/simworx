@@ -1,6 +1,7 @@
 /* Project Hub V0.4.1 — browser-only purchasing, stock and backups.
    This is NOT a multi-user inventory database or financial/accounting system. */
 import {ensureManufacturing,activeAssemblies,assemblyRollup} from './manufacturing.mjs';
+import {safeProductURL} from './procurement-sourcing-v046.mjs';
 const uid = prefix => prefix+'-'+Math.random().toString(36).slice(2,11);
 const timestamp = () => new Date().toISOString();
 const live = x => x && !x.archivedAt;
@@ -84,8 +85,14 @@ function normalizedLine(s,projectId,input){
   const quantity=integer(input.quantity,'Order quantity');
   const unitCost=amount(input.unitCost??0,'Unit cost');
   const eta=String(input.eta||'').trim();
-  if(eta&&!/^\d{4}-\d{2}-\d{2}$/.test(eta))throw Error('ETA must be an ISO date');
-  return {id:uid('pol'),partId:part.id,assemblyId:input.assemblyId||null,quantity,received:0,unitCost,eta};
+  if(eta&&(!/^\d{4}-\d{2}-\d{2}$/.test(eta)||new Date(eta+'T12:00:00Z').toISOString().slice(0,10)!==eta))throw Error('ETA must be a valid ISO date');
+  const sourceOccurrenceId=String(input.sourceOccurrenceId||'').trim();
+  if(sourceOccurrenceId&&!s.assemblyBOM?.some(x=>x.id===sourceOccurrenceId&&!x.archivedAt&&x.projectId===projectId&&x.partId===part.id))
+    throw Error('Purchase source must match a live requirement for this project and part');
+  const vendorSku=String(input.vendorSku||'').trim(),notes=String(input.notes||'').trim();
+  if(vendorSku.length>120||notes.length>800)throw Error('Supplier code or purchase note too long');
+  return {id:uid('pol'),partId:part.id,assemblyId:input.assemblyId||null,quantity,received:0,unitCost,eta,
+    sourceOccurrenceId:sourceOccurrenceId||null,productUrl:safeProductURL(input.productUrl||''),vendorSku,notes};
 }
 export function createPurchaseOrder(s,input){
   ensureMaterials(s);

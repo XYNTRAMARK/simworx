@@ -129,6 +129,15 @@ export function archiveJobRequirement(s,{occurrenceId}){
  occ.archivedAt=stamp();audit(s,'Work plan draft requirement archived',occ.id);
  return occ;
 }
+export function archiveWorkPlanJob(s,{taskId}){
+ const job=findTask(s,taskId);
+ if((s.tasks||[]).some(t=>live(t)&&t.parentId===job.id))throw Error('Archive child jobs before archiving their parent');
+ if((s.tasks||[]).some(t=>live(t)&&(t.predecessors||[]).includes(job.id)))throw Error('Resolve dependent jobs before archiving this job');
+ if(jobRequirements(s,taskId).length)throw Error('Reassign or archive linked engineering/material requirements first to preserve procurement traceability');
+ job.archivedAt=stamp();
+ audit(s,'Work plan job archived (recoverable)',job.title+' / '+job.id);
+ return job;
+}
 export function jobRequirements(s,taskId){
  return (s.assemblyBOM||[]).filter(x=>live(x)&&x.linkedTaskId===taskId);
 }

@@ -66,7 +66,7 @@
 .v43-buyer-status strong{font-size:20px}.v43-buyer-status small{font-size:10px;color:var(--muted)}
 .v43-buyer-dot{width:10px;height:10px;display:inline-block;border-radius:50%;background:var(--muted);flex-shrink:0}
 .v43-buyer-dot.red{background:var(--red)}.v43-buyer-dot.amber{background:var(--amber)}.v43-buyer-dot.green{background:var(--green)}
-.v43-ext-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.v43-ext-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px}
 .v43-ext-kpis>div{display:grid;gap:5px;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}
 .v43-ext-kpis b{font-size:21px}.v43-ext-kpis small{color:var(--muted);font-size:10px}
 .v43-ext-selector{display:flex;gap:12px;align-items:end;flex-wrap:wrap;border:1px solid var(--line);background:var(--panel);padding:13px;border-radius:10px}

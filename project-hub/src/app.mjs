@@ -12,11 +12,11 @@ import {ensureExternalWork,externalRouteSummary} from './external-work-v043.mjs'
 import {renderExternalWork,handleExternalForm,handleExternalAction} from './external-ui-v043.mjs';
 import {procurementAlerts,exportProcurementReviewCSV} from './procurement-planning-v043.mjs';
 import {handleMaterialPlanningForm} from './planning-ui-v043.mjs';
-import {renderProjectFocus} from './focus-ui-v043.mjs';
+import {renderProjectFocus,renderProjectWorkPlan,renderProjectBuyingReview,projectBuyingSnapshot,saveBuyingReviewForm} from './project-control-v046.mjs';
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
-const APP_VERSION='V0.4.5'; // Every build carries an explicit visible release number.
+const APP_VERSION='V0.4.6'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
 function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return emptyWorkspace()}
 let data=load();
@@ -24,7 +24,7 @@ ensureManufacturing(data);
 ensureMaterials(data);
 ensureProgress(data);
 ensureExternalWork(data);
-const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null};
+const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null};
 const staffGate=createLocalStaffGate();
 const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
   const el=document.getElementById('workspace-save-state');
@@ -131,14 +131,16 @@ function projectsPage(){
 }
 function projectDetail(p){
  const org=projectOrg(p),b=projectBudgetSnapshot(data,p.id);
- const mfg=projectManufacturingAlerts(data,p.id).length,shortage=materialReadinessV041(data,p.id).filter(x=>x.toSource>0).length;
+ const mfg=projectManufacturingAlerts(data,p.id).length,shortage=projectBuyingSnapshot(data,p.id).buy.filter(x=>x.coverage.toSource>0).length;
  const supplierLate=externalRouteSummary(data,p.id).late.length,deadlines=procurementAlerts(data,p.id).overdue.length;
- const top=[['focus','Project control'],['procurement','Materials & dates'],['progress','Progress steps'],['external','External work'],['schedule','Gantt'],['budget','Budget'],['contract','Contract scope']];
+ const top=[['focus','Overview'],['work','Work plan ('+data.tasks.filter(t=>t.projectId===p.id&&!t.archivedAt).length+')'],['buying','Buying review'],['procurement','Materials & stock'],['schedule','Schedule'],['external','Supplier QA'],['progress','Progress'],['budget','Budget'],['contract','Contract scope']];
  const extras=[['register','Work register'],['structure','Work breakdown'],['assembly','Assemblies'],['bom','Legacy BOM'],['materials','Legacy forecast'],['documents','Documents'],['publishing','Client publishing']];
  const extraSelected=extras.some(pair=>pair[0]===ui.projectTab);
  // Lazy tab rendering: only render the selected screen, avoiding repeated multi-table work.
  const content={
   focus:()=>renderProjectFocus(data,ui,p.id),
+  work:()=>renderProjectWorkPlan(data,ui,p.id),
+  buying:()=>renderProjectBuyingReview(data,ui,p.id),
   progress:()=>renderProjectProgress(data,ui,p.id),
   external:()=>renderExternalWork(data,ui,p.id),
   contract:()=>renderContractScope(data,p.id),
@@ -157,18 +159,18 @@ function projectDetail(p){
  const meta='<div class="v42-project-summary"><div class="v42-project-identity"><span class="v42-eyebrow">'+
   e(p.code)+' · '+e(org?.name||'Customer')+'</span><h2>'+e(p.name)+'</h2><p>'+e(p.description||'No description')+'</p>'+
   '<div class="v42-project-mini">'+badge(p.status)+'<span>Lead: <b>'+e(p.lead||'Unassigned')+'</b></span>'+
-  '<span>Due: <b>'+day(p.due)+'</b></span><span>Manual progress: <b>'+(managedProgress(p.id)===null?'Not set':managedProgress(p.id)+'%')+'</b></span>'+
+  '<span>Target: <b>'+day(p.due)+'</b></span><span>Manual progress: <b>'+(progressSnapshot(data,p.id).weightTotal>0?managedProgress(p.id)+'%':'Not weighted')+'</b></span>'+
   button('Edit details','edit-project','small','data-id="'+p.id+'"')+'</div></div>'+
   '<div class="v42-summary-budget"><span class="v42-eyebrow">BUDGET REMAINING</span>'+
-  '<strong class="'+(b.overBudget?'danger-text':'')+'">'+money(b.headroom)+'</strong>'+
-  '<span>'+money(b.forecast)+' forecast / '+money(b.budget)+' allocated</span>'+
+  '<strong class="'+(b.overBudget?'danger-text':'')+'">'+(b.budget>0?money(b.headroom):'Not allocated')+'</strong>'+
+  '<span>'+(b.budget>0?money(b.forecast)+' forecast / '+money(b.budget)+' allocated':'No internal purchasing budget approved')+'</span>'+
   '<div class="v42-budget-track"><span style="width:'+Math.min(100,Math.max(0,b.percent))+'%;background:'+
   (b.overBudget?'#d94f58':'#6554d9')+'"></span></div>'+button('Manage budget','project-tab','small','data-id="budget"')+'</div></div>';
  const attention=shortage||mfg||supplierLate||deadlines?'<div class="v42-attention">'+
-  (shortage?'<span>'+shortage+' material sourcing shortfall(s) '+button('Open procurement','project-tab','small','data-id="procurement"')+'</span>':'')+
+  (shortage?'<span>'+shortage+' proposed BUY requirements show sourcing gaps — review before ordering '+button('Review buying','project-tab','small','data-id="buying"')+'</span>':'')+
   (mfg?'<span>'+mfg+' engineering blocker(s) '+button('Review assemblies','project-tab','small','data-id="assembly"')+'</span>':'')+
   (supplierLate?'<span>'+supplierLate+' recorded supplier delay(s) '+button('Review handoffs','project-tab','small','data-id="external"')+'</span>':'')+
-  (deadlines?'<span>'+deadlines+' missed order-by date(s) '+button('See materials','project-tab','small','data-id="procurement"')+'</span>':'')+
+  (deadlines?'<span>'+deadlines+' material planning deadlines passed '+button('Review schedule','project-tab','small','data-id="buying"')+'</span>':'')+
   '</div>':'';
  const tabs='<div class="v42-primary-tabs">'+top.map(pair=>
   '<button type="button" data-action="project-tab" data-id="'+pair[0]+'" class="'+(ui.projectTab===pair[0]?'active':'')+'">'+pair[1]+'</button>').join('')+
@@ -465,7 +467,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    try{
      if(action==='v41-backup'){
        const payload=createWorkspaceBackup(data),url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
-       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.5_'+today()+'.json';
+       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.6_'+today()+'.json';
        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
        toast('JSON workspace backup downloaded · keep it private');return;
      }
@@ -495,7 +497,9 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
  try{switch(action){
   case 'nav':if(id==='purchasing')ui.procurementProject=ui.project;else if(id==='projects')ui.projectTab='focus';changePage(id);break;
   case 'project-open':ui.page='projects';ui.project=id;ui.projectTab='focus';ui.procurementProject=id;ui.showProjectList=false;render();document.getElementById('project-detail')?.scrollIntoView({behavior:'smooth',block:'start'});break;
-  case 'project-tab':ui.projectTab=id;render();break;
+  case 'project-tab':ui.projectTab=id;render();document.querySelector('.v42-primary-tabs')?.scrollIntoView({block:'start'});break;
+  case 'v46-edit-buy':ui.v46EditOccurrence=ui.v46EditOccurrence===id?null:id;render();break;
+  case 'v46-cancel-buy-edit':ui.v46EditOccurrence=null;render();break;
   case 'v43-purchasing':ui.procurementProject=ui.project;ui.page='purchasing';ui.materialPO=null;render();break;
   case 'v42-toggle-project-list':ui.showProjectList=!ui.showProjectList;render();break;
   case 'client-tab':ui.clientTab=id;render();break;
@@ -553,6 +557,10 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
    return;
  }
  if(!staffGate.status().unlocked)return;
+ if(type==='v46-buy-plan'){
+   try{saveBuyingReviewForm(data,form);ui.v46EditOccurrence=null;persist();render();toast('Planning assumptions saved — no purchase order created');}
+   catch(err){toast(err.message||'Could not save material plan',true)}return;
+ }
  if(type?.startsWith('mfg-')){try{handleManufacturingSubmit(data,ui,form);persist();render();toast('Manufacturing record saved locally');}catch(err){toast(err.message||'Manufacturing form failed',true)}return;}
  if(type?.startsWith('v41-')||type==='v42-material-edit'||type==='v43-quick-part'){try{handleMaterialsSubmit(data,ui,form);persist();render();toast('Procurement saved locally');}catch(err){toast(err.message||'Procurement form failed',true)}return;}
 
@@ -610,7 +618,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.5</h2></div><p>Use Restore JSON backup to load the private NOAH contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.6</h2></div><p>Use Restore JSON backup to load the private NOAH contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;
@@ -633,6 +641,11 @@ document.addEventListener('change',ev=>{try{if(!staffGate.status().unlocked)retu
  if(el.id==='v41-restore-file'){restoreBackupFile(el.files?.[0]);return;}
  if(el.dataset.v42Delivery){updateOrderStage(data,el.dataset.v42Delivery,el.value);persist();render();toast('Delivery stage changed; stock unchanged');return;}
  const filter=el.dataset.filter;
+ if(filter==='v46-work-query'){ui.v46WorkQuery=el.value;render();return;}
+ if(filter==='v46-work-status'){ui.v46WorkStatus=el.value;render();return;}
+ if(filter==='v46-work-section'){ui.v46WorkSection=el.value;render();return;}
+ if(filter==='v46-buy-query'){ui.v46BuyingQuery=el.value;render();return;}
+ if(filter==='v46-buy-mode'){ui.v46BuyingMode=el.value;ui.v46EditOccurrence=null;render();return;}
  if(filter==='v43-route'){ui.externalRouteId=el.value;ui.externalEditStage=null;render();return;}
  if(filter==='v43-progress-search'){ui.progressQuery=el.value;ui.progressPage=0;render();return;}
  if(filter==='v42-project'){ui.project=el.value;ui.procurementProject=el.value;ui.projectTab='focus';ui.materialEditOccurrence=null;render();return;}
@@ -647,5 +660,11 @@ document.addEventListener('change',ev=>{try{if(!staffGate.status().unlocked)retu
  else if(el.dataset.inlineTask){const t=data.tasks.find(x=>x.id===el.dataset.inlineTask&&!x.archivedAt);if(!t)throw Error('Job missing');const field=el.dataset.field;if(field==='status')setTaskStatus(data,t.id,el.value);else if(['start','due'].includes(field))updateTaskPlan(data,t.id,{[field]:el.value});else if(['assignee','department','priority'].includes(field))saveTask(data,{...t,[field]:el.value});else throw Error('Field not editable');persist();render();toast('Work register updated locally')}
  else if(el.dataset.taskStatus){setTaskStatus(data,el.dataset.taskStatus,el.value);persist();render();toast('Job status updated')}
 }catch(err){toast(err.message||'Cannot update status',true);render()}});
-document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&ui.modal)closeModal()});
+document.addEventListener('keydown',ev=>{
+ if(ev.key==='Enter'&&['v46-work-query','v46-buy-query'].includes(ev.target?.dataset?.filter)){
+  ev.preventDefault();if(ev.target.dataset.filter==='v46-work-query')ui.v46WorkQuery=ev.target.value;
+  else ui.v46BuyingQuery=ev.target.value;render();return;
+ }
+ if(ev.key==='Escape'&&ui.modal)closeModal();
+});
 render();

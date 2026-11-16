@@ -5,7 +5,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {emptyWorkspace} from '../src/clean-data-v043.mjs';
-import {saveProject,saveSection,setTaskStatus,saveTask} from '../src/model.mjs';
+import {saveProject,saveSection,setTaskStatus,saveTask,savePart} from '../src/model.mjs';
+import {saveOccurrence,archiveManufacturing} from '../src/manufacturing.mjs';
 import {saveWorkPlanJob,saveJobRequirement,jobRequirements,linkExistingRequirement,archiveJobRequirement,
  flaggedUnspecifiedPurchases,workHierarchy} from '../src/workplan-v050.mjs';
 import {renderWorkPlanV050} from '../src/workplan-ui-v050.mjs';
@@ -118,4 +119,17 @@ test('new controls have real click and submit handlers (no decorative buttons)',
  }
  for(const form of ['v50-section','v50-job','v50-material','v50-link-existing'])assert.ok(app.includes("if(type==='"+form+"')"),'Missing form '+form);
  assert.match(app,/renderWorkPlanV050\(data,ui,p\.id\)/);
+});
+
+test('legacy engineering BOM and Part Master cannot rewrite an item tied to a real PO',()=>{
+ const {s,project,section}=setup(),t=job(s,project,section,'Legacy edit guard');
+ const occ=saveJobRequirement(s,{projectId:project.id,taskId:t.id,name:'Ordered test module',quantity:2,kind:'buy'});
+ const part=s.parts.find(p=>p.id===occ.partId);
+ s.orders.push({id:'synthetic-po',projectId:project.id,items:[{
+   id:'synthetic-line',sourceOccurrenceId:occ.id,partId:part.id,quantity:2,unitCost:55,received:0,closedQuantity:0
+ }]});
+ assert.throws(()=>saveOccurrence(s,{id:occ.id,assemblyId:occ.assemblyId,partId:part.id,quantity:4,makeBuy:'Buy',notes:occ.notes}),/actual supplier PO/);
+ assert.throws(()=>archiveManufacturing(s,'occurrence',occ.id),/supplier PO history/);
+ assert.throws(()=>savePart(s,{id:part.id,code:part.code,name:'Swapped ordered model',unit:part.unit,supplier:'',location:'',min:0,cost:0}),/actual supplier order/);
+ assert.equal(occ.quantity,2);assert.equal(part.name,'Ordered test module');
 });

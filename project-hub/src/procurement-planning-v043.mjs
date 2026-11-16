@@ -45,3 +45,25 @@ export function procurementAlerts(s,projectId,today=new Date().toISOString().sli
  return {rows,overdue:rows.filter(x=>x.severity==='danger'),thisWeek:rows.filter(x=>x.severity==='warning'),
   missingDate:rows.filter(x=>!x.requiredBy),unresolved:rows.filter(x=>x.toSource>0)};
 }
+
+/* Read-only buying schedule handoff; never creates a PO, changes stock, or fills unknowns. */
+export function exportProcurementReviewCSV(s,projectId,today=new Date().toISOString().slice(0,10)){
+ const project=s.projects?.find(p=>p.id===projectId&&!p.archivedAt);
+ if(!project)throw Error('Project not found');
+ const rows=procurementPlan(s,projectId,today);
+ const header=['Occurrence ID','Part code','Part / package','Quantity','Required by','Supplier lead days (0 may mean unconfirmed)',
+ 'Buffer days','Order by (calculated)','Planning status','Supplier name (staff master)',
+ 'Lead time unconfirmed','Linked job ID','Internal purchase note'];
+ const cells=[header,...rows.map(r=>{
+  const p=s.parts.find(x=>x.id===r.partId)||{};
+  return [r.occurrenceId,r.partCode,r.partName,r.quantity,r.requiredBy,r.leadDays,r.bufferDays,
+   r.orderBy,r.status,p.supplier||'',r.leadDays===0?'REVIEW':'',r.linkedTaskId||'',r.purchaseNote||''];
+ })];
+ const csv=v=>{
+  let x=String(v??'');
+  // Spreadsheet formula injection protection for staff-entered names and notes.
+  if(/^[\\s]*[=+@\\-]/.test(x)&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(x))x="'"+x;
+  return '"'+x.replace(/"/g,'""')+'"';
+ };
+ return cells.map(row=>row.map(csv).join(',')).join('\\r\\n');
+}

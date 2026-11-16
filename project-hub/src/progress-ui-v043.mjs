@@ -11,14 +11,15 @@ export function renderProjectProgress(s,ui,projectId){
  const perPage=40,maxPage=Math.max(0,Math.ceil(found.length/perPage)-1);
  const page=Math.min(Math.max(0,Number(ui.progressPage)||0),maxPage);ui.progressPage=page;
  const paged=found.slice(page*perPage,(page+1)*perPage);
- const rows=paged.map(x=>'<tr><td><form class="v43-progress-edit" data-form="v43-step-edit">'+
+ const rows=paged.map(x=>'<tr><td colspan="4"><form class="v43-progress-edit" data-form="v43-step-edit">'+
   '<input type="hidden" name="projectId" value="'+h(projectId)+'"><input type="hidden" name="stepId" value="'+h(x.id)+'">'+
-  '<input name="title" maxlength="140" required aria-label="Progress step title" value="'+h(x.title)+'"></td>'+
-  '<td><input name="weight" aria-label="Weight percent" type="number" step="0.01" min="0" max="100" required value="'+pct(x.weightBp/100)+'"></td>'+
-  '<td><input name="completion" aria-label="Completion percent" type="number" step="0.01" min="0" max="100" required value="'+pct(x.doneBp/100)+'"></td>'+
-  '<td><div class="v43-table-actions"><button type="submit" class="btn small primary">Save</button>'+
+  '<label>Step<input name="title" maxlength="140" required aria-label="Progress step title" value="'+h(x.title)+'"></label>'+
+  '<label>Weight %<input name="weight" aria-label="Weight percent" type="number" step="0.01" min="0" max="100" required value="'+pct(x.weightBp/100)+'"></label>'+
+  '<label>Done %<input name="completion" aria-label="Completion percent" type="number" step="0.01" min="0" max="100" required value="'+pct(x.doneBp/100)+'"></label>'+
+  '<div class="v43-table-actions"><button type="submit" class="btn small primary">Save</button>'+
   btn(x.doneBp===10000?'Reset':'Done','v43-progress-toggle','data-id="'+h(x.id)+'" data-project="'+h(projectId)+'"')+
-  btn('Remove','v43-progress-remove','data-id="'+h(x.id)+'" data-project="'+h(projectId)+'"','danger')+'</div></form></td></tr>').join('');
+  btn('Remove','v43-progress-remove','data-id="'+h(x.id)+'" data-project="'+h(projectId)+'"','danger')+
+  '</div></form></td></tr>').join('');
  const removed=s.projectProgressSteps.filter(x=>x.projectId===projectId&&x.archivedAt);
  return '<div class="v43-progress-workspace"><div class="v43-title-row"><div><h2>Manual project progress</h2>'+
   '<p>Define exactly which steps count toward project completion and how much each one is worth.</p></div>'+

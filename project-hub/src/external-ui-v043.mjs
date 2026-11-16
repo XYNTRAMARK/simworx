@@ -12,7 +12,7 @@ const fmt=d=>d||'Not recorded';
 const stageStatus=st=>{
  if(st.status==='Accepted')return 'green';
  if(st.status==='Returned · inspect')return 'amber';
- if(st.status==='On hold')return 'red';
+ if(st.status==='On hold'||st.status==='Rework required')return 'red';
  if(st.status==='With supplier')return 'amber';return 'neutral';
 };
 function stageEditor(r,st){
@@ -55,7 +55,9 @@ export function renderExternalWork(s,ui,projectId){
      button('Put on hold','v43-external-action','data-route="'+e(selected.id)+'" data-stage="'+e(st.id)+'" data-step="hold"'):
     st.status==='On hold'?button('Returned','v43-external-action','data-route="'+e(selected.id)+'" data-stage="'+e(st.id)+'" data-step="return"')+
      button('Resume','v43-external-action','data-route="'+e(selected.id)+'" data-stage="'+e(st.id)+'" data-step="resume"'):
-    st.status==='Returned · inspect'?button('Accept after inspection','v43-external-action','data-route="'+e(selected.id)+'" data-stage="'+e(st.id)+'" data-step="accept"','small primary'):'';
+    st.status==='Returned · inspect'?button('Accept after inspection','v43-external-action','data-route="'+e(selected.id)+'" data-stage="'+e(st.id)+'" data-step="accept"','small primary')+
+     button('Reject / request rework','v43-external-action','data-route="'+e(selected.id)+'" data-stage="'+e(st.id)+'" data-step="reject"'):
+    st.status==='Rework required'?button('Resend for rework','v43-external-action','data-route="'+e(selected.id)+'" data-stage="'+e(st.id)+'" data-step="resend"','small primary'):'';
    return '<div class="v43-ext-stage">'+
     '<div class="v43-ext-stage-header"><b>'+(i+1)+'. '+e(st.name)+'</b><span class="v43-ext-status '+stageStatus(st)+'">'+e(st.status)+'</span>'+
     (late?'<span class="v43-ext-late">+'+timing.overdueDays+' days late</span>':'')+'</div>'+
@@ -65,6 +67,7 @@ export function renderExternalWork(s,ui,projectId){
     '<span><small>Returned</small>'+fmt(st.returnedAt)+'</span>'+
     '<span><small>Days with supplier</small>'+(timing.elapsedDays??'—')+'</span></div>'+
     (st.delayReason?'<p class="v43-ext-reason"><b>Recorded delay note:</b> '+e(st.delayReason)+'</p>':'')+
+    (st.inspections?.length?'<p class="v43-ext-reason"><b>Last QA: </b>'+e(st.inspections.at(-1).decision)+' · '+e(st.inspections.at(-1).reviewer)+' · Ref: '+e(st.inspections.at(-1).evidenceRef)+' · '+e(st.inspections.at(-1).notes)+'</p>':'')+
     '<div class="v43-ext-actions">'+actions+
     button(ui.externalEditStage===st.id?'Close edit':'Edit stage','v43-external-edit','data-stage="'+e(st.id)+'"')+'</div>'+
     (ui.externalEditStage===st.id?stageEditor(selected,st):'')+'</div>';
@@ -94,9 +97,10 @@ export function renderExternalWork(s,ui,projectId){
   '<div class="v43-ext-kpis"><div><b>'+summary.routes+'</b><small>Active packages</small></div>'+
   '<div><b>'+summary.atSuppliers+'</b><small>With external companies</small></div>'+
   '<div><b>'+summary.waitingInspection+'</b><small>Back for inspection</small></div>'+
-  '<div><b>'+summary.late.length+'</b><small>Stages with recorded delay</small></div></div>'+
+  '<div><b>'+summary.late.length+'</b><small>Stages with recorded delay</small></div>'+ 
+  '<div><b>'+summary.rework+'</b><small>Failed QA / rework</small></div></div>'+
   routePicker+newRoute+content+
-  '<p class="v43-ext-note">Each event stores when staff recorded it and the date they entered. Overdue days compare the supplier’s promised date with the recorded return date or today. These are user-maintained records, not independent verification of supplier fault; review evidence before publishing any client-facing explanation.</p></div>';
+  '<p class="v43-ext-note">Each event stores when staff recorded it and the date they entered. Overdue days compare the supplier’s promised date with the recorded return date or today. These are user-maintained records, not independent verification of supplier fault; Evidence references are staff-entered identifiers, not uploaded or independently verified files. Review evidence before publishing any client-facing explanation.</p></div>';
 }
 export function handleExternalForm(s,ui,form){
  const f=new FormData(form),v=k=>String(f.get(k)||'').trim();
@@ -115,15 +119,21 @@ export function handleExternalAction(s,ui,el,confirmFn=()=>true){
   case 'v43-external-export':return {download:exportExternalHistoryCSV(s,d.project||ui.project),name:'SimWorx-External-Work-'+(d.project||ui.project)+'.csv'};
   case 'v43-external-action':{
    const label={send:'Send to company',return:'Record return',accept:'Record inspection acceptance',
-    hold:'Place work on hold',resume:'Resume supplier work'}[d.step];
+    reject:'Record failed inspection',resend:'Resend for rework',hold:'Place work on hold',resume:'Resume supplier work'}[d.step];
    if(!label)throw Error('Unknown handoff action');
    const notes=prompt(label+' — factual notes (optional except for hold):','');
    if(notes===null)return 'ui';
-   if(d.step==='hold'&&!notes.trim())throw Error('A hold reason is required');
+   if(['hold','accept','reject'].includes(d.step)&&!notes.trim())throw Error('A factual note is required');
+   let reviewer='',evidenceRef='';
+   if(['accept','reject'].includes(d.step)){
+    const qaName=prompt('QA inspector/reviewer (required):','');if(qaName===null)return 'ui';reviewer=qaName.trim();
+    const qaRef=prompt('QA evidence reference (file name, controlled report number, or inspection log; no actual file attached):','');if(qaRef===null)return 'ui';evidenceRef=qaRef.trim();
+    if(!reviewer||!evidenceRef)throw Error('QA reviewer and evidence reference are required');
+   }
    const today=new Date().toISOString().slice(0,10);
    const date=prompt('Event date (YYYY-MM-DD); recorded at current time:',today);
    if(date===null)return 'ui';
-   return recordExternalHandoff(s,{routeId:d.route,stageId:d.stage,action:d.step,onDate:date,notes});
+   return recordExternalHandoff(s,{routeId:d.route,stageId:d.stage,action:d.step,onDate:date,notes,reviewer,evidenceRef});
   }
   default:throw Error('Unknown external work action');
  }

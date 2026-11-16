@@ -108,10 +108,10 @@ function orderRegister(s,ui,projectId='all'){
  return panel('Purchase order register','<div class="v41-scroll"><table class="v41-table"><thead><tr><th>Order</th><th>Supplier</th><th>Project</th><th>Lines</th><th>Order value</th><th>Delivery</th><th>Tracking / evidence</th><th></th></tr></thead><tbody>'+
  (list.map(o=>{
   const p=s.projects.find(p=>p.id===o.projectId);
-  const received=o.items.reduce((n,l)=>n+Number(l.received||0),0),ordered=o.items.reduce((n,l)=>n+Number(l.quantity||0),0);
+  const received=o.items.reduce((n,l)=>n+Number(l.received||0),0),completed=o.items.filter(l=>outstanding(l)===0).length;
   return '<tr><td><strong>'+h(o.code)+'</strong><small>'+date(o.date)+'</small></td><td>'+h(o.supplier)+'</td><td>'+h(p?.code)+'</td>'+
     '<td>'+o.items.length+'</td><td>'+cost(orderTotal(o),o.currency||'EUR')+'</td>'+
-    '<td>'+badge(purchaseStatus(o),purchaseStatus(o)==='Received'?'good':received?'warn':'')+'<small>'+received+'/'+ordered+' units across lines</small></td>'+
+    '<td>'+badge(purchaseStatus(o),purchaseStatus(o)==='Received'?'good':received?'warn':'')+'<small>'+completed+'/'+o.items.length+' lines fully received</small></td>'+
     '<td>'+h(o.shipment?.carrier||'Carrier not set')+'<small>'+h(o.shipment?.trackingCode||'No tracking code')+' · '+(o.attachments?.length||0)+' file(s)</small></td>'+
     '<td>'+btn('Manage','v41-order-open','data-id="'+h(o.id)+'"','small primary')+'</td></tr>';
  }).join('')||'<tr><td colspan="8">No purchase orders for this selection.</td></tr>')+'</tbody></table></div>');

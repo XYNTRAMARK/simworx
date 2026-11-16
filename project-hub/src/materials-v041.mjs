@@ -304,7 +304,7 @@ export function auditMaterials(s){
 }
 export function createWorkspaceBackup(s){
   auditMaterials(s);
-  return JSON.stringify({format:'simworx-project-hub-backup',schema:1,application:'V0.4.1',createdAt:timestamp(),
+  return JSON.stringify({format:'simworx-project-hub-backup',schema:1,application:'V0.4.2',createdAt:timestamp(),
     warning:'Contains all local demo records including internal illustrative financial data. Keep private.',state:s},null,2);
 }
 export function parseWorkspaceBackup(text){

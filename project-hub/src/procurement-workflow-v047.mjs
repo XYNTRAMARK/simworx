@@ -115,10 +115,14 @@ export function procurementState(s,occurrenceId){
  if(review.status==='Stale'&&linked.length===0)status='Spec recheck required';
  else if(review.status!=='Matches contract'&&linked.length===0&&planning==='Research')status='Contract check required';
  if(review.approved&&!linked.length&&planning==='Research')status='Spec verified · ready for PO';
- if(linked.length)status=actualReceived>0?(pending>0?'Part received':'Received'):(onWay?'In transit':'Ordered');
- if(waiting.length)status='Arrived · inspect';
- if(rejected.length&&rejected.at(-1)?.at>= (waiting.at(-1)?.at||''))status='Rejected · replacement needed';
- if(['On hold','Change requested','Replacement requested'].includes(planning))
+ if(linked.length)status=pending>0
+  ?(actualReceived>0?'Part received':onWay?'In transit':'Ordered')
+  :(actualReceived>0?'Received / no remaining balance':'Closed · no incoming quantity');
+ const mostRecent=arrivals[0];
+ if(mostRecent?.status==='Awaiting inspection')status='Arrived · inspect';
+ else if(mostRecent?.status==='Rejected')status='Rejected · replacement needed';
+ if(['On hold','Change requested','Replacement requested'].includes(planning)&&
+    mostRecent?.status!=='Accepted'&&mostRecent?.status!=='Awaiting inspection')
   status=planning+(linked.length?' · PO still recorded':'');
  return {status,review,planning,linked,waiting,rejected,received:actualReceived,pending,
   needsAction:review.status!=='Matches contract'&&linked.length===0};

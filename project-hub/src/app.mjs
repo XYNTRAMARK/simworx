@@ -18,7 +18,7 @@ import {ensureTeamWorkspace,saveDepartmentAllocation,allocateRequirement,attachE
 import {ensurePurchaseControls,saveRequirementTrace,recordOwnerAuthorisation,revokeOwnerAuthorisation,approvalStatus} from './procurement-control-v049.mjs';
 import {renderProjectTeam,renderProjectEvidence,renderCustomerPreview} from './team-ui-v048.mjs';
 import {renderWorkPlanV050} from './workplan-ui-v050.mjs';
-import {saveWorkPlanJob,saveJobRequirement,linkExistingRequirement,archiveJobRequirement} from './workplan-v050.mjs';
+import {saveWorkPlanJob,saveJobRequirement,linkExistingRequirement,archiveJobRequirement,archiveWorkPlanJob} from './workplan-v050.mjs';
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
@@ -32,7 +32,7 @@ ensureProgress(data);
 ensureExternalWork(data);
 ensureTeamWorkspace(data);
 ensurePurchaseControls(data);
-const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All',v49SelectedOccurrence:null,v49SourceEdit:null,v49ResetBackupVerified:false,v49ResetSnapshot:null,v50JobEditor:null,v50SelectedTask:null,v50MaterialEditor:null,v50NewSection:false,v50Search:'',v50Status:'All'};
+const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All',v49SelectedOccurrence:null,v49SourceEdit:null,v49ResetBackupVerified:false,v49ResetSnapshot:null,v50JobEditor:null,v50SelectedTask:null,v50MaterialEditor:null,v50NewSection:false,v50EditSection:null,v50Search:'',v50Status:'All'};
 const staffGate=createLocalStaffGate();
 const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
   const el=document.getElementById('workspace-save-state');
@@ -592,8 +592,14 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'edit-project':openModal('project',{id});break;
   case 'edit-customer':openModal('customer',{id});break;
   case 'edit-task':openModal('task',{id});break;
-  case 'v50-create-section':ui.v50NewSection=true;ui.v50JobEditor=null;render();document.querySelector('.v50-edit-panel')?.scrollIntoView({block:'start'});break;
-  case 'v50-close-section':ui.v50NewSection=false;render();break;
+  case 'v50-create-section':ui.v50NewSection=true;ui.v50EditSection=null;ui.v50JobEditor=null;render();document.querySelector('.v50-edit-panel')?.scrollIntoView({block:'start'});break;
+  case 'v50-edit-section':{
+   const sec=data.sections.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
+   if(!sec)throw Error('Work package missing');
+   ui.v50EditSection=id;ui.v50NewSection=false;ui.v50JobEditor=null;render();
+   document.querySelector('.v50-edit-panel')?.scrollIntoView({block:'start'});break;
+  }
+  case 'v50-close-section':ui.v50NewSection=false;ui.v50EditSection=null;render();break;
   case 'v50-add-job':{
    const section=data.sections.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
    if(!section)throw Error('Select an active work package');
@@ -645,6 +651,11 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    if(!t)throw Error('Job unavailable');
    ui.v50SelectedTask=id;ui.projectTab='work';ui.v50Status='All';ui.v50Search='';
    render();document.getElementById('v50-job-details')?.scrollIntoView({block:'start'});break;
+  }
+  case 'v50-archive-job':{
+   if(!confirm('Archive this job from active work plan? Child jobs and linked engineering requirements must be resolved first; the saved record is recoverable.'))break;
+   archiveWorkPlanJob(data,{taskId:id});ui.v50SelectedTask=null;ui.v50JobEditor=null;
+   persist();render();toast('Job archived safely; no associated purchasing history changed');break;
   }
   case 'v50-archive-material':{
    if(!confirm('Archive this draft engineering requirement? Existing orders cannot be archived by this action.'))break;
@@ -723,8 +734,8 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
  if(!staffGate.status().unlocked)return;
  if(type==='v50-section'){
   try{
-   const sec=saveSection(data,{projectId:get('projectId'),name:get('name'),weight:get('weight')});
-   ui.v50NewSection=false;ui.project=sec.projectId;ui.projectTab='work';persist();render();
+   const sec=saveSection(data,{id:get('recordId')||null,projectId:get('projectId'),name:get('name'),weight:get('weight')});
+   ui.v50NewSection=false;ui.v50EditSection=null;ui.project=sec.projectId;ui.projectTab='work';persist();render();
    toast('Work package created; you can add jobs underneath it');
   }catch(err){toast(err.message||'Could not add work package',true)}return;
  }
@@ -910,7 +921,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
         saveAssembly(data,{projectId:record.id,sectionId:sec.id,name,code:name.toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,28),perParentQty:1,buildQty:1,owner:'Unassigned',status:'Design'});
       });
     }
-    ui.project=record.id;ui.page='projects';ui.projectTab='work';ui.v50SelectedTask=null;ui.v50JobEditor=null;ui.v50NewSection=false;break;
+    ui.project=record.id;ui.page='projects';ui.projectTab='work';ui.v50SelectedTask=null;ui.v50JobEditor=null;ui.v50NewSection=false;ui.v50EditSection=null;break;
   }
   case 'customer':{
     const org=saveOrganization(data,{id:get('recordId')||null,name:get('name'),code:get('code'),contact:get('contact'),accent:get('accent')});ui.customerDetail=org.id;ui.page='customers';break;
@@ -1026,8 +1037,9 @@ document.addEventListener('drop',ev=>{
 });
 document.addEventListener('dragend',()=>{ui.v47Dragging=null;});
 document.addEventListener('keydown',ev=>{
- if(ev.key==='Enter'&&['v46-work-query','v46-buy-query'].includes(ev.target?.dataset?.filter)){
+ if(ev.key==='Enter'&&['v46-work-query','v46-buy-query','v50-search'].includes(ev.target?.dataset?.filter)){
   ev.preventDefault();if(ev.target.dataset.filter==='v46-work-query')ui.v46WorkQuery=ev.target.value;
+  else if(ev.target.dataset.filter==='v50-search')ui.v50Search=ev.target.value;
   else ui.v46BuyingQuery=ev.target.value;render();return;
  }
  if(ev.key==='Escape'&&ui.modal)closeModal();

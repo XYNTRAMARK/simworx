@@ -180,6 +180,30 @@ export function issueProjectStock(s,{reservationId,quantity}){
   note(s,'Stock issued to workshop',q+' × '+p.code);
   return r;
 }
+export function consumeIssuedStock(s,{reservationId,quantity}){
+  ensureMaterials(s);
+  const r=s.stockReservations.find(x=>x.id===reservationId);
+  if(!r)throw Error('Reservation unavailable');
+  const q=integer(quantity,'Consumption quantity');
+  const unconsumed=Number(r.issued||0)-Number(r.consumed||0);
+  if(q>unconsumed)throw Error('Cannot consume more than previously issued');
+  r.consumed=Number(r.consumed||0)+q; // Already removed from on-hand at issue
+  recordMovement(s,r.partId,'consume-issued',q,r.projectId,r.id);
+  note(s,'Workshop material consumed',q+' × '+partById(s,r.partId).code);
+  return r;
+}
+export function assemblyAllocationReadiness(s,assemblyId){
+  ensureMaterials(s);
+  const rollup=assemblyRollup(s,assemblyId);
+  const included=new Set(rollup.assemblies.map(a=>a.assemblyId));
+  return rollup.parts.map(line=>{
+    const rs=s.stockReservations.filter(r=>included.has(r.assemblyId)&&r.partId===line.partId);
+    const reserved=rs.reduce((v,r)=>v+reservationRemaining(r),0);
+    const issued=rs.reduce((v,r)=>v+Number(r.issued||0),0);
+    return {...line,reserved,issued,missing:Math.max(0,line.required-reserved-issued),
+      ready:reserved+issued>=line.required};
+  });
+}
 export function materialReadinessV041(s,projectId){
   ensureMaterials(s);
   projectById(s,projectId);

@@ -1,10 +1,10 @@
-# Sim-Worx Project Hub — V0.4.5
+# Sim-Worx Project Hub — V0.4.6
 
-**16 November 2026 · Staff-only local workspace — NOT a cloud database or production website.** The header badge displays **V0.4.5**. Fresh starts have NO fictional customer/project records. Incremental cost: **€0**. No production deployment, database, workflows or unrelated project modified.
+**16 November 2026 · Staff-only local workspace — NOT a cloud database or production website.** The header badge displays **V0.4.6**. Fresh starts have NO fictional customer/project records. Incremental cost: **€0**. No production deployment, database, workflows or unrelated project modified.
 
-## First-use steps for real projects (V0.4.5)
+## First-use steps for real projects (V0.4.6)
 
-1. Download and **extract the entire ZIP**. Double-click \`SimWorx_Project_Hub_Complete_V0.4.5.html\` in current Chrome or Edge. This is the complete offline app, NOT an isolated feature preview.
+1. Download and **extract the entire ZIP**. Double-click \`SimWorx_Project_Hub_Complete_V0.4.6.html\` in current Chrome or Edge. This is the complete offline app, NOT an isolated feature preview.
 2. Enter the owner-supplied six-digit PIN. No username/password setup is required. This is only a **local convenience lock**; project JSON is not encrypted and the six-digit PIN can be brute-forced from the offline client source.
 3. Open Settings → **Download JSON backup** before replacing any older data. Then click **Restore JSON backup**, choose the PRIVATE project import provided separately and confirm replacement.
 4. In **Projects**, open the imported project. Use the Project control, Materials & dates, Progress steps, External work, Gantt, Budget and Contract scope tabs.
@@ -14,11 +14,23 @@
 
 **Limitations:** this is single-computer, local-first software. The PIN does not encrypt files or provide secure multi-user logins; browser storage and file picker permissions can be lost. There is no remote server, authenticated customer portal, distributed database or automatic cloud backup. Do not use it for critical live processes until real-browser file persistence and recovery are proven on your PC.
 
-[Detailed V0.4.5 release notes](docs/release-v045.md).
+[Detailed V0.4.6 release notes](docs/release-v046.md).
 
 ## Run and explore
 
-**Owner's simplest route:** download `SimWorx_Project_Hub_Complete_V0.4.5.zip`, extract it, and double-click `SimWorx_Project_Hub_Complete_V0.4.5.html` in Chrome. This is the **entire application**, including all original project, planning, customer, inventory, finance and manufacturing screens—not a separate procurement preview. Developers can also serve this directory locally with `python3 -m http.server 8765` and visit `http://localhost:8765`.
+**Owner's simplest route:** download `SimWorx_Project_Hub_Complete_V0.4.6.zip`, extract it, and double-click `SimWorx_Project_Hub_Complete_V0.4.6.html` in Chrome. This is the **entire application**, including all original project, planning, customer, inventory, finance and manufacturing screens—not a separate procurement preview. Developers can also serve this directory locally with `python3 -m http.server 8765` and visit `http://localhost:8765`.
+
+## V0.4.6 — project-first planning and purchasing
+
+**What the project should show first:** Project Overview → Work plan (all project tasks, grouped by work package with search and filters) → Buying review → Materials & stock → Schedule/Gantt → Supplier QA → Progress → Budget → Contract. The existing register, work breakdown, manufacturing, inventory, files, progress and contract controls remain.
+
+**Purchasing** now begins with a conspicuous active-project selector, not a miniature unexplained dropdown. The screen separates planning requirements from actual supplier orders and physical receipts. Each requirement can store a user-entered supplier name, HTTPS product URL, vendor code, quote reference, purchasing responsibility, lead time, need-by date and notes, with source revision history. A purchasing owner is **unverified by default**, so customer-direct items are never assumed to be ours.
+
+**Actual PO history** stores an independent snapshot of each purchased line's product URL and supplier references, offers an Edit line control, requires an amendment reason and retains revisions. Recorded goods receipts remain unchanged; received unit prices cannot silently be rewritten.
+
+The first-use test is to select the project, see all its work plan tasks, open Purchasing, edit sourcing information on a test copy, confirm no PO is created, and verify backup/reopening. For the private NOAA project import, never treat the contract revenue as an internal purchasing budget or assume an effective date or PO approval.
+
+No new services, costs, production deployment, third-party integrations, or confidential customer data were added to public GitHub. This remains an offline single-PC prototype without secure authentication/encryption.
 
 ## V0.4.5 — simplified six-digit local PIN
 

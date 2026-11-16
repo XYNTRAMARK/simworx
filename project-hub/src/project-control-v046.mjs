@@ -177,7 +177,8 @@ export function renderProjectBuyingReview(s,ui,projectId){
    (r.source.vendorSku?'<small>Vendor code: '+esc(r.source.vendorSku)+'</small>':'')+
    (r.source.supplier?'<small>Supplier: '+esc(r.source.supplier)+'</small>':'')+'</td>'+
    '<td>'+date(r.plan.requiredBy)+'<small>Order by: '+(r.plan.orderBy?esc(r.plan.orderBy):'not calculable')+'</small></td>'+
-   '<td><button type="button" class="btn small" data-action="v46-edit-buy" data-id="'+ref+'">'+(current?'Close':'Edit line')+'</button></td></tr>';
+   '<td><div class="v46-row-actions"><button type="button" class="btn small" data-action="v46-edit-buy" data-id="'+ref+'">'+(current?'Close':'Edit line')+'</button>'+
+   (!r.make&&r.coverage.toSource>0?'<button type="button" class="btn small" data-action="v46-prepare-po" data-id="'+ref+'">Prepare PO</button>':'')+'</div></td></tr>';
   return tr+editor;
  };
  return '<section class="v46-buy">'+intro('Buying review · what might we need to source?',

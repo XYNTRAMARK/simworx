@@ -10,7 +10,7 @@
 4. In **Projects**, open the imported project. Use the Project control, Materials & dates, Progress steps, External work, Gantt, Budget and Contract scope tabs.
 5. In Settings, **Create & link autosave file** and save a JSON file somewhere that is backed up on your PC. Subsequent edits in that tab save to the browser and attempt to write that file. After opening a new standalone HTML version you MUST use **Open existing workspace file** to relink it. If the browser file picker is unavailable, use Download JSON backup after every session.
 6. Supplier orders and physical receipts must be entered only after they occur. Contract prices and buyer-direct payments are NOT your internal budget or proof of payment.
-7. Keep all customer contracts, NOAH imports, financial data and project JSON OUT of GitHub and away from shared/public links.
+7. Keep all customer contracts, contract imports, financial data and project JSON OUT of GitHub and away from shared/public links.
 
 **Limitations:** this is single-computer, local-first software. The PIN does not encrypt files or provide secure multi-user logins; browser storage and file picker permissions can be lost. There is no remote server, authenticated customer portal, distributed database or automatic cloud backup. Do not use it for critical live processes until real-browser file persistence and recovery are proven on your PC.
 
@@ -37,7 +37,7 @@
 
 **Actual PO history** stores an independent snapshot of each purchased line's product URL and supplier references, offers an Edit line control, requires an amendment reason and retains revisions. Recorded goods receipts remain unchanged; received unit prices cannot silently be rewritten.
 
-The first-use test is to select the project, see all its work plan tasks, open Purchasing, edit sourcing information on a test copy, confirm no PO is created, and verify backup/reopening. For the private NOAA project import, never treat the contract revenue as an internal purchasing budget or assume an effective date or PO approval.
+The first-use test is to select the project, see all its work plan tasks, open Purchasing, edit sourcing information on a test copy, confirm no PO is created, and verify backup/reopening. For the private contract project import, never treat the contract revenue as an internal purchasing budget or assume an effective date or PO approval.
 
 No new services, costs, production deployment, third-party integrations, or confidential customer data were added to public GitHub. This remains an offline single-PC prototype without secure authentication/encryption.
 

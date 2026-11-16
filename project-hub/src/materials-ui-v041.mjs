@@ -162,7 +162,7 @@ export function renderOrderComposer(s,ui,projectId){
  label('Tax assumption (%)',input('taxRate',0,'number','min="0" max="100" step="0.01" required'))+
  label('EUR per currency unit',input('eurExchangeRate',1,'number','min="0.000001" step="any" required'))+'</div>'+
  '<div id="v41-order-lines">'+orderLineEditor(s,projectId,pref)+'</div>'+
- '<div class="v41-actions">'+btn('+ Another line','v41-add-po-line','data-project="'+h(projectId)+'"','small')+
+ '<div class="v41-actions">'+(contractControlled(s,projectId)?'<small>One controlled requirement per authorized PO. For more lines, confirm each requirement and record its own approved order.</small>':btn('+ Another line','v41-add-po-line','data-project="'+h(projectId)+'"','small'))+
  '<button type="submit" class="btn primary">Record actual supplier PO</button>'+btn('Cancel','v41-order-cancel','','small')+'</div>'+
  '</form><p class="v41-caption">Only record a supplier order when it is actually authorised and placed. The entered quantity, price, vendor code and product URL are saved in the PO history. Creating this record does not receive stock.</p>');
 }

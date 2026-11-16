@@ -16,7 +16,7 @@ import {renderProjectFocus} from './focus-ui-v043.mjs';
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
-const APP_VERSION='V0.4.4'; // Every build carries an explicit visible release number.
+const APP_VERSION='V0.4.5'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
 function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return emptyWorkspace()}
 let data=load();
@@ -68,17 +68,13 @@ const notify=text=>data.notifications.unshift({id:uid('note'),text,date:today(),
 let toastTimer;
 function toast(msg,error=false){const old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className=`toast ${error?'error':''}`;t.textContent=msg;document.body.appendChild(t);clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.remove(),4100)}
 function staffGateScreen(){
- const st=staffGate.status();
- const eEsc=e;
  return '<div class="staff-gate"><div class="staff-gate-card"><div class="staff-logo">SIM-WORX · PROJECT HUB</div>'+
- '<h1>'+(st.configured?'Staff sign in':'Set up local staff access')+'</h1>'+
- '<p>This is an internal single-PC workspace. This local password keeps casual users out of the interface; it does NOT encrypt project files or provide server-grade access security.</p>'+
- '<form data-form="'+(st.configured?'v43-staff-login':'v43-staff-setup')+'">'+
- '<label>Username<input name="username" autocomplete="username" required minlength="3" value="'+eEsc(st.username||'')+'"></label>'+
- '<label>Password<input name="password" type="password" required minlength="'+(st.configured?1:12)+'" autocomplete="'+(st.configured?'current-password':'new-password')+'"></label>'+
- (st.configured?'':'<label>Confirm password<input name="confirmation" type="password" required minlength="12" autocomplete="new-password"></label>')+
- '<button type="submit" class="btn primary">'+(st.configured?'Sign in':'Create local staff access')+'</button></form>'+
- '<p class="staff-gate-small">No cloud login, remote access or company-wide database. Your workspace data stay on this PC and any file you explicitly save.</p>'+
+ '<h1>Enter your 6-digit access code</h1>'+
+ '<p>Use the staff code to unlock this offline workspace. No username or password setup is needed.</p>'+
+ '<form data-form="v45-staff-pin">'+
+ '<label>6-digit access code<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="off" required autofocus aria-label="6-digit access code"></label>'+
+ '<button type="submit" class="btn primary">Unlock Project Hub</button></form>'+
+ '<p class="staff-gate-small">This PIN is a convenience lock only. Project data and backups are not encrypted; protect the PC and private files.</p>'+
  '</div></div>';
 }
 function render(){
@@ -345,7 +341,7 @@ function settingsPage(){
    '<p class="form-hint">File status: '+e(workspaceFile.status().connected?'Linked to local file':'No autosave file linked')+
    '. Use Verify saved file to read the actual JSON back from disk and compare it with this tab. A downloaded JSON backup works without the file picker. Relink after opening a different standalone HTML version.</p></div>')+
  card('Staff access and privacy',
-   '<div class="card-body"><b>Single-PC local password</b><p class="form-hint">Username/password are checked locally. This is not encrypted storage, identity management or shared employee access; keep the PC and saved JSON file protected.</p>'+
+   '<div class="card-body"><b>Six-digit local PIN</b><p class="form-hint">Your six-digit PIN unlocks this tab only. This is not encrypted storage, identity management or shared employee access; keep the PC and saved JSON file protected.</p>'+
    button('Sign out','v43-staff-logout','small')+'</div>')+
  card('Appearance','<div class="card-body"><p class="form-hint">Switch light and dark themes.</p>'+button('Toggle theme','theme','small')+'</div>')+
  card('Clear workspace (irreversible)',
@@ -469,7 +465,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    try{
      if(action==='v41-backup'){
        const payload=createWorkspaceBackup(data),url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
-       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.4_'+today()+'.json';
+       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.4.5_'+today()+'.json';
        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
        toast('JSON workspace backup downloaded · keep it private');return;
      }
@@ -551,11 +547,9 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   }}catch(err){toast(err.message||'Unable to complete this action',true)}
 }
 function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.get(n)||'').trim();const type=form.dataset.form;
- if(type==='v43-staff-setup'||type==='v43-staff-login'){
-   const action=type==='v43-staff-setup'?
-    staffGate.setup(get('username'),get('password'),get('confirmation')):
-    staffGate.signIn(get('username'),get('password'));
-   action.then(()=>{render();toast('Local staff workspace unlocked');}).catch(err=>toast(err.message||'Sign in failed',true));
+ if(type==='v45-staff-pin'){
+   staffGate.signIn(get('pin')).then(()=>{render();toast('Local workspace unlocked');})
+     .catch(err=>toast(err.message||'Incorrect access code',true));
    return;
  }
  if(!staffGate.status().unlocked)return;
@@ -616,7 +610,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.4</h2></div><p>Use Restore JSON backup to load the private NOAH contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.5</h2></div><p>Use Restore JSON backup to load the private NOAH contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;

@@ -76,7 +76,7 @@ export function recordExternalHandoff(s,{routeId,stageId,action,onDate,notes}){
   st.acceptedAt=when;st.status='Accepted';
  }else if(action==='hold'){
   if(st.status!=='With supplier')throw Error('Only work currently with supplier can be placed on hold');
-  st.status='On hold';if(!comment)throw Error('Record a factual hold note');
+  if(!comment)throw Error('Record a factual hold note');st.status='On hold';
  }else if(action==='resume'){
   if(st.status!=='On hold')throw Error('Stage must be on hold first');
   st.status='With supplier';

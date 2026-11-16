@@ -6,6 +6,7 @@ import {materialPlanDates,saveRequirementPlan} from './procurement-planning-v043
 import {progressSnapshot} from './progress-v043.mjs';
 import {externalRouteSummary} from './external-work-v043.mjs';
 import {saveRequirementSource,sourceInput,safeProductURL} from './procurement-sourcing-v046.mjs';
+import {renderPlanningDropzones,renderRequirementOperation} from './procurement-ui-v047.mjs';
 
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&#39;'}[c]));
 const live=x=>x&&!x.archivedAt;
@@ -125,7 +126,7 @@ export function renderProjectWorkPlan(s,ui,projectId){
  const groups=sections.map(sec=>{
   const filtered=snap.jobs.filter(t=>(t.sectionId||'__unsectioned')===sec.id&&match(t));
   if(!filtered.length)return '';
-  return '<details class="v46-work-group" open><summary><b>'+esc(sec.name)+'</b><span>'+filtered.length+' work item(s)</span></summary>'+
+  return '<details class="v46-work-group v47-section v47-color-'+(sections.indexOf(sec)%7)+'" open><summary><span class="v47-section-index">'+String(sections.indexOf(sec)+1).padStart(2,'0')+'</span><b>'+esc(sec.name)+'</b><span class="v47-section-count">'+filtered.length+' work item(s)</span></summary>'+
    '<div class="v46-scroll"><table class="v46-table"><thead><tr><th>Task / deliverable</th><th>Team</th><th>Owner</th><th>Status</th><th>Start</th><th>Due</th><th>Edit</th></tr></thead>'+
    '<tbody>'+filtered.map(row).join('')+'</tbody></table></div></details>';
  }).join('');
@@ -158,7 +159,7 @@ export function renderProjectBuyingReview(s,ui,projectId){
   mode==='Covered'&&!r.make&&r.coverage.toSource===0)&&
   (!query||[r.part.code,r.part.name,r.assembly.name,r.source.supplier,r.source.vendorSku,r.part.supplier].some(x=>String(x||'').toLowerCase().includes(query))));
  const stateLine=r=>{
-  const ref=esc(r.occ.id),current=ui.v46EditOccurrence===r.occ.id,productLink=safeLink(r.source.productUrl);
+  const ref=esc(r.occ.id),current=ui.v46EditOccurrence===r.occ.id,productLink=safeLink(r.source.productUrl),ops=renderRequirementOperation(s,ui,r.occ.id);
   const editor=current?'<tr class="v46-editor-row"><td colspan="8"><form data-form="v46-buy-plan" class="v46-inline-form">'+
    '<input type="hidden" name="occurrenceId" value="'+ref+'">'+
    '<label>Needed on site by<input type="date" name="requiredBy" value="'+esc(r.plan.requiredBy)+'"></label>'+
@@ -182,20 +183,20 @@ export function renderProjectBuyingReview(s,ui,projectId){
    ' · '+esc(v.updatedAt||'Earlier revision')+(safeLink(v.productUrl)?' · <a href="'+esc(safeLink(v.productUrl))+'" target="_blank" rel="noopener noreferrer">Archived link</a>':'')+'</p>').join('')+
    '</details>':'')+'</td></tr>':'';
   const warn=r.make?'In-house item':r.coverage.toSource===0?'Covered — verify':r.missingInputs.length?'Unconfirmed: '+r.missingInputs.join(', '):'Quote and approval unverified';
-  const tr='<tr>'+
+  const tr='<tr draggable="true" data-v47-occurrence="'+ref+'" title="Drag into a sourcing planning lane or use the Action menu">'+
    '<td><strong>'+esc(r.part.code||'Uncoded part')+'</strong><small>'+esc(r.part.name||'Unnamed material')+'</small></td>'+
    '<td>'+esc(r.assembly.name||'Unassigned assembly')+'</td>'+
    '<td>'+num(r.occ.quantity)+'<small>per assembly</small></td>'+
    '<td>'+esc(r.make?'MAKE':r.responsibility==='Sim-Worx'?'BUY · SIM-WORX':r.responsibility==='Customer-direct'?'CUSTOMER DIRECT':r.responsibility==='Subcontractor'?'SUBCONTRACTOR':'OWNER TO CONFIRM')+'</td>'+
    '<td>'+num(r.coverage.toSource)+'<small>project-wide gap</small></td>'+
-   '<td>'+pill(r.stage,r.tone)+'<small>'+esc(warn)+'</small>'+
+   '<td>'+ops.status+'<small>Source check: '+esc(r.stage)+'</small><small>'+esc(warn)+'</small>'+
    (productLink?'<a href="'+esc(productLink)+'" target="_blank" rel="noopener noreferrer" class="v46-source-link">Open product website</a>':'<small>Website not saved</small>')+
    (r.source.vendorSku?'<small>Vendor code: '+esc(r.source.vendorSku)+'</small>':'')+
    (r.source.supplier?'<small>Supplier: '+esc(r.source.supplier)+'</small>':'')+'</td>'+
    '<td>'+date(r.plan.requiredBy)+'<small>Order by: '+(r.plan.orderBy?esc(r.plan.orderBy):'not calculable')+'</small></td>'+
-   '<td><div class="v46-row-actions"><button type="button" class="btn small" data-action="v46-edit-buy" data-id="'+ref+'">'+(current?'Close':'Edit line')+'</button>'+
+   '<td><div class="v46-row-actions"><button type="button" class="btn small" data-action="v46-edit-buy" data-id="'+ref+'">'+(current?'Close':'Edit line')+'</button>'+ops.actions+
    (!r.make&&r.responsibility==='Sim-Worx'&&r.coverage.toSource>0?'<button type="button" class="btn small" data-action="v46-prepare-po" data-id="'+ref+'">Prepare PO</button>':'')+'</div></td></tr>';
-  return tr+editor;
+  return tr+editor+ops.panels;
  };
  return '<section class="v46-buy">'+intro('Buying review · what might we need to source?',
   'Start with engineering requirements; validate each supplier, quotation, schedule and approval before creating any real purchase order.')+
@@ -206,7 +207,7 @@ export function renderProjectBuyingReview(s,ui,projectId){
   '<div class="v46-metric"><small>ACTUAL POS RECORDED</small><strong>'+num(snap.confirmedPOs)+'</strong><span>Placed orders only</span></div></div>'+
   '<div class="v46-steps"><span><b>1</b> Validate requirement</span><span><b>2</b> Obtain quotation</span>'+
   '<span><b>3</b> Authorise purchase</span><span><b>4</b> Record PO & receipt</span></div>'+
-  '<p class="v46-info"><strong>Important:</strong> these are '+num(snap.rows.length)+' engineering requirement lines, <strong>not orders</strong>. A zero-day lead time means <strong>unconfirmed</strong>, not immediate delivery. The source records do not prove a supplier quote, approved spend or goods receipt. Use the detailed material and Purchasing workspaces only after verifying actual evidence.</p>'+
+  '<p class="v46-info"><strong>Important:</strong> these are '+num(snap.rows.length)+' engineering requirement lines, <strong>not orders</strong>. A zero-day lead time means <strong>unconfirmed</strong>. Ordered and Received statuses come from real PO and accepted stock records, not manually selected labels. Check the exact contract hardware specification before ordering.</p>'+renderPlanningDropzones()+
   '<div class="v46-controls"><label class="v46-filter v46-grow"><span>Find a part or assembly</span>'+
   '<input type="search" value="'+esc(ui.v46BuyingQuery||'')+'" data-filter="v46-buy-query" placeholder="Search material code, description, supplier…" aria-label="Search buying requirements"></label>'+
   '<label class="v46-filter"><span>Show</span><select data-filter="v46-buy-mode">'+

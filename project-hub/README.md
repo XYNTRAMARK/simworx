@@ -1,10 +1,10 @@
-# Sim-Worx Project Hub — V0.4.3
+# Sim-Worx Project Hub — V0.4.4
 
-**16 November 2026 · Staff-only local workspace — NOT a cloud database or production website.** The header badge displays **V0.4.3**. Fresh starts have NO fictional customer/project records. Incremental cost: **€0**. No production deployment, database, workflows or unrelated project modified.
+**16 November 2026 · Staff-only local workspace — NOT a cloud database or production website.** The header badge displays **V0.4.4**. Fresh starts have NO fictional customer/project records. Incremental cost: **€0**. No production deployment, database, workflows or unrelated project modified.
 
-## First-use steps for real projects (V0.4.3)
+## First-use steps for real projects (V0.4.4)
 
-1. Download and **extract the entire ZIP**. Double-click \`SimWorx_Project_Hub_Complete_V0.4.3.html\` in current Chrome or Edge. This is the complete offline app, NOT an isolated feature preview.
+1. Download and **extract the entire ZIP**. Double-click \`SimWorx_Project_Hub_Complete_V0.4.4.html\` in current Chrome or Edge. This is the complete offline app, NOT an isolated feature preview.
 2. On first open, create a local username and a password of at least 12 characters. It is only a **local interface lock**; the project JSON file is not encrypted.
 3. Open Settings → **Download JSON backup** before replacing any older data. Then click **Restore JSON backup**, choose the PRIVATE project import provided separately and confirm replacement.
 4. In **Projects**, open the imported project. Use the Project control, Materials & dates, Progress steps, External work, Gantt, Budget and Contract scope tabs.
@@ -14,11 +14,21 @@
 
 **Limitations:** this is single-computer, local-first software. The password does not encrypt files or provide secure multi-user logins; browser storage and file picker permissions can be lost. There is no remote server, authenticated customer portal, distributed database or automatic cloud backup. Do not use it for critical live processes until real-browser file persistence and recovery are proven on your PC.
 
-[Detailed V0.4.3 release notes](docs/release-v043.md).
+[Detailed V0.4.4 release notes](docs/release-v044.md).
 
 ## Run and explore
 
-**Owner's simplest route:** download `SimWorx_Project_Hub_Complete_V0.4.3.zip`, extract it, and double-click `SimWorx_Project_Hub_Complete_V0.4.3.html` in Chrome. This is the **entire application**, including all original project, planning, customer, inventory, finance and manufacturing screens—not a separate procurement preview. Developers can also serve this directory locally with `python3 -m http.server 8765` and visit `http://localhost:8765`.
+**Owner's simplest route:** download `SimWorx_Project_Hub_Complete_V0.4.4.zip`, extract it, and double-click `SimWorx_Project_Hub_Complete_V0.4.4.html` in Chrome. This is the **entire application**, including all original project, planning, customer, inventory, finance and manufacturing screens—not a separate procurement preview. Developers can also serve this directory locally with `python3 -m http.server 8765` and visit `http://localhost:8765`.
+
+## V0.4.4 — durability, buying schedule review and supplier QA
+
+- **Verify saved file matches browser:** Settings now reads the linked local JSON back from disk and compares the underlying workspace state. A fresh backup timestamp is ignored. This is an actual local-file read, but not a cloud backup or proof of a successful recovery after restarting Chrome.
+- **Safe private restore:** Restoring a JSON backup deliberately **disconnects the previously linked autosave file**, so importing a different project cannot overwrite that other file. Explicitly create or relink your intended workspace after the restore.
+- **Purchasing schedule CSV:** export a project-scoped, read-only review of all E-BOM requirements and calculated order-by dates; lead times of zero are flagged for checking, never assumed to be supplier confirmations. No orders or stock are changed by the export.
+- **Supplier inspection controls:** acceptance and rejection require factual inspection notes, a named staff reviewer and a user-supplied QA evidence reference. Rejected stages enter **Rework required**, block the next handoff, and can be resent; inspection attempts and event history are retained. The reference alone does not upload or verify its evidence file.
+- **Limits:** there is still no secure multi-user server, encrypted file storage, verified hardware Chrome test on the owner's PC or automatic recovery after an HTML version change. No contracts, private projects, real customer prices or actual supplier data are in this public source.
+
+**Owner's crucial first test:** using a safe separate copy, load the private workspace, link a local JSON file, make an edit, click **Verify saved file matches browser**, close/reopen Chrome, and choose **Open existing workspace file** to confirm the edit and imported contract metadata persist. Repeat once after switching to a different V0.4.4 HTML path. Never test with the sole copy of a real workspace.
 
 ## Historical V0.4.2 features retained — focused Projects workspace, materials and order stages
 

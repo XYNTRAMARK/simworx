@@ -1,5 +1,6 @@
 /* Project Hub V0.4.2 — project budget summary & updates. Browser demo only.
    Preserve old manual baseline and do not double-count legacy POs with imported commitments. */
+import {assertProjectBudgetFloor} from './team-budget-v048.mjs';
 const live=x=>x&&!x.archivedAt;
 const euroMoney=v=>Math.round((Number(v)||0)*100)/100;
 const validAmount=(v,name)=>{
@@ -22,7 +23,7 @@ export function projectBudgetSnapshot(state,projectId){
   orders++;
   for(const line of o.items||[]){
     const price=Number(line.unitCost||0)*rate,received=Number(line.received||0),quantity=Number(line.quantity||0);
-    poReceived+=price*received;poOpen+=price*Math.max(0,quantity-received);
+    poReceived+=price*received;poOpen+=price*Math.max(0,quantity-received-Number(line.closedQuantity||0));
   }
  }
  poReceived=euroMoney(poReceived);poOpen=euroMoney(poOpen);
@@ -38,6 +39,7 @@ export function updateProjectBudget(state,{projectId,budget,spent,committed}){
  const p=state.projects?.find(p=>live(p)&&p.id===projectId);
  if(!p)throw Error('Project not found');
  const next={budget:validAmount(budget,'Budget'),spent:validAmount(spent,'Recorded costs'),committed:validAmount(committed,'Other committed costs')};
+ assertProjectBudgetFloor(state,projectId,next.budget);
  Object.assign(p,next);
  state.audit??=[];
  state.audit.unshift({id:'audit-'+Math.random().toString(36).slice(2,10),actor:'Sim-Worx Demo',

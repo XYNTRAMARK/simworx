@@ -64,26 +64,32 @@ export async function streamSnapshot(db, cors, options = {}) {
       // manifest order explicitly so the legacy response ordering is identical.
       for (let offset = 0; offset < selected.rows.length;) {
         if (cancelled) return;
-        const ids = [];
-        let encodedLength = 0;
-        for (const row of selected.rows.slice(offset,offset + pageSize)) {
-          const size = encodeURIComponent(quoted(row[idKey])).length + 3;
-          if (ids.length && encodedLength + size > 6000) break;
-          ids.push(row[idKey]); encodedLength += size;
+        // Only six bounded pages may be in flight. Do not accumulate the whole
+        // report or prefetch another group until this one has been consumed.
+        const batches = [];
+        while (offset < selected.rows.length && batches.length < 6) {
+          const ids = []; let encodedLength = 0;
+          for (const row of selected.rows.slice(offset,offset + pageSize)) {
+            const size = encodeURIComponent(quoted(row[idKey])).length + 3;
+            if (ids.length && encodedLength + size > 6000) break;
+            ids.push(row[idKey]); encodedLength += size;
+          }
+          batches.push({ids,prefix:offset > 0}); offset += ids.length;
         }
-        const result = await db(`${table}?${q({select:'*',[idKey]:`in.(${ids.map(quoted).join(',')})`,limit:String(ids.length)})}`);
-        if (!Array.isArray(result.data) || result.data.length !== ids.length) throw new Error(FAILURE);
-        const byId = new Map(result.data.map(row => [row[idKey],row]));
-        if (byId.size !== ids.length || ids.some(id => !byId.has(id))) throw new Error(FAILURE);
-        const bytes = encoder.encode((offset ? ',' : '') + ids.map(id => JSON.stringify(byId.get(id))).join(','));
-        yield bytes;
-        offset += ids.length;
+        const chunks = await Promise.all(batches.map(async ({ids,prefix}) => {
+          const result = await db(`${table}?${q({select:'*',[idKey]:`in.(${ids.map(quoted).join(',')})`,limit:String(ids.length)})}`);
+          if (!Array.isArray(result.data) || result.data.length !== ids.length) throw new Error(FAILURE);
+          const byId = new Map(result.data.map(row => [row[idKey],row]));
+          if (byId.size !== ids.length || ids.some(id => !byId.has(id))) throw new Error(FAILURE);
+          return encoder.encode((prefix ? ',' : '') + ids.map(id => JSON.stringify(byId.get(id))).join(','));
+        }));
+        for (const bytes of chunks) { if (cancelled) return; yield bytes; }
       }
       yield encoder.encode(']');
     }
     const truncated = Object.values(counts).some(table => table.truncated);
     const meta = {generated_at:new Date().toISOString(),demo:false,source:'First-party Simworx events',timezone:'Europe/Madrid',tracking_active:(counts.events?.total || 0)>0,counts,
-      diagnostics:{arrival_rows_returned:counts.arrivals?.returned || 0,arrival_rows_total:counts.arrivals?.total || 0,latest_arrival:latestArrival,snapshot_transport:'bounded-stream-v1',batch_rows:pageSize},
+      diagnostics:{arrival_rows_returned:counts.arrivals?.returned || 0,arrival_rows_total:counts.arrivals?.total || 0,latest_arrival:latestArrival,snapshot_transport:'bounded-stream-v1',batch_rows:pageSize,batch_concurrency:6},
       truncated,earliest_event:earliestEvent,warning:truncated?'This snapshot is bounded. Some earlier records are outside the loaded data; totals and comparisons may be incomplete.':null};
     yield encoder.encode(`,"settings":${JSON.stringify(settings ?? {})},"meta":${JSON.stringify(meta)}}`);
   }

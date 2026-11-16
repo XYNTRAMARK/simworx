@@ -1,5 +1,6 @@
-/* V0.4.6 sourcing and purchase-history links. Staff-entered metadata only.
+/* V0.4.7 sourcing and purchase-history links. Staff-entered metadata only.
  No online lookup, automatic POs, inferred quote approval or stock changes. */
+import {contractControlled,assertContractPOGate} from './procurement-workflow-v047.mjs';
 const now=()=>new Date().toISOString();
 const max=(v,n,label)=>{const s=String(v??'').trim();if(s.length>n)throw Error(label+' exceeds '+n+' characters');return s;};
 export function safeProductURL(value){
@@ -41,17 +42,27 @@ export function updatePurchaseLineRecord(s,{orderId,lineId,quantity,unitCost,eta
  const line=order.items?.find(l=>l.id===lineId);
  if(!line)throw Error('Order line not found');
  const qty=positive(quantity,'Order quantity'),cost=price(unitCost);
- if(qty<Number(line.received||0))throw Error('Quantity cannot be below already received stock');
+ if(qty<Number(line.received||0)+Number(line.closedQuantity||0))throw Error('Quantity cannot be less than received + confirmed closed balance');
+ if(Number(line.closedQuantity||0)>0&&qty!==Number(line.quantity||0))
+  throw Error('Reopen a closed supplier balance before changing its ordered quantity');
  if(Number(line.received||0)>0&&cost!==Number(line.unitCost||0))
   throw Error('Received items have locked unit prices; keep history and handle price corrections separately');
  const next={quantity:qty,unitCost:cost,eta:etaDate(eta),productUrl:safeProductURL(productUrl),
   vendorSku:max(vendorSku,120,'Vendor part number'),quoteRef:max(quoteRef,120,'Supplier quote reference'),notes:max(notes,800,'Purchase note')};
  const prior=Object.fromEntries(Object.keys(next).map(k=>[k,line[k]??'']));
+ const identityChange=['productUrl','vendorSku','quoteRef'].some(k=>(line[k]||'')!==(next[k]||''));
+ let verified=null;
+ if(contractControlled(s,order.projectId)&&identityChange){
+  if(Number(line.received||0)>0)throw Error('Cannot replace the specified model on a line with accepted receipts. Create a corrected purchase and return goods separately.');
+  verified=assertContractPOGate(s,order.projectId,{partId:line.partId,sourceOccurrenceId:line.sourceOccurrenceId,
+   productUrl:next.productUrl,vendorSku:next.vendorSku,quoteRef:next.quoteRef},order.supplier);
+ }
  if(JSON.stringify(prior)===JSON.stringify(next))return line;
  const explanation=max(reason,300,'Change reason');
  if(explanation.length<5)throw Error('Explain the confirmed supplier amendment (at least 5 characters)');
  line.revisions??=[];line.revisions.push({at:now(),reason:explanation,before:prior,after:next});
  Object.assign(line,next);
+ if(verified)line.specificationEvidence=verified;
  s.audit??=[];s.audit.unshift({id:'audit-'+Math.random().toString(36).slice(2,12),actor:'Local staff',
   action:'Purchase order line edited',detail:order.code+' / '+line.id,at:now()});
  return line;

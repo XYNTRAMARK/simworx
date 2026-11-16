@@ -1,4 +1,7 @@
 import {seed} from './demo-data.mjs';
+import {emptyWorkspace} from './clean-data-v043.mjs';
+import {createWorkspaceFileController} from './workspace-file-v043.mjs';
+import {createLocalStaffGate} from './staff-access-v043.mjs';
 import {ensureManufacturing,projectManufacturingAlerts,saveAssembly} from './manufacturing.mjs';
 import {renderManufacturing,handleManufacturingAction,handleManufacturingSubmit} from './manufacturing-ui.mjs';
 import {ensureMaterials,materialReadinessV041,createWorkspaceBackup,parseWorkspaceBackup} from './materials-v041.mjs';
@@ -15,14 +18,27 @@ import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stock
 
 const APP_VERSION='V0.4.3'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
-function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return seed()}
+function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return emptyWorkspace()}
 let data=load();
 ensureManufacturing(data);
 ensureMaterials(data);
 ensureProgress(data);
 ensureExternalWork(data);
-const ui={page:'overview',project:'p1',projectTab:'focus',dept:'All',taskView:'board',clientOrg:'noah',clientProject:'p1',clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:'p1',materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null};
-const persist=()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch{toast('Local storage is full; changes may not persist.',true)}};
+const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null};
+const staffGate=createLocalStaffGate();
+const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
+  const el=document.getElementById('workspace-save-state');
+  if(el){el.textContent=kind==='file-saved'?'Saved to file':kind==='file-error'?'File save failed':kind==='file-saving'?'Saving…':kind==='file-connected'?'File connected':'Browser saved';el.title=message;}
+}});
+const persist=()=>{
+ const serialized=JSON.stringify(data);
+ try{localStorage.setItem(STORAGE_KEY,serialized);}
+ catch(err){toast('Browser storage failed: '+err.message+' — immediately export a private backup.',true);return false;}
+ workspaceFile.scheduleSave(createWorkspaceBackup(data)).catch(()=>{});
+ const status=document.getElementById('workspace-save-state');
+ if(status&&!workspaceFile.status().connected){status.textContent='Browser saved · file not linked';status.title='Use Settings to link an autosave file and protect work across updates';}
+ return true;
+};
 const findProject=id=>data.projects.find(x=>x.id===id);
 const findOrg=id=>data.organizations.find(x=>x.id===id);
 const findPart=id=>data.parts.find(x=>x.id===id);
@@ -51,24 +67,40 @@ const audit=(action,detail,actor='Sim-Worx Admin')=>data.audit.unshift({id:uid('
 const notify=text=>data.notifications.unshift({id:uid('note'),text,date:today(),read:false});
 let toastTimer;
 function toast(msg,error=false){const old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className=`toast ${error?'error':''}`;t.textContent=msg;document.body.appendChild(t);clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.remove(),4100)}
+function staffGateScreen(){
+ const st=staffGate.status();
+ const eEsc=e;
+ return '<div class="staff-gate"><div class="staff-gate-card"><div class="staff-logo">SIM-WORX · PROJECT HUB</div>'+
+ '<h1>'+(st.configured?'Staff sign in':'Set up local staff access')+'</h1>'+
+ '<p>This is an internal single-PC workspace. This local password keeps casual users out of the interface; it does NOT encrypt project files or provide server-grade access security.</p>'+
+ '<form data-form="'+(st.configured?'v43-staff-login':'v43-staff-setup')+'">'+
+ '<label>Username<input name="username" autocomplete="username" required minlength="3" value="'+eEsc(st.username||'')+'"></label>'+
+ '<label>Password<input name="password" type="password" required minlength="'+(st.configured?1:12)+'" autocomplete="'+(st.configured?'current-password':'new-password')+'"></label>'+
+ (st.configured?'':'<label>Confirm password<input name="confirmation" type="password" required minlength="12" autocomplete="new-password"></label>')+
+ '<button type="submit" class="btn primary">'+(st.configured?'Sign in':'Create local staff access')+'</button></form>'+
+ '<p class="staff-gate-small">No cloud login, remote access or company-wide database. Your workspace data stay on this PC and any file you explicitly save.</p>'+
+ '</div></div>';
+}
 function render(){
+ if(!staffGate.status().unlocked){document.getElementById('app').innerHTML=staffGateScreen();return;}
   const labels={overview:'Dashboard',projects:'Projects',assemblies:'Component & assemblies',tasks:'Production jobs',purchasing:'Purchasing',inventory:'Inventory',customers:'Customers & access',client:'Customer portal',finance:'Project financials',reports:'Reports & progress',settings:'Settings'};
   const nav=[['overview','Overview'],['projects','Projects'],['assemblies','Assemblies & components'],['tasks','Workshop & office'],['purchasing','Purchasing'],['inventory','Inventory'],['customers','Customers & access'],['client','Client portal preview'],['finance','Financials'],['reports','Reports'],['settings','Settings']];
   const navHtml=nav.map(([id,label],idx)=>`${idx===0||idx===4||idx===7||idx===8?`<div class="nav-group-label">${idx===0?'WORKSPACE':idx===4?'OPERATIONS':idx===7?'COLLABORATION':'CONTROL & INSIGHT'}</div>`:''}<button class="nav-link ${ui.page===id?'active':''}" data-action="nav" data-id="${id}" aria-current="${ui.page===id?'page':'false'}">${ico(id)}<span>${label}</span>${id==='client'?'<span class="count-dot">↗</span>':''}</button>`).join('');
   const title=labels[ui.page]||'Project Hub';
   document.body.classList.toggle('dark',data.settings.theme==='dark');
   document.getElementById('app').innerHTML=`<div class="app-shell">
-    <aside class="sidebar"><div class="brand"><div class="brand-gem">${ico('warehouse',23)}</div><div class="brand-name">SIM-WORX<span>PROJECT HUB</span></div></div><nav>${navHtml}</nav><div class="sidebar-bottom"><div class="workspace-mark"><div class="avatar">SW</div><div><b>Sim-Worx Team</b><small>Local demonstration</small></div></div></div></aside>
-    <div class="main"><header class="topbar"><div><div class="top-title">${e(title)}</div><div class="top-sub">Plan, build, deliver — all in one place</div></div><div class="top-actions"><span class="version-chip" aria-label="Application version ${APP_VERSION}" title="Sim-Worx Project Hub · ${APP_VERSION}">${APP_VERSION}</span><span class="demo-ribbon">DEMO · NOT LIVE</span><label class="top-search">${ico('search')}<input id="global-search" placeholder="Search projects..." autocomplete="off" aria-label="Search projects" /></label><button class="circle-btn" data-action="theme" aria-label="Toggle colour theme" title="Light / dark mode">${ico(data.settings.theme==='light'?'moon':'sun')}</button><button class="circle-btn" data-action="notifications" aria-label="Notifications" title="Notifications">${ico('bell')}</button><div class="avatar" title="Sim-Worx Administrator">SW</div></div></header>
+    <aside class="sidebar"><div class="brand"><div class="brand-gem">${ico('warehouse',23)}</div><div class="brand-name">SIM-WORX<span>PROJECT HUB</span></div></div><nav>${navHtml}</nav><div class="sidebar-bottom"><div class="workspace-mark"><div class="avatar">SW</div><div><b>Sim-Worx Team</b><small>Internal workspace</small></div></div></div></aside>
+    <div class="main"><header class="topbar"><div><div class="top-title">${e(title)}</div><div class="top-sub">Plan, build, deliver — all in one place</div></div><div class="top-actions"><span class="version-chip" aria-label="Application version ${APP_VERSION}" title="Sim-Worx Project Hub · ${APP_VERSION}">${APP_VERSION}</span><span class="demo-ribbon">LOCAL · STAFF ONLY</span><span id="workspace-save-state" class="workspace-save-state">Browser saved · file not linked</span><label class="top-search">${ico('search')}<input id="global-search" placeholder="Search projects..." autocomplete="off" aria-label="Search projects" /></label><button class="circle-btn" data-action="theme" aria-label="Toggle colour theme" title="Light / dark mode">${ico(data.settings.theme==='light'?'moon':'sun')}</button><button class="circle-btn" data-action="notifications" aria-label="Notifications" title="Notifications">${ico('bell')}</button><div class="avatar" title="Sim-Worx Administrator">SW</div></div></header>
     <main class="content">${pageContent()}</main></div></div>${ui.modal?modalContent():''}`;
   bindGlobalSearch();
+  const status=document.getElementById('workspace-save-state');if(status){const f=workspaceFile.status();status.textContent=f.connected?(f.kind==='file-error'?'FILE SAVE ERROR':f.kind==='file-saving'?'Saving…':'File autosave linked'):'Browser saved · file not linked';}
 }
-function bindGlobalSearch(){const el=document.getElementById('global-search');if(!el)return;el.value=ui.query;el.addEventListener('keydown',ev=>{if(ev.key==='Enter'){const q=el.value.trim().toLowerCase();const p=data.projects.find(p=>`${p.name} ${p.code} ${projectOrg(p)?.name}`.toLowerCase().includes(q));if(p){ui.project=p.id;ui.page='projects';ui.projectTab='structure';ui.query='';render();}else toast('No matching project found',true)}})}
+function bindGlobalSearch(){const el=document.getElementById('global-search');if(!el)return;el.value=ui.query;el.addEventListener('keydown',ev=>{if(ev.key==='Enter'){const q=el.value.trim().toLowerCase();const p=data.projects.find(p=>`${p.name} ${p.code} ${projectOrg(p)?.name}`.toLowerCase().includes(q));if(p){ui.project=p.id;ui.page='projects';ui.projectTab='focus';ui.procurementProject=p.id;ui.query='';render();}else toast('No matching project found',true)}})}
 function pageContent(){switch(ui.page){case 'overview':return overview();case 'projects':return projectsPage();case 'assemblies':return manufacturingPage();case 'tasks':return tasksPage();case 'purchasing':return renderPurchasingV041(data,ui);case 'inventory':return renderInventoryV041(data,ui);case 'customers':return customersPage();case 'client':return clientPage();case 'finance':return financePage();case 'reports':return reportsPage();case 'settings':return settingsPageV041();default:return overview()}}
 function overview(){
   const runningProjects=allActiveProjects().filter(p=>p.status!=='Delivered');const avg=Math.round(runningProjects.reduce((a,p)=>a+(managedProgress(p.id)||0),0)/(runningProjects.length||1));
   const pending=data.approvals.filter(a=>a.status==='Pending'&&!a.archivedAt&&allActiveProjects().some(p=>p.id===a.projectId)).length,blocked=active(data.tasks).filter(t=>t.status==='Blocked'&&allActiveProjects().some(p=>p.id===t.projectId)).length;
-  const kpis=[['Active projects',runningProjects.length,'projects','Across '+data.organizations.length+' customers'],['Internal progress',avg+'%','reports','Weighted job status snapshot'],['Open production jobs',active(data.tasks).filter(t=>!['Done','Cancelled'].includes(t.status)&&allActiveProjects().some(p=>p.id===t.projectId)).length,'tasks','Office & workshop tasks'],['Client approvals',pending,'shield','Decisions awaiting clients']];
+  const kpis=[['Active projects',runningProjects.length,'projects','Across '+data.organizations.length+' customers'],['Manual progress',avg+'%','reports','Staff-weighted progress steps'],['Open production jobs',active(data.tasks).filter(t=>!['Done','Cancelled'].includes(t.status)&&allActiveProjects().some(p=>p.id===t.projectId)).length,'tasks','Office & workshop tasks'],['Client approvals',pending,'shield','Decisions awaiting clients']];
   const kpiHtml=kpis.map(([label,value,icon,note])=>`<div class="kpi"><div><div class="kpi-label">${e(label)}</div><div class="kpi-value mono">${e(value)}</div><div class="kpi-note">${e(note)}</div></div><div class="kpi-icon">${ico(icon,23)}</div></div>`).join('');
   const rows=allActiveProjects().map(p=>`<tr><td class="clickable" data-action="project-open" data-id="${p.id}">${projectTitle(p)}</td><td><div style="display:flex;gap:7px;align-items:center">${chip(projectOrg(p))}<b>${e(projectOrg(p).name)}</b></div></td><td><div class="progress-line">${meter(managedProgress(p.id)||0)}<span class="mono">${managedProgress(p.id)===null?'Not set':managedProgress(p.id)+'%'}</span></div></td><td>${badge(p.status)}</td><td class="subtle">${day(p.due)}</td><td>${button(ico('chevron'),'project-open','small',`data-id="${p.id}" aria-label="Open ${e(p.name)}"`)}</td></tr>`).join('');
   const spotlight=allActiveProjects()[0];
@@ -288,7 +320,25 @@ function financePage(){
 function reportsPage(){const rows=allActiveProjects().map(p=>{const prog=managedProgress(p.id)||0;const done=data.tasks.filter(t=>t.projectId===p.id&&t.status==='Done').length;return `<div class="bar-group"><div class="bar-label"><span>${e(p.name)}</span><span>${prog}% · ${done} completed</span></div>${meter(prog)}</div>`}).join('');const states=['Done','In progress','Ready','Blocked','Inspection','Backlog'];const counts=states.map(s=>active(data.tasks).filter(t=>t.status===s&&allActiveProjects().some(p=>p.id===t.projectId)).length);const max=Math.max(...counts,1);
   return head('Reports & progress','See workload, completed jobs and project milestones across customers.',button(`${ico('refresh')} Refresh view`,'refresh',''))+`<div class="grid-even">${card('Project completion',`<div class="card-body" style="padding-top:0">${rows}</div>`,'','Internal task-derived progress')}${card('Production job pipeline',`<div class="card-body" style="padding-top:0"><div class="report-chart"><div class="skeleton-chart">${counts.map((count,i)=>`<div class="bar" style="height:${Math.max(9,count/max*100)}%"><span>${e(states[i].split(' ')[0])}</span></div>`).join('')}</div></div><p class="form-hint">${data.tasks.length} tracked department jobs across ${data.projects.length} projects.</p></div>`,'','Task statuses across the workshop')}</div>${card('Recent audit history',`<div class="table-wrap"><table class="table"><thead><tr><th>Action</th><th>Description</th><th>Actor</th><th>Time</th></tr></thead><tbody>${data.audit.slice(0,20).map(a=>`<tr><td><b>${e(a.action)}</b></td><td>${e(a.detail)}</td><td>${e(a.actor)}</td><td>${day(a.at)}</td></tr>`).join('')}</tbody></table></div>`,'','Event records for this browser-based demo')}`;
 }
-function settingsPage(){return head('Workspace settings','Your Project Hub experience and development-stage safeguards.')+`<div class="grid-even">${card('Appearance',`<div class="card-body"><div class="split-header"><div><b>Display theme</b><p class="form-hint">Choose a clean, light workspace or dark mode.</p></div>${button(data.settings.theme==='light'?`${ico('moon')} Dark mode`:`${ico('sun')} Light mode`,'theme','soft')}</div></div>`)}${card('Demo environment',`<div class="card-body"><b>No production connection</b><p class="form-hint">Your changes are stored in this browser. There is no login, database connection, email provider, file upload storage or shared access. This demo is suitable for product evaluation only.</p>${button(`${ico('refresh')} Reset demo data`,'reset-demo','danger')}</div>`)}${card('Email delivery',`<div class="card-body"><b>Disabled by design</b><p class="form-hint">No sending account has been approved. Approval events and invitations remain in the on-screen demo. We will enable email only after isolating and verifying a no-additional-cost route.</p>${badge('Not configured','amber')}</div>`)}${card('Archive & restore',`<div class="card-body"><p class="form-hint">Archiving retains history and references. Restore records here; nothing is permanently deleted.</p>${['organizations','projects','sections','tasks','parts','bom','documents','members','updates','orders'].flatMap(kind=>data[kind].filter(row=>row.archivedAt).map(row=>`<div class="archive-row"><div><b>${e(row.title||row.name||row.code||row.id)}</b><small>${e(kind)} · ${day(row.archivedAt)}</small></div>${button('Restore','restore-record','small',`data-kind="${kind}" data-id="${row.id}"`)}</div>`)).join('')||'<div class="subtle">No archived records</div>'}</div>`)}${card('Production readiness',`<div class="card-body">${['Customer login & RLS','Private document storage','Secure staff invitations','Transactional stock allocation','Automated emails','Independent deployment'].map(x=>`<div class="pipeline-item"><span class="pipe-main"><strong>${e(x)}</strong></span>${badge('Pending','amber')}</div>`).join('')}</div>`,'','These features require a separately approved backend') }</div>`;
+function settingsPage(){
+ return head('Workspace settings','Internal project information, file saving and staff access.')+
+ '<div class="grid-even">'+
+ card('Workspace file and recovery',
+   '<div class="card-body"><b>Protect your project data</b><p class="form-hint">Changes save immediately in this browser. For an additional durable copy across versions, choose a file on your PC. File autosave works while the chosen file remains linked in this tab.</p>'+
+   '<div class="v41-backup-actions">'+button('Create & link autosave file','v43-file-new','primary')+
+   button('Open existing workspace file','v43-file-open','small')+
+   button('Disconnect autosave','v43-file-detach','small')+'</div>'+
+   '<p class="form-hint">File status: '+e(workspaceFile.status().connected?'Linked to local file':'No autosave file linked')+
+   '. A downloaded JSON backup works in every browser, even when the file-picker API is unsupported. You must explicitly relink the file after opening a different standalone HTML version.</p></div>')+
+ card('Staff access and privacy',
+   '<div class="card-body"><b>Single-PC local password</b><p class="form-hint">Username/password are checked locally. This is not encrypted storage, identity management or shared employee access; keep the PC and saved JSON file protected.</p>'+
+   button('Sign out','v43-staff-logout','small')+'</div>')+
+ card('Appearance','<div class="card-body"><p class="form-hint">Switch light and dark themes.</p>'+button('Toggle theme','theme','small')+'</div>')+
+ card('Clear workspace (irreversible)',
+  '<div class="card-body"><p class="form-hint">Clear all visible project, purchasing and stock records ONLY after exporting a private backup. This never clears the original PDF documents on your PC.</p>'+
+  button('Clear ALL workspace data','reset-demo','danger')+'</div>')+
+ card('External services disabled','<div class="card-body"><p class="form-hint">No production server, remote login, cloud sync, email, billing API or customer publishing is enabled. No data is uploaded to GitHub by the application.</p></div>')+
+ '</div>';
 }
 function optionList(entries,current){return entries.map(([val,label])=>`<option value="${e(val)}" ${val===current?'selected':''}>${e(label)}</option>`).join('')}
 const field=(label,name,kind='text',value='',required=true,extra='')=>`<div class="field"><label for="form-${name}">${e(label)}</label><input id="form-${name}" name="${e(name)}" type="${kind}" value="${e(value)}" ${required?'required':''} ${extra}/></div>`;
@@ -365,6 +415,25 @@ function exportWbs(projectId){
   const a=document.createElement('a');a.href=url;a.download=`${project.code}-WBS.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
+ if(!staffGate.status().unlocked)return;
+ if(action==='v43-staff-logout'){staffGate.logout();render();return;}
+ if(action==='v43-file-detach'){workspaceFile.detach();render();toast('File autosave disconnected; browser saving continues');return;}
+ if(action==='v43-file-new'){
+   workspaceFile.createAndConnect(createWorkspaceBackup(data)).then(()=>{render();toast('Workspace file created and linked for autosaving');})
+     .catch(err=>toast(err.message||'Unable to choose workspace file',true));return;
+ }
+ if(action==='v43-file-open'){
+   workspaceFile.openCandidate().then(async candidate=>{
+     if(!candidate)return;
+     const loaded=parseWorkspaceBackup(candidate.text);
+     if(!confirm('Replace this workspace with the selected file? First export your current workspace as a backup if it contains anything you need.'))return;
+     const snapshot=JSON.stringify(loaded);
+     localStorage.setItem(STORAGE_KEY,snapshot);
+     data=loaded;ensureProgress(data);ensureExternalWork(data);
+     await workspaceFile.connectOpened(candidate.handle);
+     ui.project=data.projects[0]?.id||'';ui.procurementProject=ui.project;ui.page='projects';ui.projectTab='focus';render();toast('Workspace file loaded and linked');
+   }).catch(err=>toast(err.message||'Could not open workspace file',true));return;
+ }
  if(action?.startsWith('mfg-')){try{handleManufacturingAction(data,ui,el,window.confirm);persist();render();toast('Manufacturing demo updated locally');}catch(err){toast(err.message||'Manufacturing action failed',true)}return;}
 
   if(action==='v42-edit-master'){ui.partReturnProject=ui.project;openModal('part',{id});return;}
@@ -449,11 +518,19 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'receive-po':{receiveOrder(data,id);persist();render();toast('Outstanding purchase order quantities received into stock');break;}
   case 'notifications':openModal('notifications');break;
   case 'mark-read':data.notifications.forEach(x=>x.read=true);persist();closeModal();toast('Notifications marked as read');break;
-  case 'reset-demo':if(confirm('Reset all local demo records and changes? This cannot be undone.')){data=seed();ensureManufacturing(data);ensureMaterials(data);ensureProgress(data);ensureExternalWork(data);persist();ui.page='overview';ui.project='p1';ui.projectTab='focus';ui.procurementProject='p1';ui.clientOrg='noah';ui.clientProject='p1';render();toast('Demo reset to original sample data')}break;
-  case 'refresh':render();toast('Dashboard refreshed from local demo records');break;
+  case 'reset-demo':if(confirm('Delete every project, material, order, cost and note from this workspace? Export a private backup first. This cannot be undone.')){data=emptyWorkspace();persist();ui.page='overview';ui.project='';ui.projectTab='focus';ui.procurementProject='';ui.clientOrg='';ui.clientProject='';render();toast('Workspace cleared. Import your private NOAH workspace in Settings.')}break;
+  case 'refresh':render();toast('Workspace view refreshed from local records');break;
   }}catch(err){toast(err.message||'Unable to complete this action',true)}
 }
 function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.get(n)||'').trim();const type=form.dataset.form;
+ if(type==='v43-staff-setup'||type==='v43-staff-login'){
+   const action=type==='v43-staff-setup'?
+    staffGate.setup(get('username'),get('password'),get('confirmation')):
+    staffGate.signIn(get('username'),get('password'));
+   action.then(()=>{render();toast('Local staff workspace unlocked');}).catch(err=>toast(err.message||'Sign in failed',true));
+   return;
+ }
+ if(!staffGate.status().unlocked)return;
  if(type?.startsWith('mfg-')){try{handleManufacturingSubmit(data,ui,form);persist();render();toast('Manufacturing record saved locally');}catch(err){toast(err.message||'Manufacturing form failed',true)}return;}
  if(type?.startsWith('v41-')||type==='v42-material-edit'||type==='v43-quick-part'){try{handleMaterialsSubmit(data,ui,form);persist();render();toast('Procurement saved locally');}catch(err){toast(err.message||'Procurement form failed',true)}return;}
 
@@ -510,24 +587,24 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Workspace backup & restore · V0.4.3</h2></div><p>Download all current demo records, including projects, assemblies, stock, supplier orders, delivery tracking, attachments and internal illustrative financial data. Keep the file private. A restore replaces records in this browser only after confirmation.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Local browser demo only. There is no cloud sync or production database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.4.3</h2></div><p>Use Restore JSON backup to load the private NOAH contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;
  if(file.size>10000000){toast('Backup exceeds the 10 MB limit',true);return;}
  file.text().then(content=>{
    const candidate=parseWorkspaceBackup(content);
-   if(!confirm('Replace ALL Project Hub demo records in this browser with the selected backup? Save your current backup first if needed.'))return;
+   if(!confirm('REPLACE this workspace with the chosen private JSON? This will remove the previous sample/project records. Download a backup first if necessary.'))return;
    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(candidate));}
    catch(err){throw Error('Could not save restored records. Existing data remains unchanged. '+err.message);}
-   data=candidate;ui.page='overview';ui.project=data.projects.find(p=>!p.archivedAt)?.id||'';
-   ui.materialPO=null;ui.materialOrderEditor=false;render();toast('Workspace restored from JSON backup');
+   data=candidate;ensureProgress(data);ensureExternalWork(data);ui.page='projects';ui.projectTab='focus';ui.project=data.projects.find(p=>!p.archivedAt)?.id||'';ui.procurementProject=ui.project;
+   ui.materialPO=null;ui.materialOrderEditor=false;persist();render();toast('Private workspace loaded; sample records replaced');
  }).catch(err=>toast('Cannot restore: '+String(err.message||err),true));
 }
 
 document.addEventListener('click',ev=>{const el=ev.target.closest('[data-action]');if(el){if(el.dataset.action==='dismiss-modal'&&ev.target!==el)return;handleAction(el)}});
 document.addEventListener('submit',ev=>{const form=ev.target.closest('form[data-form]');if(form){ev.preventDefault();formHandler(form)}});
-document.addEventListener('change',ev=>{try{const el=ev.target;
+document.addEventListener('change',ev=>{try{if(!staffGate.status().unlocked)return;const el=ev.target;
  if(el.dataset.v41Proof){handleMaterialsProof(data,el,()=>{persist();render();toast('Proof document saved locally')},message=>toast(message,true));return;}
  if(el.id==='v41-restore-file'){restoreBackupFile(el.files?.[0]);return;}
  if(el.dataset.v42Delivery){updateOrderStage(data,el.dataset.v42Delivery,el.value);persist();render();toast('Delivery stage changed; stock unchanged');return;}

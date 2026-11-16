@@ -507,6 +507,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'v46-prepare-po':{
    const source=data.assemblyBOM.find(x=>x.id===id&&!x.archivedAt);
    if(!source)throw Error('Material requirement unavailable');
+   if(source.purchaseSource?.responsibility!=='Sim-Worx')throw Error('Confirm Sim-Worx purchasing responsibility before preparing a PO');
    ui.project=source.projectId;ui.procurementProject=source.projectId;ui.page='purchasing';ui.materialPO=null;
    ui.materialOrderEditor=true;ui.materialPrefill={partId:source.partId,quantity:source.quantity,
     productUrl:source.purchaseSource?.productUrl||'',vendorSku:source.purchaseSource?.vendorSku||'',

@@ -10,7 +10,7 @@ import {ensureProgress,progressSnapshot} from './progress-v043.mjs';
 import {renderProjectProgress,handleProgressForm,handleProgressAction} from './progress-ui-v043.mjs';
 import {ensureExternalWork,externalRouteSummary} from './external-work-v043.mjs';
 import {renderExternalWork,handleExternalForm,handleExternalAction} from './external-ui-v043.mjs';
-import {procurementAlerts} from './procurement-planning-v043.mjs';
+import {procurementAlerts,exportProcurementReviewCSV} from './procurement-planning-v043.mjs';
 import {handleMaterialPlanningForm} from './planning-ui-v043.mjs';
 import {renderProjectFocus} from './focus-ui-v043.mjs';
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
@@ -432,6 +432,16 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
  if(!staffGate.status().unlocked)return;
  if(action==='v43-staff-logout'){staffGate.logout();render();return;}
  if(action==='v43-file-detach'){workspaceFile.detach();render();toast('File autosave disconnected; browser saving continues');return;}
+ if(action==='v44-export-buying-schedule'){
+   try{
+    const projectId=el.dataset.project||ui.project;
+    const csv=exportProcurementReviewCSV(data,projectId);
+    const url=URL.createObjectURL(new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+    const link=document.createElement('a');link.href=url;link.download='SimWorx-Buying-Schedule-'+projectId+'.csv';
+    document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+   }catch(err){toast(err.message||'Schedule export failed',true)}
+   return;
+ }
  if(action==='v44-file-verify'){
    workspaceFile.verifyConnected(createWorkspaceBackup(data)).then(result=>{render();toast('Disk read-back passed ('+result.bytes+' bytes); workspace matches browser records');})
      .catch(err=>{render();toast(err.message||'File recovery check failed',true)});return;

@@ -62,8 +62,22 @@ export const outstanding = line => Math.max(0,Number(line.quantity||0)-Number(li
 export const purchaseStatus = order => {
   if(!order.items?.length)return 'Draft';
   const all=order.items.every(l=>outstanding(l)===0);
-  return all?'Received':order.items.some(l=>Number(l.received||0)>0)?'Part received':'Awaiting delivery';
+  if(all)return 'Received';
+  if(order.items.some(l=>Number(l.received||0)>0))return 'Part received';
+  return order.dispatchState==='Out for delivery'?'Out for delivery':'Ordered';
 };
+/* Procurement stages do not affect stock. Only validated goods receipt changes on-hand. */
+export function setPurchaseDispatch(state,{orderId,stage}){
+  ensureMaterials(state);
+  const o=state.orders.find(x=>live(x)&&x.id===orderId);
+  if(!o)throw Error('Purchase order unavailable');
+  if(!['Ordered','Out for delivery'].includes(stage))throw Error('Choose Ordered or Out for delivery');
+  if(purchaseStatus(o)==='Received')throw Error('Received order cannot be changed to an earlier delivery stage');
+  o.dispatchState=stage;
+  o.status=purchaseStatus(o);
+  note(state,'Order delivery stage updated',o.code+' / '+stage);
+  return o;
+}
 function normalizedLine(s,projectId,input){
   const part=partById(s,input.partId);
   assemblyForProject(s,input.assemblyId,projectId);
@@ -85,7 +99,7 @@ export function createPurchaseOrder(s,input){
   const items=input.items.map(x=>normalizedLine(s,project.id,x)); // Validate all before mutation
   const code='PO-'+new Date().getFullYear()+'-'+String(s.orders.length+1).padStart(4,'0');
   const order={id:uid('po'),code,projectId:project.id,supplier,currency,taxRate,
-    date:timestamp().slice(0,10),status:'Awaiting delivery',items};
+    date:timestamp().slice(0,10),status:'Ordered',dispatchState:'Ordered',origin:'v042',items};
   s.orders.unshift(order);
   note(s,'Purchase order created',code+' / '+items.length+' lines');
   return order;

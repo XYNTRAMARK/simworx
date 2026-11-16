@@ -65,7 +65,7 @@ function workLinks(s,r){
  const t=s.tasks?.find(x=>live(x)&&x.id===(r.occ.linkedTaskId||r.plan.linkedTaskId));
  const section=s.sections?.find(x=>live(x)&&x.id===(t?.sectionId||r.assembly.sectionId));
  return '<div class="v49-source-meta"><div><span>Work package</span><b>'+e(section?.name||'Not linked')+'</b></div>'+
- '<div><span>Job / sub-job</span><b>'+e(t?.title||t?.name||'Not linked')+'</b></div>'+
+ '<div><span>Job / sub-job</span><b>'+e(t?.title||t?.name||'Not linked')+'</b>'+(t?.id?btn('v50-open-job-from-buying',t.id,'Open job'):'')+'</div>'+
  '<div><span>Department</span><b>'+e(r.occ.departmentOwner||'Unassigned')+'</b></div>'+
  '<div><span>Responsible</span><b>'+e(r.occ.responsiblePerson||'Unassigned')+'</b></div></div>';
 }

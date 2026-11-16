@@ -9,7 +9,7 @@ const qty = (value,label='Quantity') => {
   return n;
 };
 const required = (value,label) => {const s=String(value??'').trim();if(!s)throw Error(`${label} is required`);return s;};
-const log = (s,action,detail) => {s.audit??=[];s.audit.unshift({id:id('audit'),actor:'Sim-Worx Demo',action,detail,at:stamp()});};
+const log = (s,action,detail) => {s.audit??=[];s.audit.unshift({id:id('audit'),actor:'Internal staff',action,detail,at:stamp()});};
 const copy = v => JSON.parse(JSON.stringify(v));
 export const activeAssemblies = (s,projectId) => (s.assemblies||[]).filter(a=>live(a)&&(!projectId||a.projectId===projectId));
 export const activeBOM = (s,assemblyId) => (s.assemblyBOM||[]).filter(x=>live(x)&&(!assemblyId||x.assemblyId===assemblyId));

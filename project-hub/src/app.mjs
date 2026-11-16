@@ -24,7 +24,7 @@ ensureManufacturing(data);
 ensureMaterials(data);
 ensureProgress(data);
 ensureExternalWork(data);
-const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null};
+const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null};
 const staffGate=createLocalStaffGate();
 const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
   const el=document.getElementById('workspace-save-state');
@@ -497,7 +497,22 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
  try{switch(action){
   case 'nav':if(id==='purchasing')ui.procurementProject=ui.project;else if(id==='projects')ui.projectTab='focus';changePage(id);break;
   case 'project-open':ui.page='projects';ui.project=id;ui.projectTab='focus';ui.procurementProject=id;ui.showProjectList=false;render();document.getElementById('project-detail')?.scrollIntoView({behavior:'smooth',block:'start'});break;
-  case 'project-tab':ui.projectTab=id;render();document.querySelector('.v42-primary-tabs')?.scrollIntoView({block:'start'});break;
+  case 'project-tab':ui.page='projects';ui.project=ui.procurementProject||ui.project;ui.projectTab=id;render();
+   document.querySelector('.v42-primary-tabs')?.scrollIntoView({block:'start'});break;
+  case 'v46-pick-purchase-project':{
+   if(!data.projects.some(p=>p.id===id&&!p.archivedAt))throw Error('Project unavailable');
+   ui.procurementProject=id;ui.project=id;ui.materialPO=null;ui.materialOrderEditor=false;ui.materialPrefill=null;
+   ui.v46EditOccurrence=null;ui.v46BuyingQuery='';ui.v46PurchaseLine=null;render();break;
+  }
+  case 'v46-prepare-po':{
+   const source=data.assemblyBOM.find(x=>x.id===id&&!x.archivedAt);
+   if(!source)throw Error('Material requirement unavailable');
+   ui.project=source.projectId;ui.procurementProject=source.projectId;ui.page='purchasing';ui.materialPO=null;
+   ui.materialOrderEditor=true;ui.materialPrefill={partId:source.partId,quantity:source.quantity,
+    productUrl:source.purchaseSource?.productUrl||'',vendorSku:source.purchaseSource?.vendorSku||'',
+    sourceOccurrenceId:source.id};
+   render();document.querySelector('.v46-purchase-composer')?.scrollIntoView({block:'start'});break;
+  }
   case 'v46-edit-buy':ui.v46EditOccurrence=ui.v46EditOccurrence===id?null:id;render();break;
   case 'v46-cancel-buy-edit':ui.v46EditOccurrence=null;render();break;
   case 'v43-purchasing':ui.procurementProject=ui.project;ui.page='purchasing';ui.materialPO=null;render();break;
@@ -546,7 +561,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'receive-po':{receiveOrder(data,id);persist();render();toast('Outstanding purchase order quantities received into stock');break;}
   case 'notifications':openModal('notifications');break;
   case 'mark-read':data.notifications.forEach(x=>x.read=true);persist();closeModal();toast('Notifications marked as read');break;
-  case 'reset-demo':if(confirm('Delete every project, material, order, cost and note from this workspace? Export a private backup first. This cannot be undone.')){data=emptyWorkspace();persist();ui.page='overview';ui.project='';ui.projectTab='focus';ui.procurementProject='';ui.clientOrg='';ui.clientProject='';render();toast('Workspace cleared. Import your private NOAH workspace in Settings.')}break;
+  case 'reset-demo':if(confirm('Delete every project, material, order, cost and note from this workspace? Export a private backup first. This cannot be undone.')){data=emptyWorkspace();persist();ui.page='overview';ui.project='';ui.projectTab='focus';ui.procurementProject='';ui.v46PurchaseLine=null;ui.clientOrg='';ui.clientProject='';render();toast('Workspace cleared. Import your private NOAH workspace in Settings.')}break;
   case 'refresh':render();toast('Workspace view refreshed from local records');break;
   }}catch(err){toast(err.message||'Unable to complete this action',true)}
 }
@@ -562,7 +577,11 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
    catch(err){toast(err.message||'Could not save material plan',true)}return;
  }
  if(type?.startsWith('mfg-')){try{handleManufacturingSubmit(data,ui,form);persist();render();toast('Manufacturing record saved locally');}catch(err){toast(err.message||'Manufacturing form failed',true)}return;}
- if(type?.startsWith('v41-')||type==='v42-material-edit'||type==='v43-quick-part'){try{handleMaterialsSubmit(data,ui,form);persist();render();toast('Procurement saved locally');}catch(err){toast(err.message||'Procurement form failed',true)}return;}
+ if(type?.startsWith('v41-')||type==='v42-material-edit'||type==='v43-quick-part'||type==='v46-po-line-update'){
+  if(type==='v41-po'&&!confirm('This action records a REAL supplier purchase order. Has the PO actually been approved and placed? Cancel if you are only planning or gathering quotes.'))return;
+  try{handleMaterialsSubmit(data,ui,form);persist();render();toast(type==='v46-po-line-update'?'Purchase line amendment recorded locally':'Procurement record saved locally');}
+  catch(err){toast(err.message||'Procurement form failed',true)}return;
+ }
 
  if(type?.startsWith('v43-step-')||type?.startsWith('v43-external-')||type==='v43-material-plan'||type?.startsWith('v43-contract-')){
   try{
@@ -641,6 +660,11 @@ document.addEventListener('change',ev=>{try{if(!staffGate.status().unlocked)retu
  if(el.id==='v41-restore-file'){restoreBackupFile(el.files?.[0]);return;}
  if(el.dataset.v42Delivery){updateOrderStage(data,el.dataset.v42Delivery,el.value);persist();render();toast('Delivery stage changed; stock unchanged');return;}
  const filter=el.dataset.filter;
+ if(filter==='v46-purchase-project'){
+  if(!data.projects.some(x=>x.id===el.value&&!x.archivedAt))throw Error('Unknown project');
+  ui.procurementProject=el.value;ui.project=el.value;ui.materialPO=null;ui.materialOrderEditor=false;
+  ui.materialPrefill=null;ui.v46PurchaseLine=null;ui.v46EditOccurrence=null;ui.v46BuyingQuery='';render();return;
+ }
  if(filter==='v46-work-query'){ui.v46WorkQuery=el.value;render();return;}
  if(filter==='v46-work-status'){ui.v46WorkStatus=el.value;render();return;}
  if(filter==='v46-work-section'){ui.v46WorkSection=el.value;render();return;}

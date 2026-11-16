@@ -11,6 +11,8 @@ import {savePart} from './model.mjs';
 import {renderProjectBuyingReview,projectBuyingSnapshot} from './project-control-v046.mjs';
 import {updatePurchaseLineRecord,safeProductURL} from './procurement-sourcing-v046.mjs';
 import {contractControlled,specStatus} from './procurement-workflow-v047.mjs';
+import {approvalStatus} from './procurement-control-v049.mjs';
+import {renderProcurementWorkbench} from './procurement-workbench-v049.mjs';
 
 const h=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'" :'&#39;'}[c]));
 const fmt=n=>new Intl.NumberFormat('en-GB',{maximumFractionDigits:2}).format(Number(n)||0);
@@ -151,13 +153,14 @@ export function renderOrderComposer(s,ui,projectId){
  const p=s.projects.find(p=>p.id===projectId&&!p.archivedAt);
  if(!p)return '<p>Select a project before making an order.</p>';
  const pref=ui.materialPrefill||{};
- if(contractControlled(s,projectId)&&(!pref.sourceOccurrenceId||!specStatus(s,pref.sourceOccurrenceId).approved))
+ if(contractControlled(s,projectId)&&(!pref.sourceOccurrenceId||!specStatus(s,pref.sourceOccurrenceId).approved||!approvalStatus(s,pref.sourceOccurrenceId).approved))
   return panel('Contract-controlled purchase guard','<p class="v47-warning">Before placing a real purchase, open Buying review, confirm purchasing responsibility, record the proposed model and compare it with the controlled technical specification. The PO form only opens for a verified requirement.</p>');
  return panel('New purchase order · '+p.code,
  '<form data-form="v41-po" class="v41-order-form"><input type="hidden" name="projectId" value="'+h(projectId)+'">'+
  '<div class="v41-fields">'+label('Supplier',input('supplier',pref.supplier||'','text','required'))+
  label('Currency',pick('currency',[['EUR','EUR'],['GBP','GBP'],['USD','USD'],['CAD','CAD']],'EUR'))+
- label('Tax assumption (%)',input('taxRate',0,'number','min="0" max="100" step="0.01" required'))+'</div>'+
+ label('Tax assumption (%)',input('taxRate',0,'number','min="0" max="100" step="0.01" required'))+
+ label('EUR per currency unit',input('eurExchangeRate',1,'number','min="0.000001" step="any" required'))+'</div>'+
  '<div id="v41-order-lines">'+orderLineEditor(s,projectId,pref)+'</div>'+
  '<div class="v41-actions">'+btn('+ Another line','v41-add-po-line','data-project="'+h(projectId)+'"','small')+
  '<button type="submit" class="btn primary">Record actual supplier PO</button>'+btn('Cancel','v41-order-cancel','','small')+'</div>'+
@@ -279,30 +282,18 @@ export function renderPurchasingV041(s,ui,forcedProjectId=null){
    projects.some(p=>p.id===ui.project)?ui.project:projects[0]?.id;
  ui.procurementProject=projectId;
  const p=projects.find(x=>x.id===projectId);
- if(!p)return '<div class="v46-empty">Create a project in Projects before purchasing.</div>';
- const requirements=projectBuyingSnapshot(s,projectId),orders=activeOrders(s).filter(o=>o.projectId===projectId);
- const selected='<div class="v46-purchase-picker"><div><small>ACTIVE PURCHASING PROJECT</small>'+
-  '<h2>'+h(p.name)+'</h2><p>'+h(p.code)+' · '+requirements.rows.length+' engineering material lines · '+
-  orders.length+' actual purchase orders recorded</p></div>'+
-  '<label>Switch project'+pick('procurementProject',projectOptions(s),projectId,
-  'data-filter="v46-purchase-project" aria-label="Choose project for purchasing"')+'</label></div>';
- const projectCards=projects.length>1?'<div class="v46-project-cards">'+projects.map(x=>
-  '<button type="button" data-action="v46-pick-purchase-project" data-id="'+h(x.id)+'" class="'+(x.id===projectId?'active':'')+'">'+
-  '<small>'+h(x.code)+'</small><b>'+h(x.name)+'</b><span>'+s.tasks.filter(t=>!t.archivedAt&&t.projectId===x.id).length+
-  ' work items</span></button>').join('')+'</div>':'';
- return '<div class="v41 v46-purchasing v48-project-purchasing">'+(forcedProjectId?'':selected+projectCards)+
-  '<div class="v46-purchase-intro"><strong>Purchasing for '+h(p.name)+'</strong><span>1. Department requirement → 2. Supplier and specification check → 3. Approved PO → 4. Delivery and inspection</span>'+
-  '<p>All proposed purchases are linked to this project. Save a source link or assign a buyer first; these actions do not create orders or change stock.</p></div>'+
-  '<div class="v46-purchase-overview"><span>'+requirements.buy.length+' proposed BUY lines</span>'+
-  '<span>'+requirements.manufacture.length+' MAKE requirements</span><span>'+requirements.unplannedBuy.length+' missing sourcing details</span>'+
-  '<span>'+orders.length+' actual POs</span></div>'+
+ if(!p)return '<div class="v49-nothing">Create a project before adding controlled purchasing requirements.</div>';
+ const selected=forcedProjectId?'':'<div class="v46-purchase-picker"><div><small>SELECT PROJECT</small><h2>'+
+  h(p.name)+'</h2><p>Purchasing is maintained inside the selected project workspace.</p></div>'+
+  '<label>Project'+pick('procurementProject',projectOptions(s),projectId,'data-filter="v46-purchase-project"')+'</label></div>';
+ return '<div class="v41 v46-purchasing v48-project-purchasing">'+selected+
+  renderProcurementWorkbench(s,ui,projectId)+
   (ui.materialOrderEditor?'<div class="v46-purchase-composer">'+renderOrderComposer(s,ui,projectId)+'</div>':'')+
-  renderProjectBuyingReview(s,ui,projectId)+
-  '<div class="v46-purchase-orders"><div class="v46-panel-heading"><div><h3>Actual supplier orders</h3>'+
-  '<p>Separate from your planning list. Each recorded order can have its own website, supplier SKU and edited line history.</p></div>'+
-  btn('+ Record actual purchase order','v41-order-new','data-project="'+h(projectId)+'"','small primary')+'</div>'+
+  '<div class="v49-actual-orders"><div class="v46-panel-heading"><div><h3>Actual supplier purchase orders</h3>'+
+  '<p>Only recorded orders appear here. Check supplier confirmation, outstanding quantities and physical QA evidence separately.</p></div></div>'+
   orderRegister(s,ui,projectId)+orderDetailIfSelected(s,ui,projectId)+'</div></div>';
 }
+
 export function renderInventoryV041(s,ui){
  ensureMaterials(s);
  const parts=s.parts.filter(p=>!p.archivedAt);
@@ -412,7 +403,7 @@ export function handleMaterialsSubmit(s,ui,form){
     links=fd.getAll('poProductUrl').map(String),vendorSkus=fd.getAll('poVendorSku').map(String),
     sourceOccurrences=fd.getAll('poSourceOcc').map(String),quotes=fd.getAll('poQuoteRef').map(String);
    if(!parts.length||!parts.every((_,i)=>quantities[i]!==undefined&&costs[i]!==undefined))throw Error('Please complete every order line');
-   const order=createPurchaseOrder(s,{projectId,supplier:v('supplier'),currency:v('currency'),taxRate:v('taxRate'),
+   const order=createPurchaseOrder(s,{projectId,supplier:v('supplier'),currency:v('currency'),taxRate:v('taxRate'),eurExchangeRate:v('eurExchangeRate'),
      items:parts.map((partId,i)=>({partId,quantity:quantities[i],unitCost:costs[i],assemblyId:assemblies[i],
        eta:etas[i],productUrl:links[i]||'',vendorSku:vendorSkus[i]||'',quoteRef:quotes[i]||'',sourceOccurrenceId:sourceOccurrences[i]||''}))});
    ui.materialPO=order.id;ui.materialOrderEditor=false;ui.materialPrefill=null;

@@ -129,7 +129,7 @@ function projectsPage(){
   '<th>Progress</th><th>Due</th><th>Manage</th></tr></thead><tbody>'+rows+'</tbody></table></div>',
   '','Switch projects or edit their details'):'';
  return '<div class="v42-project-page">'+head('Projects','Focus on one project; browse the portfolio only when needed.')+
-  chooser+list+(p?projectDetail(p):'<div class="empty">Create a project to begin.</div>')+'</div>';
+  chooser+list+(p?projectDetail(p):'<div class="empty"><h3>No projects yet</h3><p>Start by creating an internal client/company record if needed, then add your first Sim-Worx project.</p>'+button('Create project','open-project-modal','primary')+'</div>')+'</div>';
 }
 function projectDetail(p){
  const org=projectOrg(p),b=projectBudgetSnapshot(data,p.id);

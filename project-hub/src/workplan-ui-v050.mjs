@@ -63,7 +63,7 @@ function taskDetails(s,ui,projectId){
  const section=s.sections.find(x=>x.id===task.sectionId),rows=jobRequirements(s,task.id);
  const eligible=(s.assemblyBOM||[]).filter(o=>live(o)&&o.projectId===projectId&&!o.linkedTaskId);
  return '<section id="v50-job-details" class="v50-panel"><div class="v50-panel-title"><div><small>JOB DETAIL · '+esc(section?.name||'')+'</small><h3>'+esc(task.title)+'</h3></div>'+
- '<div class="v50-actions">'+button('v50-edit-job',task.id,'Edit job')+button('v50-add-child',task.id,'+ Child job')+button('v50-material-add',task.id,'+ Add material / buying item','primary')+button('v50-clear-selection','','Close')+'</div></div>'+
+ '<div class="v50-actions">'+button('v50-edit-job',task.id,'Edit job')+button('v50-add-child',task.id,'+ Child job')+button('v50-material-add',task.id,'+ Add material / buying item','primary')+button('v50-archive-job',task.id,'Archive job','danger')+button('v50-clear-selection','','Close')+'</div></div>'+
  (task.description?'<p class="v50-job-copy">'+esc(task.description)+'</p>':'<p class="v50-info">No detailed instructions yet. Select Edit job to type them in.</p>')+
  '<div class="v50-summary-line">'+pill(task.department||'Unassigned')+pill(task.assignee||'Unassigned')+pill(task.status||'Backlog')+
  (task.needsPurchasing?pill('Purchasing required','warn'):'')+'</div>'+
@@ -86,13 +86,15 @@ function taskDetails(s,ui,projectId){
  '<button type="submit" class="btn small">Link existing requirement (no duplicate)</button></form>':'')+
  materialEditor(s,ui,task)+'</section>';
 }
-function sectionCreator(ui,projectId){
- if(!ui.v50NewSection)return '';
- return '<section class="v50-panel v50-edit-panel"><h3>Add work package</h3><form data-form="v50-section" class="v50-editor-form">'+
+function sectionCreator(s,ui,projectId){
+ if(!ui.v50NewSection&&!ui.v50EditSection)return '';
+ const current=s.sections.find(x=>live(x)&&x.id===ui.v50EditSection&&x.projectId===projectId);
+ return '<section class="v50-panel v50-edit-panel"><h3>'+(current?'Edit work package':'Add work package')+'</h3><form data-form="v50-section" class="v50-editor-form">'+
+ '<input name="recordId" type="hidden" value="'+esc(current?.id||'')+'">'+
  '<input name="projectId" type="hidden" value="'+esc(projectId)+'">'+
- inp('Work package name','name','','required maxlength="160" placeholder="e.g. Avionics, Displays, Integration"')+
- inp('Progress weighting (%)','weight','0','type="number" min="0" max="100" step="1" required')+
- '<div class="v50-form-actions v50-wide"><button type="submit" class="btn primary">Create work package</button>'+button('v50-close-section','','Cancel')+'</div></form></section>';
+ inp('Work package name','name',current?.name||'','required maxlength="160" placeholder="e.g. Avionics, Displays, Integration"')+
+ inp('Progress weighting (%)','weight',current?.weight??'0','type="number" min="0" max="100" step="1" required')+
+ '<div class="v50-form-actions v50-wide"><button type="submit" class="btn primary">'+(current?'Save work package':'Create work package')+'</button>'+button('v50-close-section','','Cancel')+'</div></form></section>';
 }
 export function renderWorkPlanV050(s,ui,projectId){
  const project=s.projects.find(x=>live(x)&&x.id===projectId);
@@ -105,7 +107,7 @@ export function renderWorkPlanV050(s,ui,projectId){
   const hierarchy=workHierarchy(s,projectId,sec.id);
   const included=hierarchy.filter(({task})=>(status==='All'||task.status===status)&&(!query||[task.title,task.description,task.department,task.assignee,task.purchaseNeedNotes].some(x=>String(x||'').toLowerCase().includes(query))));
   return '<section class="v50-work-package"><div class="v50-work-package-head" style="--work-accent:var(--violet)"><div><span class="v50-number">'+String(si+1).padStart(2,'0')+'</span><b>'+esc(sec.name)+'</b><small>'+hierarchy.length+' jobs / sub-jobs</small></div>'+
-   button('v50-add-job',sec.id,'+ Job in package')+'</div>'+
+   '<div class="v50-actions">'+button('v50-edit-section',sec.id,'Edit package')+button('v50-add-job',sec.id,'+ Job in package')+'</div></div>'+
    (included.length?'<div class="v50-scroll"><table class="v50-tree"><thead><tr><th>WBS / job</th><th>Department / responsible</th><th>Progress</th><th>Materials</th><th>Actions</th></tr></thead><tbody>'+
    included.map(({task:t,depth,wbs})=>{const materials=jobRequirements(s,t.id),busy=t.needsPurchasing&&materials.filter(o=>o.makeBuy!=='Make').length===0;
     return '<tr class="'+(t.id===ui.v50SelectedTask?'v50-selected':'')+'"><td><div class="v50-tree-title" style="--depth:'+Math.min(depth,8)+'">'+
@@ -131,7 +133,7 @@ export function renderWorkPlanV050(s,ui,projectId){
  [['Jobs and sub-jobs',jobs.length],['Require purchase details',flag.length],['Open work items',jobs.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length],['Work packages',sections.length]].map(([label,value])=>
  '<div><small>'+esc(label)+'</small><strong>'+value+'</strong></div>').join('')+'</div>'+
  (flag.length?'<div class="v50-alert"><b>'+flag.length+' work item(s) flagged for purchasing without a linked Sim-Worx buying requirement.</b> Open their details, then add the specific item and quantity. Purchasing shows this same action queue.</div>':'')+
- sectionCreator(ui,projectId)+editor(s,ui,projectId)+
+ sectionCreator(s,ui,projectId)+editor(s,ui,projectId)+
  '<div class="v50-filters"><label>Find a job<input type="search" data-filter="v50-search" value="'+esc(ui.v50Search||'')+'" placeholder="Search job, instructions or person…"></label>'+
  '<label>Status<select data-filter="v50-status">'+opt([['All','All statuses'],...['Backlog','Ready','In progress','Blocked','Inspection','Done','Cancelled'].map(x=>[x,x])],status)+'</select></label></div>'+
  (groups||'<p class="v50-alert">No work packages yet. Start with <b>+ Work package</b>, then add jobs and sub-jobs manually. You do not need to accept a template structure.</p>')+

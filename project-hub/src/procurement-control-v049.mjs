@@ -102,6 +102,8 @@ export function recordOwnerAuthorisation(s,input){
  const supplier=required(input.supplier,'Supplier',2,160);
  if(!same(supplier,source.supplier))throw Error('Supplier must match the checked source');
  const model=required(input.manufacturerModel,'Exact manufacturer and model',4,300);
+ if(!String(o.specReview?.proposedSpecification||'').toLowerCase().includes(model.toLowerCase()))
+  throw Error('Owner-approved manufacturer/model must appear in the engineering technical review');
  const code=required(input.vendorSku,'Supplier model / SKU',2,120);
  if(!same(code,source.vendorSku))throw Error('Product SKU must match the reviewed source');
  const quote=required(input.quoteRef,'Real supplier quotation reference',4,160);

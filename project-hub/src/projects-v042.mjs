@@ -9,7 +9,7 @@ const validAmount=(v,name)=>{
  if(n>1e11)throw Error(name+' exceeds demo limit');
  return euroMoney(n);
 };
-const isNewOrder=o=>String(o.id||'').startsWith('po-')||o.origin==='v041'||o.origin==='v042';
+const isNewOrder=o=>o.origin==='v041'||o.origin==='v042'||(String(o.id||'').startsWith('po-')&&o.items?.some(l=>String(l.id||'').startsWith('pol-')));
 export function projectBudgetSnapshot(state,projectId){
  const project=state.projects?.find(p=>live(p)&&p.id===projectId);
  if(!project)throw Error('Project not found');

@@ -15,7 +15,7 @@ Imported contract-projects are detected from existing `dataProvenance.type='cont
 
 **The code cannot read or authenticate the signed PDF, approved drawings or a manufacturer's datasheet from a remote site.** Its specification check is a deliberate **manual gate with traceable evidence**, not an automated engineering certification, legal assurance or substitute for customer approval. Do not mark it passed without comparing critical performance and compatibility criteria to the controlled original documents and approved drawing revisions. Genuine deviations require the separate contractual change order/engineering review process before resetting the specification baseline.
 
-The private NOAA PDFs, supplier data, project JSON and customer commercial terms are **not bundled or committed**. Only user-entered generic application source is public.
+The private contract PDFs, supplier data, project JSON and customer commercial terms are **not bundled or committed**. Only user-entered generic application source is public.
 
 ## Workflow rules
 1. **Research / RFQ / Quote / Hold / Change requested / Replacement requested** — planning actions are auditable and may be moved backwards; no real supplier orders or stock implied.
@@ -37,7 +37,7 @@ The private NOAA PDFs, supplier data, project JSON and customer commercial terms
 3. Projects → Work plan: confirm clear coloured work package bands around all imported jobs.
 4. Purchasing → choose project. Open a test requirement, verify the controlled spec notes and mark the test candidate as non-compliant to see the order action blocked; do **not** falsely mark a real part compliant.
 5. On a disposable copy only: enter a fictional research quote and test moving a line to RFQ and back by Action/drop lane with reason. Ensure no PO appears.
-6. Simulate a *synthetic* verified PO, arrival, rejection and corrective PO; check inventory changes **only** when a genuinely accepted receipt is entered. Do not record fictional supplier orders in the actual live NOAA project workspace.
+6. Simulate a *synthetic* verified PO, arrival, rejection and corrective PO; check inventory changes **only** when a genuinely accepted receipt is entered. Do not record fictional supplier orders in the actual live contract project workspace.
 7. Settings: download/verify saved workspace and re-open in Chrome after closing tab; this remains an unverified owner-side acceptance step.
 
 ## Deferred

@@ -14,6 +14,7 @@
 6. **Unresolved buying actions visible:** A job flagged for purchasing but lacking a specific Sim-Worx material becomes an actionable queue item inside Purchasing. Entering and linking a real draft requirement resolves this queue item; the material itself becomes the single purchasing source.
 7. **No duplicate BOM entries:** Jobs can attach an already imported engineering requirement without cloning the material. Multiple items can link to the same job. Work-plan-created requirements record history when their drafts change. An item linked to real POs cannot be overwritten or archived from Work Plan. A material with an active owner authorization cannot be archived before its authorization is revoked.
 8. **Safe job archival:** The new Work Plan can archive a job only after dependent children, dependencies and material references are addressed; the archived job remains in private workspace history.
+9. **Legacy-editor purchasing guard:** Editing or archiving an E-BOM occurrence linked to an actual supplier PO is blocked even through the older Assemblies view; editing the ordered part identity (code, name or unit) through Part Master is also blocked. Corrections require auditable purchasing/change management, not rewriting the original order.
 
 ## Operating workflow
 

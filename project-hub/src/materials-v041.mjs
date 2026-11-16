@@ -2,6 +2,7 @@
    This is NOT a multi-user inventory database or financial/accounting system. */
 import {ensureManufacturing,activeAssemblies,assemblyRollup} from './manufacturing.mjs';
 import {safeProductURL} from './procurement-sourcing-v046.mjs';
+import {ensureTeam,assertOrderAllocation} from './team-budget-v048.mjs';
 import {assertContractPOGate,contractControlled,acceptArrivalRecord} from './procurement-workflow-v047.mjs';
 const uid = prefix => prefix+'-'+Math.random().toString(36).slice(2,11);
 const timestamp = () => new Date().toISOString();
@@ -47,6 +48,7 @@ const assemblyForProject=(s,id,projectId)=>{
 };
 export function ensureMaterials(s){
   ensureManufacturing(s);
+  ensureTeam(s);
   s.stockReservations??=[];
   s.procurementReceipts??=[];
   s.procurementReturns??=[];
@@ -119,6 +121,10 @@ export function createPurchaseOrder(s,input){
    for(const [partId,qty] of proposed)
     if(qty>(gaps.get(partId)||0))throw Error('Purchase quantity exceeds uncovered engineering requirement. Review existing orders, stock, or create an authorised extra BOM requirement');
   }
+  if(contractControlled(s,project.id)||s.departmentAllocations.some(a=>a.projectId===project.id&&Number(a.amount)>0)){
+   const snapshots=assertOrderAllocation(s,{projectId:project.id,supplier,currency,items});
+   items.forEach((line,i)=>{line.allocationDepartment=snapshots[i].department;line.buyerStaffId=snapshots[i].buyerId;line.linkedTaskId=snapshots[i].taskId});
+  }
   const code='PO-'+new Date().getFullYear()+'-'+String(s.orders.length+1).padStart(4,'0');
   const order={id:uid('po'),code,projectId:project.id,supplier,currency,taxRate,
     date:timestamp().slice(0,10),status:'Ordered',dispatchState:'Ordered',origin:'v042',items};
@@ -134,6 +140,10 @@ export function addPurchaseLine(s,orderId,line){
   if(contractControlled(s,o.projectId)){
    const available=materialReadinessV041(s,o.projectId).find(r=>r.partId===row.partId)?.toSource||0;
    if(row.quantity>available)throw Error('Added PO quantity exceeds the remaining engineering sourcing gap');
+  }
+  if(contractControlled(s,o.projectId)||s.departmentAllocations.some(a=>a.projectId===o.projectId&&Number(a.amount)>0)){
+   const snapshot=assertOrderAllocation(s,{projectId:o.projectId,supplier:o.supplier,currency:o.currency,items:[row]})[0];
+   Object.assign(row,{allocationDepartment:snapshot.department,buyerStaffId:snapshot.buyerId,linkedTaskId:snapshot.taskId});
   }
   o.items.push(row);o.status=purchaseStatus(o);
   note(s,'Purchase order line added',o.code);

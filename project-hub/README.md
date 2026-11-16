@@ -1,3 +1,21 @@
+# Sim-Worx Project Hub — V0.5.0
+
+**Development release · 16 November 2026.** The new Work Plan is the primary interface for writing jobs, adding as many sub-job levels as needed, defining engineering materials, and sending genuine purchasing needs to the project Purchasing & Materials desk. This release is an offline owner-only prototype, **not approved for six-figure live purchasing**. The linked customer contracts and private project JSON remain outside the public repository.
+
+### Run this build
+
+1. Download and **Extract All** from `SimWorx_Project_Hub_Complete_V0.5.0.zip` into a permanent folder on your Windows PC.
+2. Open `SimWorx_Project_Hub_Complete_V0.5.0.html` in Chrome/Edge; confirm the header visibly says **V0.5.0**.
+3. From **Settings**, download a PRIVATE JSON backup before editing your original workspace or switching versions.
+4. Use **Projects → Work Plan** to create or edit a work package, job, nested sub-job, typed descriptions and responsibilities. Add specific material/purchase requirements underneath jobs and open those records in **Purchasing & Materials** for technical verification.
+5. **Planning is not purchasing:** a job flag, proposed material, drawing/specification match or allocated department envelope never creates a supplier order, stock receipt or approval. The existing controlled purchasing gates still apply.
+
+[Read V0.5.0 release notes and owner acceptance checklist](docs/release-v050.md).
+
+---
+
+## Earlier V0.4.8 instructions (historical reference only)
+
 # Sim-Worx Project Hub — V0.4.9 (development branch)
 **16 November 2026 · Complete offline test build · not approved for real purchase authorization.**
 

@@ -8,7 +8,7 @@ const live=x=>x&&!x.archivedAt;
 const opt=(choices,selected)=>choices.map(([v,t])=>'<option value="'+esc(v)+'" '+(String(v)===String(selected)?'selected':'')+'>'+esc(t)+'</option>').join('');
 const inp=(label,name,value='',attrs='')=>'<label class="v50-field"><span>'+esc(label)+(label.includes('title')?helpTip(helpTopics.job):label.includes('Assigned')?helpTip(helpTopics.owner):label.includes('date')?helpTip(helpTopics.dates):label.includes('quantity')?helpTip(helpTopics.requirement):'')+'</span><input name="'+esc(name)+'" value="'+esc(value)+'" '+attrs+'></label>';
 const text=(label,name,value='',hint='')=>'<label class="v50-field v50-wide"><span>'+esc(label)+(label.includes('scope')?helpTip(helpTopics.description):label.includes('Technical')?helpTip(helpTopics.spec):label.includes('sourced')?helpTip(helpTopics.buyflag):'')+'</span><textarea name="'+esc(name)+'" rows="4" maxlength="4000" placeholder="'+esc(hint)+'">'+esc(value||'')+'</textarea></label>';
-const select=(label,name,values,value)=>'<label class="v50-field"><span>'+esc(label)+'</span><select name="'+esc(name)+'">'+opt(values,value)+'</select></label>';
+const select=(label,name,values,value)=>'<label class="v50-field"><span>'+esc(label)+(label.includes('Status')?helpTip(helpTopics.status):label.includes('Responsibility')?helpTip(helpTopics.requirement):'')+'</span><select name="'+esc(name)+'">'+opt(values,value)+'</select></label>';
 const button=(action,id,title,style='')=>'<button type="button" class="btn small '+style+'" data-action="'+esc(action)+'" data-id="'+esc(id)+'">'+esc(title)+'</button>';
 const pill=(title,tone='')=>'<span class="v50-tag '+tone+'">'+esc(title)+'</span>';
 const dept=values=>values.map(x=>[x,x]);

@@ -5,6 +5,7 @@ import {renderRequirementOperation} from './procurement-ui-v047.mjs';
 import {procurementState,specStatus} from './procurement-workflow-v047.mjs';
 import {approvalStatus,fulfilmentOptions,sourceStatuses} from './procurement-control-v049.mjs';
 import {flaggedUnspecifiedPurchases} from './workplan-v050.mjs';
+import {renderMaterialEvidence,helpTip,helpTopics} from './work-evidence-ui-v051.mjs';
 const e=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[ch]));
 const option=(rows,value)=>rows.map(([v,t])=>'<option value="'+e(v)+'" '+(v===value?'selected':'')+'>'+e(t)+'</option>').join('');
 const label=(name,control)=>'<label class="v49-field"><span>'+e(name)+'</span>'+control+'</label>';
@@ -83,7 +84,7 @@ function details(s,ui,r){
  badge(r.make?'MAKE':r.responsibility==='Sim-Worx'?'SIM-WORX BUY':r.responsibility==='Customer-direct'?'BUYER-DIRECT':r.responsibility==='Subcontractor'?'SUBCONTRACT':'RESPONSIBILITY OPEN')+
  badge(wf.status,stateTone(wf.status.toLowerCase()))+'</div></header>'+
  workLinks(s,r)+
- '<div class="v49-stage"><div class="v49-stage-heading"><b>1 · Contract &amp; technical requirement</b>'+btn('v49-source-toggle',o.id,source?'Close editor':trace.document?'Revise source':'Map source')+'</div>'+
+ '<div class="v49-stage"><div class="v49-stage-heading"><b>1 · Contract &amp; technical requirement '+helpTip(helpTopics.spec)+'</b>'+btn('v49-source-toggle',o.id,source?'Close editor':trace.document?'Revise source':'Map source')+'</div>'+
  '<p><strong>Controlled source:</strong> '+e(trace.document||'Not recorded')+' · '+e(trace.section||'Clause missing')+' · '+e(trace.revision||'Revision missing')+'</p>'+
  '<p><strong>Scope:</strong> '+e(sourceStatuses.find(x=>x[0]===trace.requirementStatus)?.[1]||'Unverified')+' · '+e(fulfilmentOptions.find(x=>x[0]===trace.fulfilment)?.[1]||'Unresolved')+'</p>'+
  '<p><strong>Specification:</strong> '+e(r.part.notes||'No part-specific technical notes recorded — consult original contract')+'</p>'+
@@ -94,7 +95,7 @@ function details(s,ui,r){
  '<p><strong>Quote:</strong> '+e(r.source.quoteRef||'Not recorded')+' · <strong>Need by:</strong> '+e(r.plan.requiredBy||'Not scheduled')+'</p>'+
  (r.source.productUrl?.startsWith('https://')?'<a class="v49-link" href="'+e(r.source.productUrl)+'" target="_blank" rel="noopener noreferrer">View manufacturer/supplier listing</a>':'<p class="v49-hint">No verified product URL on file</p>')+
  (edit?requirementEditor(r):'')+'</div>'+
- '<div class="v49-stage"><div class="v49-stage-heading"><b>3 · Independent technical review</b>'+badge(specStatus(s,o.id).status,stateTone(specStatus(s,o.id).status.toLowerCase()))+'</div>'+
+ '<div class="v49-stage"><div class="v49-stage-heading"><b>3 · Independent technical review '+helpTip(helpTopics.inspection)+'</b>'+badge(specStatus(s,o.id).status,stateTone(specStatus(s,o.id).status.toLowerCase()))+'</div>'+
  '<p>Record exact manufacturer/model, dimensional and functional comparison, revision, reviewer and actual supporting evidence.</p>'+
  ops.actions+
  (ops.panels?'<table class="v49-embedded"><tbody>'+ops.panels+'</tbody></table>':'')+'</div>'+
@@ -104,12 +105,12 @@ function details(s,ui,r){
  ' · '+e(app.authorisation.maxQuantity)+' authorized / '+e(app.remaining)+' unused · max '+
  money(app.authorisation.maxUnitPrice,app.authorisation.currency)+' each</p>':'')+
  approvalEditor(r,app)+history+'</div>'+
- '<div class="v49-stage"><div class="v49-stage-heading"><b>5 · Supplier order, delivery &amp; QA</b>'+badge(wf.status,stateTone(wf.status.toLowerCase()))+'</div>'+
+ '<div class="v49-stage"><div class="v49-stage-heading"><b>5 · Supplier order, delivery &amp; QA '+helpTip(helpTopics.proof)+'</b>'+badge(wf.status,stateTone(wf.status.toLowerCase()))+'</div>'+
  '<p>'+e(wf.pending)+' open units across linked actual orders · '+e(wf.received)+' accepted units. Physical arrival is not stock receipt until QA acceptance.</p>'+
  (app.approved&&r.coverage.toSource>0?btn('v46-prepare-po',o.id,'Prepare approved PO','primary'):'<p class="v49-hint">Purchase order requires a current technical match, an owner authorization, approved budget and an uncovered requirement.</p>')+
  linked+
  (wf.rejected.length?'<p class="v49-warning">'+e(wf.rejected.length)+' rejected arrivals — replacement/return action required</p>':'')+
- '</div></div>';
+ '</div>'+renderMaterialEvidence(s,ui,o)+'</div>';
 }
 export function renderProcurementWorkbench(s,ui,projectId){
  const snapshot=projectBuyingSnapshot(s,projectId),rows=snapshot.rows,query=String(ui.v46BuyingQuery||'').trim().toLowerCase(),mode=ui.v46BuyingMode||'Buy';
@@ -123,7 +124,7 @@ export function renderProcurementWorkbench(s,ui,projectId){
  const unconverted=flaggedUnspecifiedPurchases(s,projectId);
  const selected=shown.find(r=>r.occ.id===ui.v49SelectedOccurrence)||shown[0];
  return '<section class="v49-desk">'+
- '<div class="v49-banner"><div><small>PROJECT PURCHASING · V0.4.9</small><h3>Source, approve, order and inspect in one place</h3>'+
+ '<div class="v49-banner"><div><small>PROJECT PURCHASING · V0.5.1</small><h3>Source, approve, order and inspect in one place</h3>'+
  '<p>Choose a requirement on the left, then follow its five-stage record on the right. No planning action sends an order, records an invoice or books stock.</p></div>'+
  '<div class="v49-banner-tools">'+btn('project-tab','team','Department budgets')+btn('project-tab','work','Work packages')+
  btn('project-tab','assembly','Add engineering requirement')+'</div></div>'+

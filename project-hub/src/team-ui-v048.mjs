@@ -1,5 +1,6 @@
 /* V0.4.8 project workspace views. The only active operator is the owner. */
 import {departmentOverview,teamDepartments,customerPreviewProjection,ensureTeamWorkspace} from './team-workspace-v048.mjs';
+import {renderApprovedCustomerEvidence,helpTip,helpTopics} from './work-evidence-ui-v051.mjs';
 const e=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&#39;'}[c]));
 const money=n=>'€'+new Intl.NumberFormat('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(n)||0);
 const live=x=>x&&!x.archivedAt;
@@ -94,7 +95,7 @@ export function renderCustomerPreview(s,ui,projectId){
  return '<section class="v48-preview"><div class="v48-intro"><h3>Future customer progress view — owner preview only</h3>'+
  '<p>This is a preview of an explicit section allowlist, not a login page or published customer portal. No staff names, supplier orders, budget, photos, contract documents or private project records are included.</p></div>'+
  '<div class="v48-warning"><strong>Customer access remains disabled.</strong> Production publication needs real server-side authentication, permissions, revocation, audit logs and secure private storage. This offline version cannot enforce those guarantees.</div>'+
- '<div class="v48-panel"><h4>Choose eligible progress sections</h4>'+
+ '<div class="v48-panel"><h4>Choose eligible progress sections '+helpTip(helpTopics.customer)+'</h4>'+
  sections.map(sec=>{const rule=s.customerShareRules?.find(x=>x.projectId===projectId&&x.sectionId===sec.id);
  return '<form class="v48-share-row" data-form="v48-customer-rule">'+
  '<input type="hidden" name="projectId" value="'+e(projectId)+'"><input type="hidden" name="sectionId" value="'+e(sec.id)+'">'+
@@ -106,5 +107,5 @@ export function renderCustomerPreview(s,ui,projectId){
  '<div class="v48-panel"><h4>What a customer could eventually see</h4>'+
  '<h3>'+e(view.projectName)+'</h3>'+
  (view.sections.map(sec=>'<div class="v48-preview-row"><h4>'+e(sec.title)+'</h4><p>'+e(sec.summary)+'</p><small>'+e(sec.status)+'</small></div>').join('')||'<p>No customer-visible sections selected. Everything remains private.</p>')+
- '</div></section>';
+ '</div>'+renderApprovedCustomerEvidence(s,projectId)+'</section>';
 }

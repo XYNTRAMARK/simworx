@@ -79,20 +79,57 @@ export function setEvidenceCustomerPreview(s,{evidenceId,visible,reviewer='',cap
  if(!redactionConfirmed)throw Error('Confirm that the image contains no confidential supplier prices, account numbers, personal data, addresses or sensitive contract terms');
  const who=required(reviewer,'Person approving this specific image',120);
  const publicCaption=required(caption,'Customer-safe description',400);
- e.customerApproval={visible:true,reviewer:who,caption:publicCaption,at:stamp(),scope:'OWNER PREVIEW ONLY — no live customer publication'};
+ e.customerApproval={visible:true,reviewer:who,caption:publicCaption,at:stamp(),scope:'OWNER PREVIEW ONLY — no live customer publication',reviewedFingerprint:evidenceFingerprint(s,e)};
  audit(s,'Owner marked redacted evidence for LOCAL customer preview',e.id+' / '+who);
  return e;
 }
 export function customerEvidenceProjection(s,projectId){
  ensureWorkEvidence(s);project(s,projectId);
  const sections=new Set((s.customerShareRules||[]).filter(r=>r.projectId===projectId&&r.visible).map(r=>r.sectionId));
- return s.workEvidence.filter(x=>live(x)&&x.projectId===projectId&&sections.has(x.sectionId)&&x.customerApproval?.visible===true&&x.mime.startsWith('image/'))
+ return s.workEvidence.filter(x=>live(x)&&x.projectId===projectId&&sections.has(x.sectionId)&&x.customerApproval?.visible===true&&x.mime.startsWith('image/')&&x.customerApproval.reviewedFingerprint===evidenceFingerprint(s,x))
   .map(x=>({id:x.id,sectionId:x.sectionId,title:'Reviewed progress photo',caption:x.customerApproval.caption,approvedAt:x.customerApproval.at,
    image:x.dataUrl})); // No private buyer, supplier, cost, original filename, source path, PO number, notes, or contact information.
 }
 export function archiveWorkEvidence(s,id){
  ensureWorkEvidence(s);const e=s.workEvidence.find(x=>live(x)&&x.id===id);if(!e)throw Error('Evidence unavailable');
+ if(e.orderId&&e.lineId)throw Error('This attachment is historical evidence on an actual PO line. Archiving it would conceal purchasing evidence; retain it and add a corrective note instead.');
  e.archivedAt=stamp();if(e.customerApproval)e.customerApproval=null;
  audit(s,'Evidence archived (owner local)',id+' / '+e.title+' / retained in existing private backups');
  return e;
+}
+
+/* Revision-aware local preview: prior approvals are not enough after job, source or file changes.
+   JSON fingerprint is a stale-review detector, NOT a cryptographic signature. */
+export function evidenceFingerprint(s,e){
+ const t=s.tasks?.find(x=>x.id===e.taskId),o=s.assemblyBOM?.find(x=>x.id===e.occurrenceId);
+ return JSON.stringify([e.dataUrl,t?.description||'',t?.jobAssurance?.technicalRevision||'',
+  o?.notes||'',o?.sourceTrace||null,o?.specReview?.fingerprint||'',o?.purchaseSource||null]);
+}
+/* Always run before accepting imported JSON or exporting a private recovery copy. Does not
+   mutate historical evidence; malformed data rejects the entire import atomically. */
+export function validateWorkEvidence(s){
+ if(s.workEvidence===undefined)return true; // V0.5.0 and older backups
+ if(!Array.isArray(s.workEvidence))throw Error('Invalid work evidence array in backup');
+ const ids=new Set();
+ for(const e of s.workEvidence){
+  if(!e||typeof e!=='object'||ids.has(e.id))throw Error('Duplicate or malformed evidence ID');
+  ids.add(e.id);
+  const p=s.projects?.find(p=>p.id===e.projectId);
+  const t=s.tasks?.find(t=>t.id===e.taskId&&t.projectId===e.projectId);
+  if(!p||!t)throw Error('Evidence references a missing project or unrelated job: '+e.id);
+  const o=e.occurrenceId?s.assemblyBOM?.find(x=>x.id===e.occurrenceId&&x.projectId===e.projectId):null;
+  if(e.occurrenceId&&!o)throw Error('Evidence references a missing or cross-project material: '+e.id);
+  if(e.lineId){
+   const po=s.orders?.find(x=>x.id===e.orderId&&x.projectId===e.projectId);
+   const line=po?.items?.find(x=>x.id===e.lineId);
+   if(!line||!o||line.sourceOccurrenceId!==o.id)throw Error('Evidence PO line does not match the original engineering requirement: '+e.id);
+  } else if(e.orderId)throw Error('Evidence references a PO without its line: '+e.id);
+  if(purchaseOnly.includes(e.kind)&&!e.lineId)throw Error('Supplier invoice/confirmation evidence missing original PO line: '+e.id);
+  safeFile(e.mime,e.dataUrl);
+  if(e.customerApproval?.visible===true){
+   if(!e.mime.startsWith('image/')||!e.customerApproval.reviewer||!e.customerApproval.caption)
+    throw Error('Invalid customer photo preview approval: '+e.id);
+  }
+ }
+ return true;
 }

@@ -18,11 +18,12 @@ import {ensureTeamWorkspace,saveDepartmentAllocation,allocateRequirement,attachE
 import {ensurePurchaseControls,saveRequirementTrace,recordOwnerAuthorisation,revokeOwnerAuthorisation,approvalStatus} from './procurement-control-v049.mjs';
 import {renderProjectTeam,renderProjectEvidence,renderCustomerPreview} from './team-ui-v048.mjs';
 import {renderWorkPlanV050} from './workplan-ui-v050.mjs';
+import {ensureWorkEvidence,attachWorkEvidence,archiveWorkEvidence,setEvidenceCustomerPreview} from './work-evidence-v051.mjs';
 import {saveWorkPlanJob,saveJobRequirement,linkExistingRequirement,archiveJobRequirement,archiveWorkPlanJob} from './workplan-v050.mjs';
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
-const APP_VERSION='V0.5.0'; // Every build carries an explicit visible release number.
+const APP_VERSION='V0.5.1'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
 function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return emptyWorkspace()}
 let data=load();
@@ -32,7 +33,8 @@ ensureProgress(data);
 ensureExternalWork(data);
 ensureTeamWorkspace(data);
 ensurePurchaseControls(data);
-const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All',v49SelectedOccurrence:null,v49SourceEdit:null,v49ResetBackupVerified:false,v49ResetSnapshot:null,v50JobEditor:null,v50SelectedTask:null,v50MaterialEditor:null,v50NewSection:false,v50EditSection:null,v50Search:'',v50Status:'All'};
+ensureWorkEvidence(data);
+const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All',v49SelectedOccurrence:null,v49SourceEdit:null,v49ResetBackupVerified:false,v49ResetSnapshot:null,v50JobEditor:null,v50SelectedTask:null,v50MaterialEditor:null,v50NewSection:false,v50EditSection:null,v50Search:'',v50Status:'All',v51EvidenceTask:null,v51EvidenceOccurrence:null,v51ShareEditor:null};
 const staffGate=createLocalStaffGate();
 const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
   const el=document.getElementById('workspace-save-state');
@@ -512,7 +514,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    try{
      if(action==='v41-backup'){
        const payload=createWorkspaceBackup(data),url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
-       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.5.0_'+today()+'.json';
+       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.5.1_'+today()+'.json';
        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
        toast('JSON workspace backup downloaded · keep it private');return;
      }
@@ -601,24 +603,27 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   }
   case 'v50-close-section':ui.v50NewSection=false;ui.v50EditSection=null;render();break;
   case 'v50-add-job':{
+   ui.v50Search='';ui.v50Status='All';
    const section=data.sections.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
    if(!section)throw Error('Select an active work package');
    ui.v50JobEditor={projectId:ui.project,sectionId:section.id,parentId:'',id:null};ui.v50NewSection=false;
-   render();document.getElementById('v50-job-editor')?.scrollIntoView({block:'start'});break;
+   render();document.getElementById('v50-job-editor')?.scrollIntoView({block:'center'});break;
   }
   case 'v50-add-child':{
+   ui.v50Search='';ui.v50Status='All';
    const t=data.tasks.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
    if(!t)throw Error('Parent job unavailable');
    ui.v50JobEditor={projectId:ui.project,sectionId:t.sectionId,parentId:t.id,id:null};
    ui.v50SelectedTask=t.id;ui.v50NewSection=false;render();
-   document.getElementById('v50-job-editor')?.scrollIntoView({block:'start'});break;
+   document.getElementById('v50-job-editor')?.scrollIntoView({block:'center'});break;
   }
   case 'v50-edit-job':{
+   ui.v50Search='';ui.v50Status='All';
    const t=data.tasks.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
    if(!t)throw Error('Job unavailable');
    ui.v50JobEditor={id:t.id,projectId:ui.project,sectionId:t.sectionId,parentId:t.parentId||''};
    ui.v50SelectedTask=t.id;ui.v50NewSection=false;render();
-   document.getElementById('v50-job-editor')?.scrollIntoView({block:'start'});break;
+   document.getElementById('v50-job-editor')?.scrollIntoView({block:'center'});break;
   }
   case 'v50-close-job':ui.v50JobEditor=null;render();break;
   case 'v50-select-job':{
@@ -749,7 +754,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
      purchaseNeedNotes:get('purchaseNeedNotes')});
    ui.v50JobEditor=null;ui.v50SelectedTask=record.id;ui.v50Search='';ui.v50Status='All';ui.project=record.projectId;
    ui.page='projects';ui.projectTab='work';persist();render();
-   document.getElementById('v50-job-details')?.scrollIntoView({block:'start'});
+   document.querySelector('[data-v51-job-row="'+record.id+'"]')?.scrollIntoView({block:'center'});
    toast(record.needsPurchasing?'Job saved; add each specific item below to send to Purchasing':'Job saved inside the project work hierarchy');
   }catch(err){toast(err.message||'Could not save job',true)}return;
  }
@@ -950,7 +955,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.5.0</h2></div><p>Use Restore JSON backup to load the private contract contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.5.1</h2></div><p>Use Restore JSON backup to load the private contract contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;
@@ -962,7 +967,7 @@ function restoreBackupFile(file){
    catch(err){throw Error('Could not save restored records. Existing data remains unchanged. '+err.message);}
    workspaceFile.detach(); // A newly restored backup must NEVER overwrite a previously linked file.
    data=candidate;ensureProgress(data);ensureExternalWork(data);ui.page='projects';ui.projectTab='focus';ui.project=data.projects.find(p=>!p.archivedAt)?.id||'';ui.procurementProject=ui.project;
-   ui.materialPO=null;ui.materialOrderEditor=false;persist();render();toast('Private workspace loaded; sample records replaced');
+   ui.materialPO=null;ui.materialOrderEditor=false;ensureWorkEvidence(data);persist();render();toast('Private workspace loaded; sample records replaced');
  }).catch(err=>toast('Cannot restore: '+String(err.message||err),true));
 }
 

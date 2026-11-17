@@ -87,8 +87,28 @@ export function renderOperations(s,ui,projectId){
 export function renderJobAssurance(s,task){
  const a=task.jobAssurance||{};
  const blocker=a.blocker?' · blocker: '+e(a.blocker):'';
+ const predecessors=(task.predecessors||[]).map(id=>s.tasks.find(t=>t.id===id)).filter(Boolean);
+ const openDependencies=predecessors.filter(t=>t.status!=='Done');
+ const materials=(s.assemblyBOM||[]).filter(o=>!o.archivedAt&&o.linkedTaskId===task.id);
+ const readiness=materials.map(o=>{
+  const orders=(s.orders||[]).filter(x=>!x.archivedAt&&x.projectId===task.projectId);
+  let accepted=0,open=0;
+  for(const po of orders)for(const l of po.items||[])if(l.sourceOccurrenceId===o.id){
+   accepted+=recordedAcceptedQuantity(s,po.id,l.id);
+   open+=Math.max(0,Number(l.quantity||0)-Number(l.received||0)-Number(l.closedQuantity||0));
+  }
+  const part=s.parts?.find(p=>p.id===o.partId);
+  const label=part?.name||part?.code||o.id;
+  const isMake=o.makeBuy==='Make'||o.workplanKind==='make';
+  return '<li><b>'+e(label)+'</b> — '+(isMake?'Manufacture in-house; check linked production and final inspection':
+   'Recorded supplier QA accepted '+e(accepted)+' / required '+e(o.quantity)+'; on order '+e(open))+'</li>';
+ }).join('');
+ const status='<div class="v52-readiness"><b>Linked readiness snapshot (read only)</b>'+
+  '<p>Dependencies: '+(predecessors.length?e(predecessors.length-openDependencies.length)+' / '+e(predecessors.length)+' jobs marked Done'+(openDependencies.length?' — blocked by '+openDependencies.map(t=>e(t.title)).join(', '):''):'None recorded')+'</p>'+
+  (materials.length?'<ul>'+readiness+'</ul>':'<p>No linked material requirements. Confirm whether materials are needed.</p>')+
+  '<p>Only recorded, QA-accepted supplier quantities count as received here. Stock reservations, customer-supplied items and manufacturing readiness require their own checks; this is NOT an automatic authorization to start or complete work.</p></div>';
  return '<details class="v52-assurance"><summary>Acceptance criteria, material readiness &amp; hours '+(a.criteria?'(documented)':'(needs definition)')+'</summary>'+
- '<p>Define completion requirements before declaring Done. Dependencies are managed in the job editor. Materials on order are NOT QA accepted or ready for use. Recorded hours and blockers require real human input.</p>'+
+ '<p>Define completion requirements before declaring Done. Dependencies are managed in the job editor. Materials on order are NOT QA accepted or ready for use. Recorded hours and blockers require real human input.</p>'+status+
  '<form data-form="v52-job-assurance" class="v52-form">'+hidden('taskId',task.id)+
  '<label class="v52-field"><span>Acceptance checklist (one test/requirement per line)</span><textarea name="criteria" rows="4" maxlength="2200" placeholder="Specific test, tolerance, evidence and acceptance owner…">'+e(a.criteria||'')+'</textarea></label>'+
  '<label class="v52-field"><span>Current blocker</span><textarea name="blocker" rows="2" maxlength="1000">'+e(a.blocker||'')+'</textarea></label>'+

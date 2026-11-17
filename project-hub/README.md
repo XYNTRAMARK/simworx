@@ -1,3 +1,19 @@
+# Sim-Worx Project Hub — V0.5.2
+
+**17 November 2026 · Owner-only offline test build. NOT APPROVED for real high-value purchasing.**
+
+Complete self-contained application: **[V0.5.2 HTML](./SimWorx_Project_Hub_Complete_V0.5.2.html)** · **[Windows ZIP](./SimWorx_Project_Hub_Complete_V0.5.2.zip)**.
+
+New project screens include **Needs my attention** and **Supplier finance & NCR**, with controlled future PO gating, manual supplier acknowledgement/invoice/external payment separation, three-way check, quality exceptions, job acceptance criteria and safer evidence/backup restore. Historic order values cannot be overwritten. External customer access remains disabled; any image sharing is owner-only local preview.
+
+**Windows:** download and choose **Extract All** on the ZIP, move the HTML to a permanent folder and open in current Chrome/Edge. Keep your original V0.5.1 HTML and **export a separate private JSON backup** before testing. Verify the visible build label says **V0.5.2**. Do not upload owner financial data to public GitHub.
+
+[Full independent audit and release notes](docs/release-v052.md) · [Owner test checklist](docs/OWNER_ACCEPTANCE_V052.md) · [Next lead-developer handover](docs/NEXT_CHAT_HANDOVER_V052.md).
+
+**Limitations:** localStorage and local file backups are not an encrypted financial database; 6-digit PIN is a convenience lock; paid transfers and supplier approvals are not independently verified. No actual external purchase/integration/deployment is performed. Do not authorize genuine major purchases until secure backend, named roles, two-person approvals and restore tests are accepted.
+
+---
+
 # Sim-Worx Project Hub — V0.5.1
 
 **Owner-only offline development release · 17 November 2026.**

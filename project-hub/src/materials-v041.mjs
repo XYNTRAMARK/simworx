@@ -106,6 +106,7 @@ function normalizedLine(s,projectId,input,supplier){
 export function createPurchaseOrder(s,input){
   ensureMaterials(s);
   const project=projectById(s,input.projectId);
+  if(!contractControlled(s,project.id))throw Error('NEW SUPPLIER PO BLOCKED: project purchasing must first be activated with exact technical review, owner authorization and budget controls. Use Needs my attention → Enable controlled purchases. Historical records are preserved.');
   const supplier=required(input.supplier,'Supplier');
   const currency=input.currency||'EUR';
   if(!['EUR','GBP','USD','CAD'].includes(currency))throw Error('Unsupported currency');
@@ -126,7 +127,10 @@ export function createPurchaseOrder(s,input){
    items[i].purchaseAuthorisationId=approvals[i].authorizationId;
    items[i].recordedApprovalRef=approvals[i].approvalRef;
   }
-  const code='PO-'+new Date().getFullYear()+'-'+String(s.orders.length+1).padStart(4,'0');
+  const prefix='PO-'+new Date().getFullYear()+'-';
+  let sequence=s.orders.length+1;
+  while(s.orders.some(o=>o.code===prefix+String(sequence).padStart(4,'0')))sequence++;
+  const code=prefix+String(sequence).padStart(4,'0');
   const order={id:uid('po'),code,projectId:project.id,supplier,currency,taxRate,eurExchangeRate,
     date:timestamp().slice(0,10),status:'Ordered',dispatchState:'Ordered',origin:'v042',items};
   s.orders.unshift(order);
@@ -137,6 +141,7 @@ export function addPurchaseLine(s,orderId,line){
   ensureMaterials(s);
   const o=s.orders.find(x=>live(x)&&x.id===orderId);
   if(!o)throw Error('Purchase order unavailable');
+  if(!contractControlled(s,o.projectId))throw Error('Adding an unapproved supplier order line is blocked until the project has controlled purchasing enabled');
   const row=normalizedLine(s,o.projectId,line,o.supplier);
   if(contractControlled(s,o.projectId)){
    const available=materialReadinessV041(s,o.projectId).find(r=>r.partId===row.partId)?.toSource||0;

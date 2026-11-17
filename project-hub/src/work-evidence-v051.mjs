@@ -5,6 +5,8 @@
 const live=x=>x&&!x.archivedAt;
 const uid=p=>p+'-'+Math.random().toString(36).slice(2,12);
 const stamp=()=>new Date().toISOString();
+// Fast accidental-corruption detector only; NOT a tamper-proof cryptographic signature.
+const checksum=value=>{let hash=2166136261;for(let i=0;i<value.length;i++)hash=Math.imul(hash^value.charCodeAt(i),16777619)>>>0;return 'fnv1a32-'+hash.toString(16).padStart(8,'0')};
 const required=(v,label,max=200)=>{const x=String(v??'').trim();if(!x||x.length>max)throw Error(label+' is required (max '+max+' characters)');return x;};
 const audit=(s,action,detail)=>{s.audit??=[];s.audit.unshift({id:uid('audit'),actor:'Owner (local entry)',at:stamp(),action,detail})};
 const project=(s,id)=>{const p=s.projects?.find(x=>live(x)&&x.id===id);if(!p)throw Error('Project unavailable');return p};
@@ -54,7 +56,7 @@ export function attachWorkEvidence(s,{projectId,taskId,occurrenceId='',orderId='
  const description=String(notes||'').trim();if(description.length>1000)throw Error('Evidence notes exceed 1,000 characters');
  const row={id:uid('workproof'),projectId,sectionId:job.sectionId,taskId:job.id,occurrenceId:occ?.id||null,
   orderId:order?.id||null,lineId:line?.id||null,title:required(title,'Evidence title',180),
-  kind,notes:description,filename:required(filename,'File name',180),mime,dataUrl:data,
+  kind,notes:description,filename:required(filename,'File name',180),mime,dataUrl:data,fileChecksum:checksum(data),
   customerApproval:null,createdAt:now,provenance:'owner-supplied file (not independently verified)'};
  s.workEvidence.push(row);
  audit(s,'Private work / purchasing evidence attached',row.id+' / '+job.title+' / '+kind+' / '+(order?.code||'No PO'));
@@ -102,8 +104,8 @@ export function archiveWorkEvidence(s,id){
    JSON fingerprint is a stale-review detector, NOT a cryptographic signature. */
 export function evidenceFingerprint(s,e){
  const t=s.tasks?.find(x=>x.id===e.taskId),o=s.assemblyBOM?.find(x=>x.id===e.occurrenceId);
- return JSON.stringify([e.dataUrl,t?.description||'',t?.jobAssurance?.technicalRevision||'',
-  o?.notes||'',o?.sourceTrace||null,o?.specReview?.fingerprint||'',o?.purchaseSource||null]);
+ return checksum(JSON.stringify([e.dataUrl,t?.description||'',t?.jobAssurance?.technicalRevision||'',
+  o?.notes||'',o?.sourceTrace||null,o?.specReview?.fingerprint||'',o?.purchaseSource||null]));
 }
 /* Always run before accepting imported JSON or exporting a private recovery copy. Does not
    mutate historical evidence; malformed data rejects the entire import atomically. */
@@ -118,7 +120,8 @@ export function validateWorkEvidence(s){
   const t=s.tasks?.find(t=>t.id===e.taskId&&t.projectId===e.projectId);
   if(!p||!t)throw Error('Evidence references a missing project or unrelated job: '+e.id);
   const o=e.occurrenceId?s.assemblyBOM?.find(x=>x.id===e.occurrenceId&&x.projectId===e.projectId):null;
-  if(e.occurrenceId&&!o)throw Error('Evidence references a missing or cross-project material: '+e.id);
+  if(e.occurrenceId&&(!o||o.linkedTaskId!==e.taskId))throw Error('Evidence references a missing, unrelated or cross-project material: '+e.id);
+  if(e.sectionId!==t.sectionId)throw Error('Evidence work package does not match its original job: '+e.id);
   if(e.lineId){
    const po=s.orders?.find(x=>x.id===e.orderId&&x.projectId===e.projectId);
    const line=po?.items?.find(x=>x.id===e.lineId);
@@ -126,6 +129,7 @@ export function validateWorkEvidence(s){
   } else if(e.orderId)throw Error('Evidence references a PO without its line: '+e.id);
   if(purchaseOnly.includes(e.kind)&&!e.lineId)throw Error('Supplier invoice/confirmation evidence missing original PO line: '+e.id);
   safeFile(e.mime,e.dataUrl);
+  if(e.fileChecksum&&e.fileChecksum!==checksum(e.dataUrl))throw Error('Evidence file checksum mismatch: '+e.id);
   if(e.customerApproval?.visible===true){
    if(!e.mime.startsWith('image/')||!e.customerApproval.reviewer||!e.customerApproval.caption)
     throw Error('Invalid customer photo preview approval: '+e.id);

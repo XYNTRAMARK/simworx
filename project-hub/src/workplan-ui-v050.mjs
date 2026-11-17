@@ -1,3 +1,4 @@
+import {renderJobAssurance} from './ops-ui-v052.mjs';
 /* V0.5.0 work plan editor: build jobs first; source the same material records in Purchasing.
    Pure rendering. Forms invoke workplan domain functions through the owner event controller. */
 import {jobRequirements,workHierarchy,flaggedUnspecifiedPurchases,materialKinds,deptOptions} from './workplan-v050.mjs';
@@ -92,7 +93,7 @@ function taskDetails(s,ui,projectId){
  '<label>Or attach a contract/engineering requirement already on this project <select name="occurrenceId">'+
  opt(eligible.map(o=>{const p=s.parts.find(p=>p.id===o.partId)||{};return [o.id,(p.code||'Unknown')+' · '+(p.name||'Item')]}),'')+'</select></label>'+
  '<button type="submit" class="btn small">Link existing requirement (no duplicate)</button></form>':'')+
- materialEditor(s,ui,task)+renderJobEvidence(s,ui,task)+'</section>';
+ renderJobAssurance(s,task)+materialEditor(s,ui,task)+renderJobEvidence(s,ui,task)+'</section>';
 }
 function sectionCreator(s,ui,projectId){
  if(!ui.v50NewSection&&!ui.v50EditSection)return '';

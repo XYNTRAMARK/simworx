@@ -19,11 +19,13 @@ import {ensurePurchaseControls,saveRequirementTrace,recordOwnerAuthorisation,rev
 import {renderProjectTeam,renderProjectEvidence,renderCustomerPreview} from './team-ui-v048.mjs';
 import {renderWorkPlanV050} from './workplan-ui-v050.mjs';
 import {ensureWorkEvidence,attachWorkEvidence,archiveWorkEvidence,setEvidenceCustomerPreview} from './work-evidence-v051.mjs';
+import {ensureOps,attentionItems,enableControlledPurchasing,recordAcknowledgement,recordSupplierInvoice,recordSupplierPayment,recordNCR,closeNCR,saveJobAssurance} from './ops-v052.mjs';
+import {renderAttention,renderOperations} from './ops-ui-v052.mjs';
 import {saveWorkPlanJob,saveJobRequirement,linkExistingRequirement,archiveJobRequirement,archiveWorkPlanJob} from './workplan-v050.mjs';
 import {renderContractScope,handleContractForm} from './contract-scope-v043.mjs';
 import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stockMove,receiveOrder,publishUpdate,decideApproval,clientProjection,clientInvite,activeRecords,saveOrganization,saveProject,saveSection,saveTask,setTaskStatus,savePart,saveBomLine,archiveRecord,restoreRecord,predecessorIds,updateTaskPlan,captureBaseline,scheduleSummary,materialReadiness} from './model.mjs';
 
-const APP_VERSION='V0.5.1'; // Every build carries an explicit visible release number.
+const APP_VERSION='V0.5.2'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
 function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return emptyWorkspace()}
 let data=load();
@@ -34,6 +36,7 @@ ensureExternalWork(data);
 ensureTeamWorkspace(data);
 ensurePurchaseControls(data);
 ensureWorkEvidence(data);
+ensureOps(data);
 const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All',v49SelectedOccurrence:null,v49SourceEdit:null,v49ResetBackupVerified:false,v49ResetSnapshot:null,v50JobEditor:null,v50SelectedTask:null,v50MaterialEditor:null,v50NewSection:false,v50EditSection:null,v50Search:'',v50Status:'All',v51EvidenceTask:null,v51EvidenceOccurrence:null,v51ShareEditor:null};
 const staffGate=createLocalStaffGate();
 const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
@@ -49,6 +52,12 @@ const persist=()=>{
  const status=document.getElementById('workspace-save-state');
  if(status&&!workspaceFile.status().connected){status.textContent='Browser saved · file not linked';status.title='Use Settings to link an autosave file and protect work across updates';}
  return true;
+};
+const commitOps=(mutator,success)=>{
+ const original=data;const draft=structuredClone(data);
+ try{mutator(draft);data=draft;if(!persist())throw Error('Browser storage could not save this record. No operational change was kept. Export your private backup and check remaining disk space.');
+  render();toast(success);}
+ catch(err){data=original;throw err;}
 };
 const findProject=id=>data.projects.find(x=>x.id===id);
 const findOrg=id=>data.organizations.find(x=>x.id===id);
@@ -146,12 +155,14 @@ function projectDetail(p){
  const org=projectOrg(p),b=projectBudgetSnapshot(data,p.id);
  const mfg=projectManufacturingAlerts(data,p.id).length,shortage=projectBuyingSnapshot(data,p.id).buy.filter(x=>x.coverage.toSource>0).length;
  const supplierLate=externalRouteSummary(data,p.id).late.length,deadlines=procurementAlerts(data,p.id).overdue.length;
- const top=[['focus','Overview'],['work','Work plan ('+data.tasks.filter(t=>t.projectId===p.id&&!t.archivedAt).length+')'],['procurement','Purchasing & materials'],['team','Team & budgets'],['evidence','Photos'],['schedule','Schedule'],['external','Supplier QA'],['progress','Progress'],['budget','Budget'],['contract','Contract scope']];
+ const top=[['attention','Needs my attention ('+attentionItems(data,p.id).length+')'],['focus','Overview'],['operations','Supplier finance & NCR'],['work','Work plan ('+data.tasks.filter(t=>t.projectId===p.id&&!t.archivedAt).length+')'],['procurement','Purchasing & materials'],['team','Team & budgets'],['evidence','Photos'],['schedule','Schedule'],['external','Supplier QA'],['progress','Progress'],['budget','Budget'],['contract','Contract scope']];
  const extras=[['register','Work register'],['structure','Work breakdown'],['assembly','Assemblies'],['bom','Legacy BOM'],['materials','Legacy forecast'],['documents','Documents'],['publishing','Client publishing'],['customerPreview','Future customer view']];
  const extraSelected=extras.some(pair=>pair[0]===ui.projectTab);
  // Lazy tab rendering: only render the selected screen, avoiding repeated multi-table work.
  const content={
   focus:()=>renderProjectFocus(data,ui,p.id),
+   attention:()=>renderAttention(data,ui,p.id),
+   operations:()=>renderOperations(data,ui,p.id),
   work:()=>renderWorkPlanV050(data,ui,p.id),
   buying:()=>renderPurchasingV041(data,ui,p.id),
   progress:()=>renderProjectProgress(data,ui,p.id),
@@ -514,7 +525,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    try{
      if(action==='v41-backup'){
        const payload=createWorkspaceBackup(data),url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
-       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.5.1_'+today()+'.json';
+       const link=document.createElement('a');link.href=url;link.download='SimWorx_Project_Hub_Backup_V0.5.2_'+today()+'.json';
        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
        toast('JSON workspace backup downloaded · keep it private');return;
      }
@@ -1051,7 +1062,7 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
 }
 
 function settingsPageV041(){
-  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.5.1</h2></div><p>Use Restore JSON backup to load the private contract contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
+  return settingsPage() + '<div class="card v41-backup"><div class="card-head"><h2>Private workspace import and backup · V0.5.2</h2></div><p>Use Restore JSON backup to load the private contract contract project file and replace all demo data. You can also download your latest state for safekeeping. Contract and internal financial details must be kept private.</p><div class="v41-backup-actions">'+button('Download JSON backup','v41-backup','primary')+button('Restore JSON backup','v41-restore')+'</div><input id="v41-restore-file" type="file" accept=".json,application/json" aria-label="Choose workspace JSON backup"><p>Browser storage plus optional locally selected autosave file. There is no cloud sync or secure multi-user database.</p></div>';
 }
 function restoreBackupFile(file){
  if(!file)return;

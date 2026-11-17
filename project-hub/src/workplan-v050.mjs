@@ -124,6 +124,8 @@ export function archiveJobRequirement(s,{occurrenceId}){
  const occ=findOccurrence(s,occurrenceId);
  if(!occ.workplanCreated)throw Error('Only work-plan-created draft requirements can be archived from here');
  if(links(s,occ.id).length)throw Error('Cannot archive material linked to an actual supplier PO. Preserve the contract and purchasing audit trail.');
+ if((s.workEvidence||[]).some(e=>!e.archivedAt&&e.occurrenceId===occ.id))
+  throw Error('Archive linked evidence before archiving this requirement');
  if((s.purchaseAuthorisations||[]).some(a=>!a.revokedAt&&a.occurrenceId===occ.id))
   throw Error('Revoke the recorded owner purchase authorization before archiving this requirement. Authority and history must not disappear.');
  occ.archivedAt=stamp();audit(s,'Work plan draft requirement archived',occ.id);
@@ -134,6 +136,8 @@ export function archiveWorkPlanJob(s,{taskId}){
  if((s.tasks||[]).some(t=>live(t)&&t.parentId===job.id))throw Error('Archive child jobs before archiving their parent');
  if((s.tasks||[]).some(t=>live(t)&&(t.predecessors||[]).includes(job.id)))throw Error('Resolve dependent jobs before archiving this job');
  if(jobRequirements(s,taskId).length)throw Error('Reassign or archive linked engineering/material requirements first to preserve procurement traceability');
+ if((s.workEvidence||[]).some(e=>!e.archivedAt&&e.taskId===taskId))
+  throw Error('Archive attached job photos/proof first to preserve traceability');
  job.archivedAt=stamp();
  audit(s,'Work plan job archived (recoverable)',job.title+' / '+job.id);
  return job;

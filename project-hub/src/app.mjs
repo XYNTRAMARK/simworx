@@ -37,7 +37,7 @@ ensureTeamWorkspace(data);
 ensurePurchaseControls(data);
 ensureWorkEvidence(data);
 ensureOps(data);
-const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All',v49SelectedOccurrence:null,v49SourceEdit:null,v49ResetBackupVerified:false,v49ResetSnapshot:null,v50JobEditor:null,v50SelectedTask:null,v50MaterialEditor:null,v50NewSection:false,v50EditSection:null,v50Search:'',v50Status:'All',v51EvidenceTask:null,v51EvidenceOccurrence:null,v51ShareEditor:null};
+const ui={page:'overview',project:(data.projects[0]?.id||''),projectTab:'focus',dept:'All',taskView:'board',clientOrg:(data.organizations[0]?.id||''),clientProject:(data.projects[0]?.id||''),clientTab:'updates',customerDetail:null,query:'',modal:null,ganttOffset:0,mfgAssemblyId:null,mfgTab:'overview',mfgEditor:null,materialPO:null,materialOrderEditor:false,materialPrefill:null,procurementProject:(data.projects[0]?.id||''),materialOrderProject:null,materialEditOccurrence:null,showProjectList:false,partReturnProject:null,showQuickPart:false,progressPage:0,progressQuery:'',externalRouteId:null,externalEditStage:null,v46WorkQuery:'',v46WorkStatus:'All',v46WorkSection:'All',v46BuyingQuery:'',v46BuyingMode:'Buy',v46EditOccurrence:null,v46PurchaseLine:null,v47SpecOccurrence:null,v47ArrivalOccurrence:null,v47BalanceLine:null,v47BalanceMode:null,v47Dragging:null,v48Dept:'All',v48EditAllocation:null,v48AllocationDepartment:'IT',v48AllocationPerson:'',v48AllocationAmount:'',v48AllocationNote:'',v48EditMaterial:null,v48PhotoSection:'',v48EvidenceSection:'All',v49SelectedOccurrence:null,v49SourceEdit:null,v49ResetBackupVerified:false,v49ResetSnapshot:null,v50JobEditor:null,v50SelectedTask:null,v50MaterialEditor:null,v50NewSection:false,v50EditSection:null,v50Search:'',v50Status:'All',v51EvidenceTask:null,v51EvidenceOccurrence:null,v51ShareEditor:null,v52SelectedOrder:null};
 const staffGate=createLocalStaffGate();
 const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
   const el=document.getElementById('workspace-save-state');
@@ -557,6 +557,24 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'project-open':ui.page='projects';ui.project=id;ui.projectTab='focus';ui.procurementProject=id;ui.showProjectList=false;render();document.getElementById('project-detail')?.scrollIntoView({behavior:'smooth',block:'start'});break;
   case 'project-tab':ui.page='projects';ui.projectTab=id;ui.procurementProject=ui.project;render();
    document.querySelector('.v42-primary-tabs')?.scrollIntoView({block:'start'});break;
+  case 'v52-open-source':{
+   const tab=el.dataset.tab;
+   if(tab==='work'){
+    const job=data.tasks.find(t=>t.id===id&&t.projectId===ui.project&&!t.archivedAt);
+    ui.v50SelectedTask=job?.id||null;ui.v50Search='';ui.v50Status='All';ui.projectTab='work';
+   }else if(tab==='procurement'){
+    let occurrence=data.assemblyBOM?.find(o=>o.id===id&&o.projectId===ui.project);
+    if(!occ){
+     const source=(data.orders||[]).filter(o=>o.projectId===ui.project).flatMap(o=>o.items||[]).find(l=>l.id===id);
+     occurrence=data.assemblyBOM?.find(o=>o.id===source?.sourceOccurrenceId);
+    }
+    ui.v49SelectedOccurrence=occurrence?.id||null;ui.v46BuyingMode='All';ui.projectTab='procurement';
+   }else if(tab==='operations'){
+    const po=data.orders.find(o=>o.id===id&&o.projectId===ui.project);
+    ui.v52SelectedOrder=po?.id||null;ui.projectTab='operations';
+   }else ui.projectTab='attention';
+   render();break;
+  }
   case 'v46-pick-purchase-project':{
    if(!data.projects.some(p=>p.id===id&&!p.archivedAt))throw Error('Project unavailable');
    ui.procurementProject=id;ui.project=id;ui.materialPO=null;ui.materialOrderEditor=false;ui.materialPrefill=null;
@@ -774,6 +792,30 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
    return;
  }
  if(!staffGate.status().unlocked)return;
+ if(type==='v52-enable-gate'||type==='v52-ack'||type==='v52-invoice'||type==='v52-payment'||type==='v52-ncr'||type==='v52-close-ncr'||type==='v52-job-assurance'){
+  try{
+   if(type==='v52-enable-gate'){
+    if(!fd.has('reviewConfirmed'))throw Error('Explicit review confirmation is required');
+    if(!confirm('Enable strict controls for FUTURE new supplier orders on this project? Historic orders remain as-is and every new PO still requires separate technical, supplier, owner and budget approvals.'))return;
+    commitOps(d=>enableControlledPurchasing(d,{projectId:get('projectId'),reviewer:get('reviewer'),reviewReference:get('reviewReference')}),'Strict future purchasing controls activated; no PO was created');
+   }else if(type==='v52-ack'){
+    commitOps(d=>recordAcknowledgement(d,{orderId:get('orderId'),reference:get('reference'),actor:get('actor'),notes:get('notes')}),'Supplier acknowledgement entered manually; no receipt or payment inferred');
+   }else if(type==='v52-invoice'){
+    commitOps(d=>recordSupplierInvoice(d,{orderId:get('orderId'),lineId:get('lineId'),invoiceRef:get('invoiceRef'),quantity:get('quantity'),unitPrice:get('unitPrice'),taxRate:get('taxRate'),currency:get('currency'),evidenceRef:get('evidenceRef'),actor:get('actor')}),'Supplier invoice recorded as a separate manual record; verify three-way match');
+   }else if(type==='v52-payment'){
+    if(!confirm('Confirm this transfer genuinely happened OUTSIDE this application, and you have checked the bank record and reference?'))return;
+    commitOps(d=>recordSupplierPayment(d,{invoiceId:get('invoiceId'),amount:get('amount'),reference:get('reference'),actor:get('actor')}),'An existing external transfer was recorded; this app has NOT sent money');
+   }else if(type==='v52-ncr'){
+    const pair=get('orderLine')?get('orderLine').split('|'):['',''];
+    commitOps(d=>recordNCR(d,{projectId:get('projectId'),taskId:get('taskId'),orderId:pair[0]||'',lineId:pair[1]||'',finding:get('finding'),correctiveAction:get('correctiveAction'),owner:get('owner'),evidenceRef:get('evidenceRef')}),'NCR opened; no goods/PO/payment status changed');
+   }else if(type==='v52-close-ncr'){
+    commitOps(d=>closeNCR(d,{ncrId:get('ncrId'),actionTaken:get('actionTaken'),retestEvidence:get('retestEvidence'),reviewer:get('reviewer')}),'NCR manually closed with corrective action and retest reference');
+   }else{
+    commitOps(d=>saveJobAssurance(d,{taskId:get('taskId'),criteria:get('criteria'),blocker:get('blocker'),delayReason:get('delayReason'),estimatedHours:get('estimatedHours'),actualHours:get('actualHours'),technicalRevision:get('technicalRevision'),reviewer:get('reviewer')}),'Job acceptance and work estimate revision saved; status not changed');
+   }
+  }catch(err){toast(err.message||'Operational record blocked',true)}
+  return;
+ }
  if(type==='v51-evidence-share'){
   try{
    setEvidenceCustomerPreview(data,{evidenceId:get('evidenceId'),visible:true,reviewer:get('reviewer'),
@@ -1073,8 +1115,8 @@ function restoreBackupFile(file){
    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(candidate));}
    catch(err){throw Error('Could not save restored records. Existing data remains unchanged. '+err.message);}
    workspaceFile.detach(); // A newly restored backup must NEVER overwrite a previously linked file.
-   data=candidate;ensureProgress(data);ensureExternalWork(data);ui.page='projects';ui.projectTab='focus';ui.project=data.projects.find(p=>!p.archivedAt)?.id||'';ui.procurementProject=ui.project;
-   ui.materialPO=null;ui.materialOrderEditor=false;ensureWorkEvidence(data);persist();render();toast('Private workspace loaded; sample records replaced');
+   data=candidate;ensureProgress(data);ensureExternalWork(data);ensureOps(data);ui.page='projects';ui.projectTab='focus';ui.project=data.projects.find(p=>!p.archivedAt)?.id||'';ui.procurementProject=ui.project;
+   ui.materialPO=null;ui.materialOrderEditor=false;ensureWorkEvidence(data);ensureOps(data);persist();render();toast('Private workspace loaded; sample records replaced');
  }).catch(err=>toast('Cannot restore: '+String(err.message||err),true));
 }
 
@@ -1113,6 +1155,7 @@ document.addEventListener('change',ev=>{try{if(!staffGate.status().unlocked)retu
  if(filter==='v46-work-query'){ui.v46WorkQuery=el.value;render();return;}
  if(filter==='v46-work-status'){ui.v46WorkStatus=el.value;render();return;}
  if(filter==='v46-work-section'){ui.v46WorkSection=el.value;render();return;}
+ if(filter==='v52-order'){ui.v52SelectedOrder=el.value;render();return;}
  if(filter==='v46-buy-query'){ui.v46BuyingQuery=el.value;render();return;}
  if(filter==='v46-buy-mode'){ui.v46BuyingMode=el.value;ui.v46EditOccurrence=null;render();return;}
  if(filter==='v43-route'){ui.externalRouteId=el.value;ui.externalEditStage=null;render();return;}

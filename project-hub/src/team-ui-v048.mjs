@@ -16,7 +16,7 @@ export function renderProjectTeam(s,ui,projectId){
   '<input type="hidden" name="projectId" value="'+e(projectId)+'"><input type="hidden" name="allocationId" value="'+e(ui.v48EditAllocation||'')+'">'+
   '<label>Department<select name="department" required>'+options(allowed.map(x=>[x,x]),ui.v48AllocationDepartment||'IT')+'</select></label>'+
   '<label>Responsible person<input name="assignee" maxlength="160" required placeholder="e.g. IT technician" value="'+e(ui.v48AllocationPerson||'')+'"></label>'+
-  '<label>Authorised envelope (€)<input name="amount" type="number" min="0.01" max="1000000000" step="0.01" required value="'+e(ui.v48AllocationAmount||'')+'" placeholder="20000.00"></label>'+
+  '<label>Authorised envelope (€) '+helpTip(helpTopics.budget)+'<input name="amount" type="number" min="0.01" max="1000000000" step="0.01" required value="'+e(ui.v48AllocationAmount||'')+'" placeholder="20000.00"></label>'+
   '<label>Internal note<input name="note" maxlength="800" value="'+e(ui.v48AllocationNote||'')+'" placeholder="Purpose, limits, approval reference"></label>'+
   '<button type="submit" class="btn primary small">'+(ui.v48EditAllocation?'Save revised envelope':'Assign budget')+'</button>'+
   (ui.v48EditAllocation?'<button type="button" data-action="v48-clear-allocation" class="btn small">Cancel edit</button>':'')+

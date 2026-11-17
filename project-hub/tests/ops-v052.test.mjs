@@ -118,3 +118,21 @@ test('backup refuses invalid/cross-project evidence, and detects byte-level chec
  s.workEvidence[0].dataUrl=photo;s.workEvidence[0].projectId='not-p';
  assert.throws(()=>parseWorkspaceBackup(JSON.stringify({format:'simworx-project-hub-backup',schema:1,state:s})),/Evidence/);
 });
+
+test('backup rejects orphaned or impossible manually recorded supplier financial events',()=>{
+ const s=fixture();s.procurementReceipts.push({orderId:'po',lineId:'line',quantity:1,returned:0});
+ const inv=invoice(s,'INV-TEST-LEDGER');payment(s,inv,'PAY-TEST-LEDGER',20);
+ assert.equal(parseWorkspaceBackup(createWorkspaceBackup(s)).supplierPayments.length,1);
+ s.supplierPayments[0].amount=999;
+ assert.throws(()=>parseWorkspaceBackup(JSON.stringify({format:'simworx-project-hub-backup',schema:1,state:s})),/exceed/);
+ s.supplierPayments[0].amount=20;s.supplierPayments[0].lineId='not-line';
+ assert.throws(()=>parseWorkspaceBackup(JSON.stringify({format:'simworx-project-hub-backup',schema:1,state:s})),/payment/);
+});
+test('historical supplier invoice record retains source linkage after job quality status changes',()=>{
+ const s=fixture();s.procurementReceipts.push({orderId:'po',lineId:'line',quantity:1,returned:0});
+ const inv=invoice(s,'INV-TEST-HISTORY');const state=JSON.stringify(s.orders[0]);
+ assert.equal(invoiceMatch(s,inv).matched,true);
+ s.qualityNCRs=[{id:'ncr-test',projectId:'p',taskId:'job',orderId:'po',lineId:'line',finding:'test',correctiveAction:'test',owner:'test',status:'Open'}];
+ assert.equal(parseWorkspaceBackup(createWorkspaceBackup(s)).supplierInvoices.length,1);
+ assert.equal(JSON.stringify(s.orders[0]),state);
+});

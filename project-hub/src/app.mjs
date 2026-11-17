@@ -763,6 +763,76 @@ function formHandler(form){const fd=new FormData(form);const get=n=>String(fd.ge
    return;
  }
  if(!staffGate.status().unlocked)return;
+ if(type==='v51-evidence-share'){
+  try{
+   setEvidenceCustomerPreview(data,{evidenceId:get('evidenceId'),visible:true,reviewer:get('reviewer'),
+     caption:get('caption'),redactionConfirmed:fd.has('redactionConfirmed')});
+   ui.v51ShareEditor=null;persist();render();
+   toast('Reviewed image selected for owner-only customer preview. No public access enabled.');
+  }catch(err){toast(err.message||'Evidence preview review blocked',true)}
+  return;
+ }
+ if(type==='v51-evidence-add'){
+  try{
+   const file=fd.get('file');
+   if(!file||!file.size)throw Error('Select a private photo, screenshot or small PDF');
+   const kind=get('kind'),taskId=get('taskId'),projectId=get('projectId');
+   if(!data.tasks.some(x=>!x.archivedAt&&x.id===taskId&&x.projectId===projectId))throw Error('Target job is missing');
+   if(file.size>10*1024*1024)throw Error('Source image larger than 10 MB; reduce it before attaching');
+   if(!['image/jpeg','image/png','image/webp','application/pdf'].includes(file.type))
+    throw Error('Select a valid JPEG, PNG, WebP or PDF file');
+   const orderPair=get('orderLine')?get('orderLine').split('|'):[null,null];
+   const payload={projectId,taskId,occurrenceId:get('occurrenceId'),orderId:orderPair[0]||'',
+     lineId:orderPair[1]||'',title:get('title'),kind,notes:get('notes'),filename:file.name,mime:file.type};
+   const saveEncoded=(encoded,mime,filename)=>{
+    if(!staffGate.status().unlocked)return;
+    let row=null;
+    try{
+     row=attachWorkEvidence(data,{...payload,mime,filename,dataUrl:encoded});
+     if(!persist()){
+      data.workEvidence=data.workEvidence.filter(x=>x.id!==row.id);
+      throw Error('Local storage full; attachment was rolled back. Keep the original privately.');
+     }
+     ui.v51EvidenceTask=null;ui.v51EvidenceOccurrence=null;render();
+     toast('Private evidence attached to job'+(payload.occurrenceId?' and purchasing material':'')+'; no supplier transaction was recorded');
+    }catch(err){toast(err.message||'Could not attach evidence',true)}
+   };
+   const reader=new FileReader();
+   reader.onerror=()=>toast('Browser cannot read the selected private file',true);
+   reader.onload=()=>{
+    if(file.type==='application/pdf'){
+     if(file.size>390000){toast('PDF is too large to embed in this local workspace. Use a smaller redacted PDF or JPG image.',true);return;}
+     saveEncoded(reader.result,file.type,file.name);return;
+    }
+    const img=new Image();
+    img.onerror=()=>toast('Could not decode the photo/screenshot',true);
+    img.onload=()=>{
+     try{
+      let encoded='';
+      for(const dimension of [1000,850,650,520,400]){
+       const scale=Math.min(1,dimension/Math.max(img.width,img.height));
+       const canvas=document.createElement('canvas');
+       canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));
+       const ctx=canvas.getContext('2d');if(!ctx)throw Error('Browser photo compression unavailable');
+       ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+       ctx.drawImage(img,0,0,canvas.width,canvas.height);
+       for(const quality of [0.72,0.55,0.42]){
+        const encodedTry=canvas.toDataURL('image/jpeg',quality);
+        if(encodedTry.length<=325000){encoded=encodedTry;break;}
+       }
+       if(encoded)break;
+      }
+      if(!encoded)throw Error('Image is still too big after compression; use a smaller crop or screenshot');
+      const safeFilename=file.name.replace(/\.[^.]+$/,'')+'.jpg';
+      saveEncoded(encoded,'image/jpeg',safeFilename);
+     }catch(err){toast(err.message||'Photo compression failed',true)}
+    };
+    img.src=reader.result;
+   };
+   reader.readAsDataURL(file);
+  }catch(err){toast(err.message||'Cannot attach document',true)}
+  return;
+ }
  if(type==='v50-section'){
   try{
    const sec=saveSection(data,{id:get('recordId')||null,projectId:get('projectId'),name:get('name'),weight:get('weight')});

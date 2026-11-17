@@ -49,9 +49,9 @@ export function updatePurchaseLineRecord(s,{orderId,lineId,quantity,unitCost,eta
   throw Error('Received items have locked unit prices; keep history and handle price corrections separately');
  const next={quantity:qty,unitCost:cost,eta:etaDate(eta),productUrl:safeProductURL(productUrl),
   vendorSku:max(vendorSku,120,'Vendor part number'),quoteRef:max(quoteRef,120,'Supplier quote reference'),notes:max(notes,800,'Purchase note')};
- if(contractControlled(s,order.projectId)&&['quantity','unitCost','productUrl','vendorSku','quoteRef']
+ if(['quantity','unitCost','productUrl','vendorSku','quoteRef']
   .some(k=>String(line[k]??'')!==String(next[k]??'')))
-  throw Error('Controlled supplier order financial/product changes cannot overwrite approved PO history. Record supplier amendment and close the confirmed outstanding balance; re-authorize a corrected order with new evidence.');
+  throw Error('Recorded supplier PO financial/identity values are historical evidence and cannot be overwritten, even for legacy orders. Close the remaining balance with a reason; record a corrected, separately approved PO.');
  const prior=Object.fromEntries(Object.keys(next).map(k=>[k,line[k]??'']));
  const identityChange=['productUrl','vendorSku','quoteRef'].some(k=>(line[k]||'')!==(next[k]||''));
  let verified=null;

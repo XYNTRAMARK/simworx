@@ -598,7 +598,8 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    }else if(tab==='operations'){
     const po=data.orders.find(o=>o.id===id&&o.projectId===ui.project);
     ui.v52SelectedOrder=po?.id||null;ui.projectTab='operations';
-   }else ui.projectTab='attention';
+   }else if(tab==='team'||tab==='budget')ui.projectTab=tab;
+   else ui.projectTab='attention';
    render();break;
   }
   case 'v46-pick-purchase-project':{

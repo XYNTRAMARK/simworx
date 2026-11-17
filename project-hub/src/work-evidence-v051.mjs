@@ -87,7 +87,7 @@ export function customerEvidenceProjection(s,projectId){
  ensureWorkEvidence(s);project(s,projectId);
  const sections=new Set((s.customerShareRules||[]).filter(r=>r.projectId===projectId&&r.visible).map(r=>r.sectionId));
  return s.workEvidence.filter(x=>live(x)&&x.projectId===projectId&&sections.has(x.sectionId)&&x.customerApproval?.visible===true&&x.mime.startsWith('image/'))
-  .map(x=>({id:x.id,sectionId:x.sectionId,title:x.title,caption:x.customerApproval.caption,approvedAt:x.customerApproval.at,
+  .map(x=>({id:x.id,sectionId:x.sectionId,title:'Reviewed progress photo',caption:x.customerApproval.caption,approvedAt:x.customerApproval.at,
    image:x.dataUrl})); // No private buyer, supplier, cost, original filename, source path, PO number, notes, or contact information.
 }
 export function archiveWorkEvidence(s,id){

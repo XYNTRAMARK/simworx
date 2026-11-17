@@ -1,6 +1,6 @@
-/* Project Hub V0.4.1 — browser-only purchasing, stock and backups.
-import {validateWorkEvidence} from './work-evidence-v051.mjs';
+/* Project Hub V0.5.2 — browser-only purchasing, stock and backups.
    This is NOT a multi-user inventory database or financial/accounting system. */
+import {validateWorkEvidence} from './work-evidence-v051.mjs';
 import {ensureManufacturing,activeAssemblies,assemblyRollup} from './manufacturing.mjs';
 import {safeProductURL} from './procurement-sourcing-v046.mjs';
 import {assertContractPOGate,contractControlled,acceptArrivalRecord} from './procurement-workflow-v047.mjs';

@@ -104,7 +104,7 @@ export function archiveWorkEvidence(s,id){
    JSON fingerprint is a stale-review detector, NOT a cryptographic signature. */
 export function evidenceFingerprint(s,e){
  const t=s.tasks?.find(x=>x.id===e.taskId),o=s.assemblyBOM?.find(x=>x.id===e.occurrenceId);
- return checksum(JSON.stringify([e.dataUrl,t?.description||'',t?.jobAssurance?.technicalRevision||'',
+ return checksum(JSON.stringify([e.dataUrl,t?.sectionId||'',t?.description||'',t?.jobAssurance?.technicalRevision||'',
   o?.notes||'',o?.sourceTrace||null,o?.specReview?.fingerprint||'',o?.purchaseSource||null]));
 }
 /* Always run before accepting imported JSON or exporting a private recovery copy. Does not
@@ -121,7 +121,7 @@ export function validateWorkEvidence(s){
   if(!p||!t)throw Error('Evidence references a missing project or unrelated job: '+e.id);
   const o=e.occurrenceId?s.assemblyBOM?.find(x=>x.id===e.occurrenceId&&x.projectId===e.projectId):null;
   if(e.occurrenceId&&(!o||o.linkedTaskId!==e.taskId))throw Error('Evidence references a missing, unrelated or cross-project material: '+e.id);
-  if(e.sectionId!==t.sectionId)throw Error('Evidence work package does not match its original job: '+e.id);
+  if(!s.sections?.some(section=>section.id===e.sectionId&&section.projectId===e.projectId))throw Error('Evidence original work package is missing or belongs to another project: '+e.id);
   if(e.lineId){
    const po=s.orders?.find(x=>x.id===e.orderId&&x.projectId===e.projectId);
    const line=po?.items?.find(x=>x.id===e.lineId);

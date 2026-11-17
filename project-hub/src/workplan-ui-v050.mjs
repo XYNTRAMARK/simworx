@@ -2,11 +2,12 @@
    Pure rendering. Forms invoke workplan domain functions through the owner event controller. */
 import {jobRequirements,workHierarchy,flaggedUnspecifiedPurchases,materialKinds,deptOptions} from './workplan-v050.mjs';
 import {procurementState} from './procurement-workflow-v047.mjs';
+import {renderJobEvidence,helpTip,helpTopics} from './work-evidence-ui-v051.mjs';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'" :'&#39;'}[c]));
 const live=x=>x&&!x.archivedAt;
 const opt=(choices,selected)=>choices.map(([v,t])=>'<option value="'+esc(v)+'" '+(String(v)===String(selected)?'selected':'')+'>'+esc(t)+'</option>').join('');
-const inp=(label,name,value='',attrs='')=>'<label class="v50-field"><span>'+esc(label)+'</span><input name="'+esc(name)+'" value="'+esc(value)+'" '+attrs+'></label>';
-const text=(label,name,value='',hint='')=>'<label class="v50-field v50-wide"><span>'+esc(label)+'</span><textarea name="'+esc(name)+'" rows="4" maxlength="4000" placeholder="'+esc(hint)+'">'+esc(value||'')+'</textarea></label>';
+const inp=(label,name,value='',attrs='')=>'<label class="v50-field"><span>'+esc(label)+(label.includes('title')?helpTip(helpTopics.job):label.includes('Assigned')?helpTip(helpTopics.owner):label.includes('date')?helpTip(helpTopics.dates):label.includes('quantity')?helpTip(helpTopics.requirement):'')+'</span><input name="'+esc(name)+'" value="'+esc(value)+'" '+attrs+'></label>';
+const text=(label,name,value='',hint='')=>'<label class="v50-field v50-wide"><span>'+esc(label)+(label.includes('scope')?helpTip(helpTopics.description):label.includes('Technical')?helpTip(helpTopics.spec):label.includes('sourced')?helpTip(helpTopics.buyflag):'')+'</span><textarea name="'+esc(name)+'" rows="4" maxlength="4000" placeholder="'+esc(hint)+'">'+esc(value||'')+'</textarea></label>';
 const select=(label,name,values,value)=>'<label class="v50-field"><span>'+esc(label)+'</span><select name="'+esc(name)+'">'+opt(values,value)+'</select></label>';
 const button=(action,id,title,style='')=>'<button type="button" class="btn small '+style+'" data-action="'+esc(action)+'" data-id="'+esc(id)+'">'+esc(title)+'</button>';
 const pill=(title,tone='')=>'<span class="v50-tag '+tone+'">'+esc(title)+'</span>';
@@ -17,11 +18,18 @@ function editor(s,ui,projectId){
  const sec=s.sections.find(x=>live(x)&&x.id===(existing?.sectionId||open.sectionId)&&x.projectId===projectId);
  if(!sec)return '<p class="v50-alert">Select or add a work package before adding jobs.</p>';
  const parent=existing?.parentId||open.parentId||'',other=s.tasks.filter(t=>live(t)&&t.projectId===projectId&&t.sectionId===sec.id&&t.id!==existing?.id);
+ const ancestors=[];let cursor=parent?s.tasks.find(t=>t.id===parent):null;const seen=new Set();
+ while(cursor&&!seen.has(cursor.id)){seen.add(cursor.id);ancestors.unshift(cursor.title);cursor=cursor.parentId?s.tasks.find(t=>t.id===cursor.parentId):null}
+ const path=[sec.name,...ancestors].join(' → ');
+ const parentSelector=existing?
+   select('Move beneath (optional)','parentId',[['','Top-level job in this work package'],...other.map(t=>[t.id,t.title])],parent):
+   '<input type="hidden" name="parentId" value="'+esc(parent)+'"><p class="v51-parent-lock">'+
+   (parent?'CREATING CHILD UNDER: '+esc(path):'TOP-LEVEL JOB IN: '+esc(sec.name))+' '+helpTip(helpTopics.subjob)+'</p>';
  const form='<form class="v50-editor-form" data-form="v50-job">'+
  '<input type="hidden" name="projectId" value="'+esc(projectId)+'"><input type="hidden" name="recordId" value="'+esc(existing?.id||'')+'">'+
  '<input type="hidden" name="sectionId" value="'+esc(sec.id)+'">'+
  inp('Job / activity title','title',existing?.title||'','maxlength="220" required placeholder="e.g. Build avionics harness"')+
- select('Parent job / level','parentId',[['','Top-level job in this work package'],...other.map(t=>[t.id,t.title])],parent)+
+ parentSelector+
  text('Detailed scope / instructions','description',existing?.description||'','What needs to be made, checked, ordered, tested or delivered?')+
  select('Responsible department','department',dept(deptOptions),existing?.department||s.tasks.find(t=>t.id===parent)?.department||'Workshop')+
  inp('Person assigned (owner only assigns for now)','assignee',existing?.assignee||'Unassigned','maxlength="160" required')+
@@ -29,14 +37,14 @@ function editor(s,ui,projectId){
  select('Status','status',dept(['Backlog','Ready','In progress','Blocked','Inspection','Done','Cancelled']),existing?.status||'Backlog')+
  inp('Start date (optional)','start',existing?.start||'','type="date"')+
  inp('Finish date (optional)','due',existing?.due||'','type="date"')+
- '<label class="v50-checkbox v50-wide"><input type="checkbox" name="needsPurchasing" '+(existing?.needsPurchasing?'checked':'')+'><span>Purchasing action required for this job</span></label>'+
+ '<label class="v50-checkbox v50-wide"><input type="checkbox" name="needsPurchasing" '+(existing?.needsPurchasing?'checked':'')+'><span>Purchasing action required for this job '+helpTip(helpTopics.buyflag)+'</span></label>'+
  text('What needs to be sourced? (planning instructions)','purchaseNeedNotes',existing?.purchaseNeedNotes||'',
   'e.g. select an exact G1000 unit after confirming the approved technical specification')+
  '<p class="v50-info v50-wide">Flagging a job creates a purchasing action, not a supplier order. Add exact material lines after saving to transfer quantities and specifications to Purchasing & Materials.</p>'+
  '<div class="v50-form-actions v50-wide"><button class="btn primary" type="submit">'+(existing?'Save changes':'Create job / sub-job')+'</button>'+
  button('v50-close-job','','Cancel')+'</div></form>';
  return '<section id="v50-job-editor" class="v50-panel v50-edit-panel"><div class="v50-panel-title"><div><small>WORK PACKAGE: '+esc(sec.name)+'</small>'+
- '<h3>'+(existing?'Edit job':'New '+(parent?'child job':'job'))+'</h3></div>'+button('v50-close-job','','Close')+'</div>'+form+'</section>';
+ '<h3>'+(existing?'Edit job':parent?'New child of '+esc(ancestors.at(-1)||'parent job'):'New top-level job')+'</h3><p class="v51-editor-breadcrumb">'+esc(path)+'</p></div>'+button('v50-close-job','','Close')+'</div>'+form+'</section>';
 }
 function materialEditor(s,ui,task){
  const selected=ui.v50MaterialEditor;
@@ -75,7 +83,7 @@ function taskDetails(s,ui,projectId){
  let status='Engineering draft';try{status=procurementState(s,o.id).status}catch{}
  return '<tr><td><b>'+esc(p.name||p.code||'Unknown part')+'</b><small>'+esc(p.code||'')+'</small><small>'+esc(o.notes||'Technical specification not entered')+'</small></td>'+
  '<td>'+esc(o.quantity)+' '+esc(p.unit||'ea')+'</td><td>'+esc(kind)+'</td><td>'+pill(status)+'</td><td><div class="v50-actions">'+
- button('v50-open-purchasing',o.id,'Purchasing / QA')+
+ button('v50-open-purchasing',o.id,'Purchasing / QA')+button('v51-evidence-material',o.id,'Photo / proof')+
  (o.workplanCreated?button('v50-edit-material',o.id,'Edit draft')+button('v50-archive-material',o.id,'Archive','danger'):'')+
  '</div></td></tr>'}).join('')+'</tbody></table></div>':
  '<p class="v50-alert">No materials linked yet. Use <b>+ Add material / buying item</b> to create a requirement that appears in Purchasing.</p>')+
@@ -84,7 +92,7 @@ function taskDetails(s,ui,projectId){
  '<label>Or attach a contract/engineering requirement already on this project <select name="occurrenceId">'+
  opt(eligible.map(o=>{const p=s.parts.find(p=>p.id===o.partId)||{};return [o.id,(p.code||'Unknown')+' · '+(p.name||'Item')]}),'')+'</select></label>'+
  '<button type="submit" class="btn small">Link existing requirement (no duplicate)</button></form>':'')+
- materialEditor(s,ui,task)+'</section>';
+ materialEditor(s,ui,task)+renderJobEvidence(s,ui,task)+'</section>';
 }
 function sectionCreator(s,ui,projectId){
  if(!ui.v50NewSection&&!ui.v50EditSection)return '';

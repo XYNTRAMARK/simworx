@@ -1,4 +1,5 @@
 /* Project Hub V0.4.1 — browser-only purchasing, stock and backups.
+import {validateWorkEvidence} from './work-evidence-v051.mjs';
    This is NOT a multi-user inventory database or financial/accounting system. */
 import {ensureManufacturing,activeAssemblies,assemblyRollup} from './manufacturing.mjs';
 import {safeProductURL} from './procurement-sourcing-v046.mjs';
@@ -390,8 +391,8 @@ export function auditMaterials(s){
   return true;
 }
 export function createWorkspaceBackup(s){
-  auditMaterials(s);
-  return JSON.stringify({format:'simworx-project-hub-backup',schema:1,application:'V0.5.1',createdAt:timestamp(),
+  auditMaterials(s);validateWorkEvidence(s);
+  return JSON.stringify({format:'simworx-project-hub-backup',schema:1,application:'V0.5.2',createdAt:timestamp(),
     warning:'PRIVATE INTERNAL DATA. May contain customer contracts, costs, purchasing evidence, shipment details and attachments. Keep encrypted or access-controlled outside this application. Do not publish to GitHub.',state:s},null,2);
 }
 export function parseWorkspaceBackup(text){
@@ -406,6 +407,6 @@ export function parseWorkspaceBackup(text){
     if(!Array.isArray(s?.[key]))throw Error('Backup missing '+key);
   if(s.version!==1||!s.settings||!['light','dark'].includes(s.settings.theme))throw Error('Unsupported backup data format');
   ensureMaterials(s);
-  auditMaterials(s);
+  auditMaterials(s);validateWorkEvidence(s);
   return s;
 }

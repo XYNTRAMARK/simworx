@@ -27,7 +27,13 @@ import {uid,today,money,number,escapeHtml as e,taskProgress,availableStock,stock
 
 const APP_VERSION='V0.5.2'; // Every build carries an explicit visible release number.
 const STORAGE_KEY='simworx-project-hub-demo-v1'; // Preserve existing V0.1 user changes.
-function load(){try{const v=JSON.parse(localStorage.getItem(STORAGE_KEY));if(v?.version===1)return v;}catch{}return emptyWorkspace()}
+let loadProblem='';
+function load(){
+ const raw=localStorage.getItem(STORAGE_KEY);
+ if(raw===null)return emptyWorkspace();
+ try{const candidate=JSON.parse(raw);if(candidate?.version!==1)throw Error('Unsupported workspace version');return candidate;}
+ catch(err){loadProblem=String(err?.message||err);return emptyWorkspace();}
+}
 let data=load();
 ensureManufacturing(data);
 ensureMaterials(data);
@@ -44,11 +50,14 @@ const workspaceFile=createWorkspaceFileController({onStatus:({kind,message})=>{
   if(el){el.textContent=kind==='file-saved'?'Saved to file':kind==='file-error'?'File save failed':kind==='file-saving'?'Saving…':kind==='file-verified'?'File verified':kind==='file-connected'?'File connected':'Browser saved';el.title=message;}
 }});
 const persist=()=>{
- const serialized=JSON.stringify(data);
+ if(loadProblem){toast('Saving BLOCKED: previous workspace data could not be read. Recover a valid private backup first.',true);return false;}
+ let backup,serialized;
+ try{backup=createWorkspaceBackup(data);serialized=JSON.stringify(data);}
+ catch(err){toast('Saving BLOCKED: workspace integrity check failed: '+String(err?.message||err),true);return false;}
  if(ui.v49ResetSnapshot&&ui.v49ResetSnapshot!==serialized){ui.v49ResetBackupVerified=false;ui.v49ResetSnapshot=null;}
  try{localStorage.setItem(STORAGE_KEY,serialized);}
  catch(err){toast('Browser storage failed: '+err.message+' — immediately export a private backup.',true);return false;}
- workspaceFile.scheduleSave(createWorkspaceBackup(data)).catch(()=>{});
+ workspaceFile.scheduleSave(backup).catch(()=>{});
  const status=document.getElementById('workspace-save-state');
  if(status&&!workspaceFile.status().connected){status.textContent='Browser saved · file not linked';status.title='Use Settings to link an autosave file and protect work across updates';}
  return true;
@@ -99,6 +108,15 @@ function staffGateScreen(){
 }
 function render(){
  if(!staffGate.status().unlocked){document.getElementById('app').innerHTML=staffGateScreen();return;}
+ if(loadProblem){
+  document.getElementById('app').innerHTML='<main style="max-width:760px;margin:35px auto;padding:24px;font:14px system-ui"><h1>RECOVERY HOLD — existing browser workspace cannot be read</h1>'+
+   '<p><b>Saving is blocked.</b> The previous browser record has NOT been overwritten, reset or replaced with demo data. This application detected: <code>'+e(loadProblem)+'</code>.</p>'+
+   '<p>Keep your original raw browser data for forensic recovery, then select a previously verified PRIVATE JSON workspace backup. This restores locally; no information is transmitted or deployed.</p>'+
+   '<p><button type="button" class="btn" data-action="v52-export-corrupt">Download raw unreadable browser record (private)</button></p>'+
+   '<label>Select private verified backup <input id="v52-emergency-restore" type="file" accept=".json,application/json"></label>'+
+   '<p>Do NOT select a random file or clear Chrome browsing data. Seek a local technical recovery if all backups are invalid.</p></main>';
+  return;
+ }
   const labels={overview:'Dashboard',projects:'Projects',assemblies:'Component & assemblies',tasks:'Production jobs',purchasing:'Purchasing',inventory:'Inventory',customers:'Customers & access',client:'Customer portal',finance:'Project financials',reports:'Reports & progress',settings:'Settings'};
   const nav=[['overview','Overview'],['projects','Projects'],['assemblies','Assemblies & components'],['tasks','Workshop & office'],['inventory','Inventory'],['finance','Financials'],['reports','Reports'],['settings','Settings']];
   const navHtml=nav.map(([id,label],idx)=>`${idx===0||idx===4||idx===6?`<div class="nav-group-label">${idx===0?'WORKSPACE':idx===4?'OPERATIONS':'CONTROL & INSIGHT'}</div>`:''}<button class="nav-link ${ui.page===id?'active':''}" data-action="nav" data-id="${id}" aria-current="${ui.page===id?'page':'false'}">${ico(id)}<span>${label}</span>${id==='client'?'<span class="count-dot">↗</span>':''}</button>`).join('');
@@ -557,6 +575,14 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'project-open':ui.page='projects';ui.project=id;ui.projectTab='focus';ui.procurementProject=id;ui.showProjectList=false;render();document.getElementById('project-detail')?.scrollIntoView({behavior:'smooth',block:'start'});break;
   case 'project-tab':ui.page='projects';ui.projectTab=id;ui.procurementProject=ui.project;render();
    document.querySelector('.v42-primary-tabs')?.scrollIntoView({block:'start'});break;
+  case 'v52-export-corrupt':{
+   if(!loadProblem)throw Error('No blocked workspace record to export');
+   const raw=localStorage.getItem(STORAGE_KEY);if(!raw)throw Error('Original browser data unavailable');
+   const u=URL.createObjectURL(new Blob([raw],{type:'application/json'})),a=document.createElement('a');
+   a.href=u;a.download='SimWorx_UNREADABLE_RAW_LOCAL_STORAGE_PRIVATE_'+today()+'.json';
+   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500);
+   toast('Private unreadable raw browser record downloaded for recovery');break;
+  }
   case 'v52-open-source':{
    const tab=el.dataset.tab;
    if(tab==='work'){
@@ -1123,6 +1149,19 @@ function restoreBackupFile(file){
 document.addEventListener('click',ev=>{const el=ev.target.closest('[data-action]');if(el){if(el.dataset.action==='dismiss-modal'&&ev.target!==el)return;handleAction(el)}});
 document.addEventListener('submit',ev=>{const form=ev.target.closest('form[data-form]');if(form){ev.preventDefault();formHandler(form)}});
 document.addEventListener('change',ev=>{try{if(!staffGate.status().unlocked)return;const el=ev.target;
+ if(el.id==='v52-emergency-restore'){
+  const file=el.files?.[0];if(!file)return;
+  if(file.size>10000000)throw Error('Recovery backup exceeds 10 MB');
+  file.text().then(text=>{
+   const recovered=parseWorkspaceBackup(text);
+   if(!confirm('Replace unreadable browser workspace with this verified private backup? Keep the original raw record separately for forensic recovery.'))return;
+   localStorage.setItem(STORAGE_KEY,JSON.stringify(recovered));
+   workspaceFile.detach();loadProblem='';data=recovered;ensureProgress(data);ensureExternalWork(data);ensureOps(data);
+   ui.project=data.projects.find(p=>!p.archivedAt)?.id||'';ui.page='projects';ui.projectTab='attention';
+   render();toast('Valid private workspace recovered. The original unreadable record was replaced locally after confirmation.');
+  }).catch(error=>toast('Recovery refused: '+String(error?.message||error),true));return;
+ }
+ if(loadProblem)return;
  if(el.dataset.v41Proof){handleMaterialsProof(data,el,()=>{persist();render();toast('Proof document saved locally')},message=>toast(message,true));return;}
  if(el.id==='v41-restore-file'){restoreBackupFile(el.files?.[0]);return;}
  if(el.id==='v49-backup-verify-file'){

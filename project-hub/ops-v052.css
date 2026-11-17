@@ -1,0 +1,43 @@
+/* Sim-Worx Project Hub V0.5.2: owner triage / supplier finance / QA. */
+.v52-page{display:grid;gap:17px;padding:6px 2px 20px;min-width:0}
+.v52-page>header{border-bottom:1px solid var(--line);padding:12px 4px 18px}
+.v52-page>header small{font-size:10px;letter-spacing:1.2px;color:var(--violet);font-weight:800}
+.v52-page>header h3{margin:6px 0 4px;font-size:22px;line-height:1.25}
+.v52-page p{line-height:1.55;color:var(--muted);font-size:12px}
+.v52-stat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.v52-stat>div{border:1px solid var(--line);background:var(--panel2);border-radius:11px;padding:13px 16px}
+.v52-stat small,.v52-stat strong{display:block}
+.v52-stat small{color:var(--muted);font-size:10px}
+.v52-stat strong{font-size:23px;margin-top:3px;color:var(--ink)}
+.v52-warning{border:1px solid var(--amber);border-radius:12px;background:var(--amber2);padding:14px}
+.v52-warning h4{margin:2px 0;font-size:13px;color:var(--ink)}
+.v52-warning p{color:var(--ink)}
+.v52-queue{display:grid;gap:8px}
+.v52-item{display:flex;align-items:center;justify-content:space-between;gap:15px;border:1px solid var(--line);padding:13px 15px;border-radius:10px;background:var(--panel2)}
+.v52-item.v52-urgent{border-left:4px solid var(--red)}
+.v52-item small,.v52-item b{display:block}
+.v52-item small{color:var(--muted);font-size:10px}
+.v52-item b{font-size:13px;margin-top:3px}
+.v52-item p{margin:3px 0;color:var(--ink)}
+.v52-item .btn{flex-shrink:0}
+.v52-form{display:flex;flex-direction:column;gap:10px;border:1px solid var(--line);border-radius:11px;padding:14px;background:var(--panel2);min-width:0}
+.v52-form h4{font-size:13px;margin:0 0 4px}
+.v52-form p{margin:0}
+.v52-form label,.v52-select label{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:700}
+.v52-form input,.v52-form textarea,.v52-form select,.v52-select select{width:100%;min-width:0;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:12px}
+.v52-form textarea{resize:vertical;font-family:inherit}
+.v52-form .v52-ack{display:flex;flex-direction:row;align-items:flex-start;gap:9px;line-height:1.5}
+.v52-ack input{width:auto;flex-shrink:0;margin-top:3px}
+.v52-form>.btn{align-self:flex-start}
+.v52-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.v52-invoice{border:1px solid var(--line);border-radius:11px;padding:14px;display:grid;gap:10px;background:var(--panel)}
+.v52-invoice small{display:block;color:var(--muted)}
+.v52-invoice b{font-size:13px}
+.v52-invoice p{margin:4px 0}
+.v52-invoice .v52-good{color:var(--green)}
+.v52-invoice .v52-bad{color:var(--red)}
+.v52-select select{max-width:450px}
+.v52-assurance{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);margin:17px 0}
+.v52-assurance summary{font-size:12px;font-weight:800;cursor:pointer}
+.v52-assurance .v52-form{margin-top:12px}
+@media(max-width:850px){.v52-grid,.v52-stat{grid-template-columns:1fr}.v52-item{align-items:flex-start;flex-direction:column}.v52-form>.btn{white-space:normal}}

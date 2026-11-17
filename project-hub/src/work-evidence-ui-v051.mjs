@@ -23,6 +23,10 @@ export const helpTopics={
  proof:'A quote shows an offer; an order confirmation refers to a recorded PO; a receipt/invoice is not proof of payment; a delivery note is not QA acceptance.',
  customer:'This is an OWNER-ONLY PREVIEW. A work package must first be allowed, and each redacted image separately reviewed and approved. Staff/client access stays disabled.',
  inspection:'QA means Quality Assurance. Inspect physically received goods for correct model, quantity, damage and supporting evidence before accepting stock.',
+ budget:'A departmental allowance is the maximum internal amount assigned to the owner for planned buying. It is NOT an approved quote or purchase; specific supplier orders require separate authorization.',
+ rfq:'RFQ means Request for Quotation: asking suppliers for price and delivery details. The supplier quotation is an offer, not a placed order.',
+ revision:'A revision identifies which approved drawing or technical requirement is current. A change to the source must trigger new engineering verification.',
+ nonconformance:'A nonconformance (NCR) records a product that failed specification or quality inspection and needs corrective action.',
  status:'A status is the current work stage. Mark completed only after required child steps, checks and approvals are finished.'
 };
 function orderOptions(s,occ){

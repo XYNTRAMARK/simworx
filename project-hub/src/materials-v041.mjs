@@ -373,6 +373,61 @@ export function materialReadinessV041(s,projectId){
       toSource:Math.max(0,toAllocate-available(part)-incoming),ready:toAllocate===0};
   }).sort((a,b)=>a.part.code.localeCompare(b.part.code));
 }
+/* Check imported manually recorded financial/quality events are internally consistent.
+   Historical matches can later become exceptions (returns/NCR), so validate links and sums,
+   NEVER assert that a previously paid invoice remains currently matched. */
+export function auditProcurementLedger(s){
+ const orders=new Map((s.orders||[]).map(x=>[x.id,x]));
+ const checkArray=(name)=>{const list=s[name]??[];if(!Array.isArray(list))throw Error('Invalid '+name+' register');return list};
+ const acknowledgements=checkArray('supplierAcknowledgements'),invoices=checkArray('supplierInvoices'),
+  payments=checkArray('supplierPayments'),ncrs=checkArray('qualityNCRs');
+ const unique=(rows,label)=>{
+  const ids=new Set();for(const row of rows){if(!row||!row.id||ids.has(row.id))throw Error('Invalid or duplicate '+label+' record ID');ids.add(row.id)}
+ };
+ unique(acknowledgements,'supplier acknowledgement');unique(invoices,'supplier invoice');
+ unique(payments,'supplier payment');unique(ncrs,'NCR');
+ const confirmations=new Set();
+ for(const a of acknowledgements){
+  const o=orders.get(a.orderId),ref=String(a.reference||'').trim().toLowerCase();
+  if(!o||a.projectId!==o.projectId||ref.length<4)throw Error('Invalid supplier acknowledgement source PO');
+  const key=o.id+'|'+ref;if(confirmations.has(key))throw Error('Duplicate supplier acknowledgement reference');confirmations.add(key);
+ }
+ const invoiceIndex=new Map(),invoiced=new Set();
+ for(const i of invoices){
+  const o=orders.get(i.orderId),line=o?.items?.find(x=>x.id===i.lineId);
+  if(!line||i.projectId!==o.projectId||i.supplier!==o.supplier||
+    !String(i.invoiceRef||'').trim()||!String(i.evidenceRef||'').trim())
+   throw Error('Supplier invoice has missing or wrong original PO, supplier, line or evidence');
+  const q=Number(i.quantity),unit=Number(i.unitPrice),tax=Number(i.taxRate);
+  if(!Number.isSafeInteger(q)||q<1||!Number.isFinite(unit)||unit<0||!Number.isFinite(tax)||tax<0||tax>100||
+     !['EUR','GBP','USD','CAD'].includes(i.currency))
+   throw Error('Supplier invoice has invalid financial fields');
+  const key=i.projectId+'|'+i.supplier+'|'+String(i.invoiceRef).toLowerCase();
+  if(invoiced.has(key))throw Error('Duplicate supplier invoice number');
+  invoiced.add(key);invoiceIndex.set(i.id,i);
+ }
+ const paid=new Map(),paymentRefs=new Set();
+ for(const p of payments){
+  const i=invoiceIndex.get(p.invoiceId),amount=Number(p.amount),ref=String(p.reference||'').trim().toLowerCase();
+  if(!i||p.orderId!==i.orderId||p.lineId!==i.lineId||p.projectId!==i.projectId||p.currency!==i.currency||
+     !Number.isFinite(amount)||amount<=0||Math.abs(amount*100-Math.round(amount*100))>0.00001||ref.length<5)
+   throw Error('Supplier payment has invalid invoice links, reference or amount');
+  const key=p.projectId+'|'+ref;if(paymentRefs.has(key))throw Error('Duplicate payment reference in imported record');
+  paymentRefs.add(key);paid.set(i.id,(paid.get(i.id)||0)+amount);
+ }
+ for(const i of invoices){
+  const invoiceTotal=Math.round(i.quantity*i.unitPrice*(1+i.taxRate/100)*100)/100;
+  if((paid.get(i.id)||0)>invoiceTotal+0.00001)throw Error('Imported payments exceed recorded invoice total');
+ }
+ for(const n of ncrs){
+  const task=s.tasks?.find(t=>t.id===n.taskId&&t.projectId===n.projectId);
+  const o=n.orderId?orders.get(n.orderId):null;
+  if(!task||n.orderId&&(!o||o.projectId!==n.projectId||!o.items?.some(l=>l.id===n.lineId))||
+     !['Open','Closed'].includes(n.status)||n.status==='Closed'&&!n.closure)
+   throw Error('NCR has invalid project, job, PO line or missing closure record');
+ }
+ return true;
+}
 export function auditMaterials(s){
   ensureMaterials(s);
   for(const p of s.parts){
@@ -388,6 +443,7 @@ export function auditMaterials(s){
     if(!Number.isSafeInteger(Number(l.quantity))||l.quantity<=0||!Number.isSafeInteger(Number(l.received||0))||l.received<0||l.received>l.quantity)
       throw Error('Invalid PO quantity for '+o.code);
   }
+  auditProcurementLedger(s);
   return true;
 }
 export function createWorkspaceBackup(s){

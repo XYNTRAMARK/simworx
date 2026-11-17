@@ -1,3 +1,19 @@
+# Sim-Worx Project Hub — V0.5.1
+
+**Owner-only offline development release · 17 November 2026.**
+
+The Work Plan supports arbitrarily nested jobs with the **+ Sub-job** editor opening directly under the chosen parent, highlighted Details when a job contains relevant information, and question-mark tooltips. Upload private photos/screenshots and small PDFs against a job or engineering material; genuine supplier order confirmations must reference an actual recorded PO line. Explicitly reviewed and redacted photos may appear in the **owner-only customer preview**, which is NOT a live customer portal.
+
+**Open:** extract `SimWorx_Project_Hub_Complete_V0.5.1.zip` and launch `SimWorx_Project_Hub_Complete_V0.5.1.html` from a permanent folder in Chrome/Edge. Export a private backup under Settings before editing real data.
+
+[Read V0.5.1 release and safety audit](docs/release-v051.md) · [Next lead developer's handover prompt](docs/NEXT_CHAT_HANDOVER_V051.md).
+
+**Safety:** this is not production-certified for high-value purchasing. It runs in localStorage, carries private photos in JSON backups and retains a single-owner convenience PIN. Do not share customer data publicly or treat uploaded proofs as actual payments, approvals or stock movements.
+
+---
+
+## Previous version documentation (V0.5.0)
+
 # Sim-Worx Project Hub — V0.5.0
 
 **Development release · 16 November 2026.** The new Work Plan is the primary interface for writing jobs, adding as many sub-job levels as needed, defining engineering materials, and sending genuine purchasing needs to the project Purchasing & Materials desk. This release is an offline owner-only prototype, **not approved for six-figure live purchasing**. The linked customer contracts and private project JSON remain outside the public repository.

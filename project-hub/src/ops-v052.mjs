@@ -151,3 +151,18 @@ export function attentionItems(s,projectId,today=new Date().toISOString().slice(
  items.sort((a,b)=>a.priority-b.priority||a.type.localeCompare(b.type)||a.title.localeCompare(b.title));
  return items;
 }
+
+export function enableControlledPurchasing(s,{projectId,reviewer,reviewReference}){
+ ensureOps(s);
+ const p=s.projects?.find(x=>live(x)&&x.id===projectId);
+ if(!p)throw Error('Active project not found');
+ if(contractControlled(s,projectId))throw Error('Project already has controlled purchasing');
+ const who=str(reviewer,'Owner activating strict purchase control',3,120);
+ const ref=str(reviewReference,'Purchasing migration/review reference',8,240);
+ // Past orders are preserved without reclassifying them as approved or authorizing edits.
+ p.specGateRequired=true;
+ p.purchaseGateActivation={at:now(),reviewer:who,reviewReference:ref,
+   note:'Historical orders NOT retroactively approved; all NEW orders require exact source, technical and owner approval'};
+ audit(s,'Strict future purchasing gate activated',p.id+' / '+ref+' / existing PO history unaffected');
+ return p;
+}

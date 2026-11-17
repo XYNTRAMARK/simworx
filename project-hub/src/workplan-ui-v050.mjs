@@ -113,12 +113,15 @@ export function renderWorkPlanV050(s,ui,projectId){
  const status=ui.v50Status||'All';
  const groups=sections.map((sec,si)=>{
   const hierarchy=workHierarchy(s,projectId,sec.id);
+  const inline=ui.v50JobEditor?.projectId===projectId&&ui.v50JobEditor.sectionId===sec.id?ui.v50JobEditor:null;
   const included=hierarchy.filter(({task})=>(status==='All'||task.status===status)&&(!query||[task.title,task.description,task.department,task.assignee,task.purchaseNeedNotes].some(x=>String(x||'').toLowerCase().includes(query))));
   return '<section class="v50-work-package"><div class="v50-work-package-head" style="--work-accent:var(--violet)"><div><span class="v50-number">'+String(si+1).padStart(2,'0')+'</span><b>'+esc(sec.name)+'</b><small>'+hierarchy.length+' jobs / sub-jobs</small></div>'+
    '<div class="v50-actions">'+button('v50-edit-section',sec.id,'Edit package')+button('v50-add-job',sec.id,'+ Job in package')+'</div></div>'+
-   (included.length?'<div class="v50-scroll"><table class="v50-tree"><thead><tr><th>WBS / job</th><th>Department / responsible</th><th>Progress</th><th>Materials</th><th>Actions</th></tr></thead><tbody>'+
+   ((inline&&!inline.id&&!inline.parentId?'<div class="v51-package-editor">'+editor(s,ui,projectId)+'</div>':'')+(included.length?'<div class="v50-scroll"><table class="v50-tree"><thead><tr><th>WBS / job</th><th>Department / responsible</th><th>Progress</th><th>Materials</th><th>Actions</th></tr></thead><tbody>'+
    included.map(({task:t,depth,wbs})=>{const materials=jobRequirements(s,t.id),busy=t.needsPurchasing&&materials.filter(o=>o.makeBuy!=='Make').length===0;
-    return '<tr class="'+(t.id===ui.v50SelectedTask?'v50-selected':'')+'"><td><div class="v50-tree-title" style="--depth:'+Math.min(depth,8)+'">'+
+    const evidenceCount=(s.workEvidence||[]).filter(x=>live(x)&&x.taskId===t.id).length+(s.projectEvidence||[]).filter(x=>live(x)&&x.taskId===t.id).length;
+    const informative=Boolean(t.description?.trim()||t.purchaseNeedNotes?.trim()||materials.length||evidenceCount);
+    return '<tr data-v51-job-row="'+esc(t.id)+'" class="'+(t.id===ui.v50SelectedTask?'v50-selected':'')+'"><td><div class="v50-tree-title" style="--depth:'+Math.min(depth,8)+'">'+
       '<span class="v50-wbs">'+esc((si+1)+'.'+wbs)+'</span>'+
       '<div><b>'+esc(t.title)+'</b>'+
       (t.description?'<small>'+esc(t.description.length>250?t.description.slice(0,250)+'…':t.description)+'</small>':'')+
@@ -126,14 +129,14 @@ export function renderWorkPlanV050(s,ui,projectId){
       '<td><b>'+esc(t.department||'No department')+'</b><small>'+esc(t.assignee||'Unassigned')+'</small></td>'+
       '<td>'+pill(t.status||'Backlog')+'</td>'+
       '<td>'+pill(materials.length+' linked')+(t.needsPurchasing?pill('BUY FLAG','warn'):'')+'</td>'+
-      '<td><div class="v50-actions">'+button('v50-select-job',t.id,'Details')+button('v50-edit-job',t.id,'Edit')+button('v50-add-child',t.id,'+ Sub-job')+
-      button('v50-material-add',t.id,'+ Material')+'</div></td></tr>'
-    }).join('')+'</tbody></table></div>':'<p class="v50-info v50-empty">No jobs match, or this work package is empty. Add a job to start building this project.</p>')+
+      '<td><div class="v50-actions">'+button('v50-select-job',t.id,informative?'Details ●':'Details',informative?'v51-details-ready':'')+button('v50-edit-job',t.id,'Edit')+button('v50-add-child',t.id,'+ Sub-job')+
+      button('v50-material-add',t.id,'+ Material')+'</div></td></tr>'+((inline&&((inline.id&&inline.id===t.id)||(!inline.id&&inline.parentId===t.id)))?'<tr class="v51-inline-editor"><td colspan="5">'+editor(s,ui,projectId)+'</td></tr>':'')
+    }).join('')+'</tbody></table></div>':'<p class="v50-info v50-empty">No jobs match, or this work package is empty. Add a job to start building this project.</p>'))+
    '</section>';
  }).join('');
  return '<section class="v50-workplan">'+
- '<div class="v50-hero"><div><small>WORK PLAN · V0.5.0</small><h3>Build your project here</h3>'+
- '<p>Work package → job → any depth of sub-jobs → exact materials. Changes flow to purchasing, department assignment and job reporting without producing fake orders.</p></div>'+
+ '<div class="v50-hero"><div><small>WORK PLAN · V0.5.1</small><h3>Build your project here</h3>'+
+ '<p>Use + Sub-job on the exact parent row, even if that row is already a sub-job. The new editor appears directly underneath it. Details glows when there are instructions, materials or proof attached.</p></div>'+
  '<div class="v50-actions">'+button('v50-create-section','','+ Work package')+
  (sections.length?button('v50-add-job',sections[0].id,'+ Add job','primary'):'')+
  button('project-tab','procurement','View purchasing')+'</div></div>'+
@@ -141,7 +144,8 @@ export function renderWorkPlanV050(s,ui,projectId){
  [['Jobs and sub-jobs',jobs.length],['Require purchase details',flag.length],['Open work items',jobs.filter(t=>t.status!=='Done'&&t.status!=='Cancelled').length],['Work packages',sections.length]].map(([label,value])=>
  '<div><small>'+esc(label)+'</small><strong>'+value+'</strong></div>').join('')+'</div>'+
  (flag.length?'<div class="v50-alert"><b>'+flag.length+' work item(s) flagged for purchasing without a linked Sim-Worx buying requirement.</b> Open their details, then add the specific item and quantity. Purchasing shows this same action queue.</div>':'')+
- sectionCreator(s,ui,projectId)+editor(s,ui,projectId)+
+ sectionCreator(s,ui,projectId)+
+ '<details class="v51-wbs-help"><summary>How to organise engineering work '+helpTip(helpTopics.workpackage)+'</summary><p>Work package = major subsystem. Job = deliverable. Sub-job = step under the parent selected. Purchase flag = action reminder, not a purchase order. Material = specific item and quantity. QA = inspect goods separately from delivery. Every blue question mark explains a term.</p></details>'+
  '<div class="v50-filters"><label>Find a job<input type="search" data-filter="v50-search" value="'+esc(ui.v50Search||'')+'" placeholder="Search job, instructions or person…"></label>'+
  '<label>Status<select data-filter="v50-status">'+opt([['All','All statuses'],...['Backlog','Ready','In progress','Blocked','Inspection','Done','Cancelled'].map(x=>[x,x])],status)+'</select></label></div>'+
  (groups||'<p class="v50-alert">No work packages yet. Start with <b>+ Work package</b>, then add jobs and sub-jobs manually. You do not need to accept a template structure.</p>')+

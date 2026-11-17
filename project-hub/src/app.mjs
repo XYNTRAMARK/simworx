@@ -740,7 +740,7 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
   case 'capture-baseline':{const project=findProject(id);if(project?.baseline&&!confirm('Replace the existing schedule baseline with the current plan? Original baseline dates will be overwritten in this browser demo.'))break;const baseline=captureBaseline(data,id);persist();render();toast(`Baseline saved for ${Object.keys(baseline.jobs).length} jobs`);break;}
 
   case 'decide-approval':{decideApproval(data,id,el.dataset.decision);notify(`Client decision: ${el.dataset.decision}`);persist();render();toast(`Decision recorded: ${el.dataset.decision}`);break;}
-  case 'receive-po':{const po=data.orders.find(x=>x.id===id);if(po&&contractControlled(data,po.projectId))throw Error('Contract-controlled goods must be registered as arrived and accepted by inspection. Open Purchasing → Delivery / inspection.');receiveOrder(data,id);persist();render();toast('Outstanding purchase order quantities received into stock');break;}
+  case 'receive-po':throw Error('Bulk uninspected receipt is disabled in V0.5.2. Open Purchasing → Delivery / inspection and record actual arrival, inspection and accepted quantity by PO line.');
   case 'notifications':openModal('notifications');break;
   case 'mark-read':data.notifications.forEach(x=>x.read=true);persist();closeModal();toast('Notifications marked as read');break;
   case 'reset-demo':{

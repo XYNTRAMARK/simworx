@@ -121,12 +121,24 @@ export function attentionItems(s,projectId,today=new Date().toISOString().slice(
  }
  for(const t of flaggedUnspecifiedPurchases(s,projectId))push(1,'Buy flag',t.title,'Add exact item, specification and quantity; no order exists','work',t.id);
  for(const o of (s.assemblyBOM||[]).filter(x=>live(x)&&x.projectId===projectId&&x.makeBuy!=='Make'&&x.purchaseSource?.responsibility==='Sim-Worx')){
+  if(!String(o.purchaseSource?.quoteRef||'').trim())push(1,'Quotation evidence','Requirement '+o.id,'No recorded supplier quote reference or price evidence','procurement',o.id);
+  if(!String(o.purchaseSource?.vendorSku||'').trim())push(1,'Exact supplier model','Requirement '+o.id,'Choose exact product/model, not a generic order description','procurement',o.id);
   try{
    const approval=approvalStatus(s,o.id);
    if(!approval.approved)push(2,'PO hold','Requirement '+o.id,approval.status,'procurement',o.id);
   }catch{push(1,'Source integrity','Requirement '+o.id,'Cannot resolve approval/source','procurement',o.id);}
  }
  const project=s.projects?.find(p=>p.id===projectId);
+ const orders=(s.orders||[]).filter(o=>live(o)&&o.projectId===projectId);
+ const committed=orders.reduce((sum,o)=>{
+  const rate=o.currency==='EUR'?1:Number(o.eurExchangeRate||0);
+  if(!Number.isFinite(rate)||rate<=0){push(1,'Currency evidence',o.code,'Recorded foreign-currency PO needs a verified EUR rate','operations',o.id);return sum}
+  return sum+(o.items||[]).reduce((sub,l)=>sub+Math.max(0,Number(l.quantity||0)-Number(l.closedQuantity||0))*Number(l.unitCost||0)*rate*(1+Number(o.taxRate||0)/100),0);
+ },0);
+ if(project&&orders.length&&(!Number.isFinite(Number(project.budget))||Number(project.budget)<=0))
+  push(1,'Budget exception',project.name,'Actual recorded POs exist but no valid internal purchasing budget is recorded','team');
+ if(project&&Number(project.budget)>0&&committed>Number(project.budget)+0.00001)
+  push(1,'Budget exceeded',project.name,'Recorded order commitments exceed the internal purchasing budget; verify immediately','team');
  if(project&&!contractControlled(s,projectId))push(1,'Purchasing gate',project.name,'New POs BLOCKED: explicitly enable controlled purchasing after migration review','attention');
  for(const o of (s.orders||[]).filter(x=>live(x)&&x.projectId===projectId)){
   const ack=s.supplierAcknowledgements.some(x=>x.orderId===o.id);
@@ -137,6 +149,10 @@ export function attentionItems(s,projectId,today=new Date().toISOString().slice(
    if(recordedAcceptedQuantity(s,o.id,l.id)>0&&!(s.supplierInvoices||[]).some(i=>i.lineId===l.id&&i.orderId===o.id))
      push(2,'Invoice missing',o.code,'Accepted line '+l.id+' has no recorded supplier invoice','operations',o.id);
   }
+ }
+ for(const a of (s.procurementArrivals||[]).filter(x=>x.status==='Rejected'||x.status==='Rejected / return required')){
+  const o=s.orders?.find(x=>x.id===a.orderId&&x.projectId===projectId);
+  if(o)push(1,'Rejected delivery',o.code,'Rejected goods '+a.id+' require return/replacement action and NCR review','procurement',a.lineId);
  }
  for(const a of (s.procurementArrivals||[]).filter(x=>x.status==='Awaiting inspection')){
   const o=s.orders?.find(x=>x.id===a.orderId&&x.projectId===projectId);if(o)push(1,'Awaiting QA',o.code,'Arrival '+a.id+' not inspected','procurement',a.lineId);

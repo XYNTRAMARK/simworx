@@ -657,6 +657,32 @@ function handleAction(el){const action=el.dataset.action,id=el.dataset.id;
    ui.v50SelectedTask=id;ui.projectTab='work';ui.v50Status='All';ui.v50Search='';
    render();document.getElementById('v50-job-details')?.scrollIntoView({block:'start'});break;
   }
+  case 'v51-add-job-evidence':{
+   const job=data.tasks.find(t=>!t.archivedAt&&t.id===id&&t.projectId===ui.project);
+   if(!job)throw Error('Open an active job to add evidence');
+   const open=ui.v51EvidenceTask===id&&ui.v51EvidenceOccurrence===null;
+   ui.v51EvidenceTask=open?null:id;ui.v51EvidenceOccurrence=null;
+   ui.v50SelectedTask=id;ui.projectTab='work';render();
+   document.querySelector('.v51-job-evidence')?.scrollIntoView({block:'center'});break;
+  }
+  case 'v51-evidence-material':{
+   const occ=data.assemblyBOM.find(x=>!x.archivedAt&&x.id===id&&x.projectId===ui.project);
+   if(!occ||!occ.linkedTaskId)throw Error('Link the material to a job before attaching evidence');
+   const open=ui.v51EvidenceTask===occ.linkedTaskId&&ui.v51EvidenceOccurrence===occ.id;
+   ui.v51EvidenceTask=open?null:occ.linkedTaskId;ui.v51EvidenceOccurrence=open?null:occ.id;
+   ui.v50SelectedTask=occ.linkedTaskId;render();
+   document.querySelector(ui.projectTab==='procurement'?'.v51-material-evidence':'.v51-job-evidence')?.scrollIntoView({block:'center'});break;
+  }
+  case 'v51-share-edit':ui.v51ShareEditor=ui.v51ShareEditor===id?null:id;render();break;
+  case 'v51-revoke-share':{
+   if(!confirm('Remove this image from the future customer preview allowlist? This does not remove the original private evidence.'))break;
+   setEvidenceCustomerPreview(data,{evidenceId:id,visible:false});ui.v51ShareEditor=null;
+   persist();render();toast('Customer preview visibility revoked');break;
+  }
+  case 'v51-archive-evidence':{
+   if(!confirm('Archive this attachment? It will stop appearing in active galleries. Keep the original file outside this browser.'))break;
+   archiveWorkEvidence(data,id);ui.v51ShareEditor=null;persist();render();toast('Evidence archived locally');break;
+  }
   case 'v50-archive-job':{
    if(!confirm('Archive this job from active work plan? Child jobs and linked engineering requirements must be resolved first; the saved record is recoverable.'))break;
    archiveWorkPlanJob(data,{taskId:id});ui.v50SelectedTask=null;ui.v50JobEditor=null;
